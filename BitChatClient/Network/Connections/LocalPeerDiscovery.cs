@@ -52,8 +52,7 @@ namespace BitChatClient.Network.Connections
 
         List<byte[]> _chatHashes = new List<byte[]>(5);
 
-        HashAlgorithm _SHA1 = HashAlgorithm.Create("SHA1");
-        Random _Rnd = new Random(BitConverter.ToInt32(BitConverter.GetBytes(DateTime.UtcNow.ToBinary()), 0));
+        HashAlgorithm _hashAlgoSHA1 = HashAlgorithm.Create("SHA1");
 
         #endregion
 
@@ -193,11 +192,9 @@ namespace BitChatClient.Network.Connections
                 Debug.Write("LocalPeerDiscovery.AnnounceAsync", "");
 
                 //CREATE ADVERTISEMENT
-                byte[] challenge = new byte[20];
+                byte[] challenge = BinaryID.GenerateRandomID().ID;
                 byte[] currentChatHash = new byte[20];
                 byte[] buffer = new byte[_BUFFER_MAX_SIZE];
-
-                _Rnd.NextBytes(challenge);
 
                 using (MemoryStream mS = new MemoryStream(buffer))
                 {
@@ -214,7 +211,7 @@ namespace BitChatClient.Network.Connections
                             for (int i = 0; i < 20; i++)
                                 currentChatHash[i] = Convert.ToByte(currentChatHash[i] ^ challenge[i]);
 
-                            byte[] hash = _SHA1.ComputeHash(currentChatHash);
+                            byte[] hash = _hashAlgoSHA1.ComputeHash(currentChatHash);
 
                             mS.Write(hash, 0, 20);
                         }
@@ -392,7 +389,7 @@ namespace BitChatClient.Network.Connections
                                         for (int i = 0; i < 20; i++)
                                             currentChatHash[i] = Convert.ToByte(currentChatHash[i] ^ challenge[i]);
 
-                                        byte[] hash = _SHA1.ComputeHash(currentChatHash);
+                                        byte[] hash = _hashAlgoSHA1.ComputeHash(currentChatHash);
 
                                         //find match in received hashes
 

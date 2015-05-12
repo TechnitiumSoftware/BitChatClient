@@ -22,6 +22,7 @@ using System.IO;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Security.Cryptography;
 
@@ -65,7 +66,8 @@ namespace BitChatClient.Network.SecureChannel
         #region variables
 
         static HashAlgorithm _hashAlgoSHA256 = HashAlgorithm.Create("SHA256");
-        static Random _rnd = new Random(DateTime.UtcNow.Millisecond);
+        static RandomNumberGenerator _rnd = new RNGCryptoServiceProvider();
+        static RandomNumberGenerator _rndPadding = new RNGCryptoServiceProvider();
 
         protected const SecureChannelCryptoOptionFlags _supportedOptions = SecureChannelCryptoOptionFlags.RSA_AES256;
 
@@ -228,7 +230,7 @@ namespace BitChatClient.Network.SecureChannel
             if (bytesPadding > 0)
             {
                 byte[] padding = new byte[bytesPadding];
-                _rnd.NextBytes(padding);
+                _rndPadding.GetBytes(padding);
 
                 Buffer.BlockCopy(padding, 0, _writeBufferData, _writeBufferPosition, padding.Length);
                 _writeBufferPosition += padding.Length;
@@ -338,17 +340,23 @@ namespace BitChatClient.Network.SecureChannel
             using (MemoryStream mS = new MemoryStream(1024))
             {
                 byte[] buffer = new byte[255];
-                _rnd.NextBytes(buffer);
+                _rnd.GetBytes(buffer);
                 mS.Write(buffer, 0, buffer.Length);
+
+                byte[] buffer2 = BitConverter.GetBytes(Thread.CurrentThread.ManagedThreadId);
+                mS.Write(buffer2, 0, buffer2.Length);
 
                 buffer = Encoding.UTF8.GetBytes(seed);
                 mS.Write(buffer, 0, buffer.Length);
+
+                byte[] buffer3 = BitConverter.GetBytes(System.Diagnostics.Process.GetCurrentProcess().Id);
+                mS.Write(buffer2, 0, buffer2.Length);
 
                 buffer = BitConverter.GetBytes(DateTime.UtcNow.ToBinary());
                 mS.Write(buffer, 0, buffer.Length);
 
                 buffer = new byte[255];
-                _rnd.NextBytes(buffer);
+                _rnd.GetBytes(buffer);
                 mS.Write(buffer, 0, buffer.Length);
 
                 //get challenge

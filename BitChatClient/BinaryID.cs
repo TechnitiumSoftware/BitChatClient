@@ -46,7 +46,7 @@ namespace BitChatClient
 
         #region static
 
-        static Random _rnd = new Random(DateTime.UtcNow.Millisecond);
+        static RandomNumberGenerator _rnd = new RNGCryptoServiceProvider();
         static HashAlgorithm _hash = HashAlgorithm.Create("SHA1");
 
         public static BinaryID GenerateRandomID()
@@ -57,24 +57,20 @@ namespace BitChatClient
 
                 BinaryWriter bW = new BinaryWriter(mS);
 
-                bW.Write(_rnd.Next());
                 bW.Write(DateTime.UtcNow.ToBinary());
-
-                _rnd.NextBytes(buffer);
+                _rnd.GetBytes(buffer);
                 bW.Write(buffer);
 
                 bW.Write(Thread.CurrentThread.ManagedThreadId);
 
-                _rnd.NextBytes(buffer);
+                _rnd.GetBytes(buffer);
                 bW.Write(buffer);
 
                 bW.Write(System.Diagnostics.Process.GetCurrentProcess().Id);
 
-                _rnd.NextBytes(buffer);
+                _rnd.GetBytes(buffer);
                 bW.Write(buffer);
-
                 bW.Write(DateTime.UtcNow.ToBinary());
-                bW.Write(_rnd.Next());
 
                 bW.Flush();
 
