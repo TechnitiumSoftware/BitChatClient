@@ -50,7 +50,7 @@
             this.label1.Size = new System.Drawing.Size(367, 32);
             this.label1.TabIndex = 0;
             this.label1.Text = "Please enter your profile encryption password below that you have set during prof" +
-    "ile registeration.";
+    "ile registration.";
             // 
             // label2
             // 

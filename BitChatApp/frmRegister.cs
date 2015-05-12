@@ -273,22 +273,22 @@ namespace BitChatApp
                     _profile.WriteTo(fS);
                 }
 
-                this.Invoke(new Action<object>(RegisterationSuccess), new object[] { null });
+                this.Invoke(new Action<object>(RegistrationSuccess), new object[] { null });
             }
             catch (Exception ex)
             {
-                this.Invoke(new Action<object>(RegisterationFail), new object[] { ex.Message });
+                this.Invoke(new Action<object>(RegistrationFail), new object[] { ex.Message });
             }
         }
 
-        private void RegisterationSuccess(object state)
+        private void RegistrationSuccess(object state)
         {
             pnlMessages.Visible = false;
             pnlRegister.Visible = false;
             pnlDownloadCert.Visible = true;
         }
 
-        private void RegisterationFail(object state)
+        private void RegistrationFail(object state)
         {
             MessageBox.Show("Error orrured while registering for profile certificate:\r\n\r\n" + (string)state, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 

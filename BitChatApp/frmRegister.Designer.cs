@@ -576,7 +576,7 @@
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(198, 22);
             this.label2.TabIndex = 8;
-            this.label2.Text = "Profile Registeration";
+            this.label2.Text = "Profile Registration";
             // 
             // label3
             // 
@@ -735,7 +735,7 @@
             this.MinimizeBox = false;
             this.Name = "frmRegister";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Profile Registeration - Technitium Bit Chat";
+            this.Text = "Profile Registration - Technitium Bit Chat";
             this.pnlRegister.ResumeLayout(false);
             this.pnlRegister.PerformLayout();
             this.pnlMessages.ResumeLayout(false);

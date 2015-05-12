@@ -95,7 +95,7 @@ namespace BitChatAppMono
 
         private void lnkForgotPassword_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            if (MessageBox.Show("Since the profile password is used to encrypt the profile data, there is no method to recover the encryption password or the profile data.\r\n\r\nTo access Bit Chat, you will need to register a new profile and you can use the same email address for registeration. You will lose all your settings and you will have to join all your chats again.\r\n\r\nDo you want to register a new profile now?", "Register New Profile?", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == System.Windows.Forms.DialogResult.Yes)
+            if (MessageBox.Show("Since the profile password is used to encrypt the profile data, there is no method to recover the encryption password or the profile data.\r\n\r\nTo access Bit Chat, you will need to register a new profile and you can use the same email address for registration. You will lose all your settings and you will have to join all your chats again.\r\n\r\nDo you want to register a new profile now?", "Register New Profile?", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == System.Windows.Forms.DialogResult.Yes)
             {
                 this.DialogResult = System.Windows.Forms.DialogResult.Yes;
                 this.Close();

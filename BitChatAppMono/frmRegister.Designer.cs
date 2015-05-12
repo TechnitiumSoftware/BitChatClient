@@ -123,6 +123,7 @@
             this.linkLabel1.Name = "linkLabel1";
             this.linkLabel1.Size = new System.Drawing.Size(128, 13);
             this.linkLabel1.TabIndex = 38;
+            this.linkLabel1.TabStop = true;
             this.linkLabel1.Text = "Read terms and condition";
             this.linkLabel1.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel1_LinkClicked);
             // 
@@ -575,7 +576,7 @@
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(198, 22);
             this.label2.TabIndex = 8;
-            this.label2.Text = "Profile Registeration";
+            this.label2.Text = "Profile Registration";
             // 
             // label3
             // 
@@ -735,7 +736,7 @@
             this.MinimizeBox = false;
             this.Name = "frmRegister";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Profile Registeration - Technitium Bit Chat";
+            this.Text = "Profile Registration - Technitium Bit Chat";
             this.pnlRegister.ResumeLayout(false);
             this.pnlRegister.PerformLayout();
             this.pnlMessages.ResumeLayout(false);
