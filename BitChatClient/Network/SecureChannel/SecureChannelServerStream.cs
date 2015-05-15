@@ -34,7 +34,7 @@ namespace BitChatClient.Network.SecureChannel
             try
             {
                 //0. send protocol version
-                stream.WriteByte(2);
+                stream.WriteByte(3);
 
                 SecureChannelPacket.PublicKey clientPublicKey;
                 SymmetricCryptoKey encryptionKey;

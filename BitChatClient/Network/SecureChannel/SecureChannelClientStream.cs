@@ -38,7 +38,7 @@ namespace BitChatClient.Network.SecureChannel
 
                 switch (version)
                 {
-                    case 2:
+                    case 3:
                         SecureChannelPacket.PublicKey serverPublicKey;
                         SymmetricCryptoKey encryptionKey;
 

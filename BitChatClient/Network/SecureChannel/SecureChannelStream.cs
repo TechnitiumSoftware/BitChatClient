@@ -28,7 +28,7 @@ using TechnitiumLibrary.Security.Cryptography;
 
 /*
  =============
- = VERSION 2 =
+ = VERSION 3 =
  =============
  
     SERVER               CLIENT
@@ -366,18 +366,10 @@ namespace BitChatClient.Network.SecureChannel
 
         protected byte[] GenerateChallengeResponse(byte[] challenge, string sharedSecret)
         {
-            using (MemoryStream mS = new MemoryStream(1024))
+            byte[] hmacKey = _hashAlgoSHA256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(sharedSecret));
+            using (HMACSHA256 hmac = new HMACSHA256(hmacKey))
             {
-                //challenge + sharedSecret + challenge
-                mS.Write(challenge, 0, challenge.Length);
-
-                byte[] buffer = Encoding.UTF8.GetBytes(sharedSecret);
-                mS.Write(buffer, 0, buffer.Length);
-
-                mS.Write(challenge, 0, challenge.Length);
-
-                //get response
-                return _hashAlgoSHA256.ComputeHash(mS.ToArray());
+                return hmac.ComputeHash(challenge, 0, challenge.Length);
             }
         }
 
