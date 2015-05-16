@@ -76,9 +76,6 @@ namespace BitChatClient.Network.SecureChannel
                     //read client public key & options
                     clientPublicKey = new SecureChannelPacket(stream).GetPublicKey();
 
-                    if ((manager != null) && !manager.ProceedHandshake(clientPublicKey.PublicKeyXML))
-                        throw new SecureChannelException(SecureChannelErrorCode.SecurityManagerDeclinedAccess, "Security manager declined access.");
-
                     //send server public key & options
                     byte[] publicKey = (new SecureChannelPacket.PublicKey(_supportedOptions, serverCredentials.PrivateKey.Algorithm, serverCredentials.PrivateKey.GetPublicKey())).ToArray();
                     SecureChannelPacket.WritePacket(stream, SecureChannelErrorCode.NoError, publicKey, 0, publicKey.Length);

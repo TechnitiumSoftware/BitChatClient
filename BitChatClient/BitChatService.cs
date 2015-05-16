@@ -254,7 +254,7 @@ namespace BitChatClient
 
             public BitChat CreateBitChat(string networkName, string sharedSecret, Certificate[] knownPeerCerts, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs)
             {
-                BitChatNetwork network = new BitChatNetwork(networkName, sharedSecret, knownPeerCerts, this);
+                BitChatNetwork network = new BitChatNetwork(networkName, sharedSecret, knownPeerCerts, this, this);
 
                 lock (_networks)
                 {
@@ -374,11 +374,6 @@ namespace BitChatClient
             #endregion
 
             #region ISecureChannelSecurityManager support
-
-            bool ISecureChannelSecurityManager.ProceedHandshake(string remotePublicKeyXML)
-            {
-                return true;
-            }
 
             bool ISecureChannelSecurityManager.ProceedConnection(Certificate remoteCertificate)
             {

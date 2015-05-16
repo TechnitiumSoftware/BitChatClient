@@ -28,7 +28,7 @@ namespace BitChatClient.Network.SecureChannel
     {
         #region constructor
 
-        public SecureChannelClientStream(Stream stream, IPEndPoint remotePeerEP, CertificateStore clientCredentials, string sharedSecret, Certificate[] trustedRootCertificates)
+        public SecureChannelClientStream(Stream stream, IPEndPoint remotePeerEP, CertificateStore clientCredentials, string sharedSecret, Certificate[] trustedRootCertificates, ISecureChannelSecurityManager manager)
             : base(remotePeerEP)
         {
             try
@@ -138,6 +138,9 @@ namespace BitChatClient.Network.SecureChannel
                             {
                                 throw new SecureChannelException(SecureChannelErrorCode.InvalidRemoteCertificate, "Invalid remote certificate.", ex);
                             }
+
+                            if ((manager != null) && !manager.ProceedConnection(_remotePeerCert))
+                                throw new SecureChannelException(SecureChannelErrorCode.SecurityManagerDeclinedAccess, "Security manager declined access.");
 
                             //send ok
                             SecureChannelPacket.WritePacket(this, SecureChannelErrorCode.NoError, null, 0, 0);

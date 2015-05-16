@@ -54,6 +54,7 @@ namespace BitChatClient.Network
         BinaryID _networkID;
 
         IBitChatNetworkManager _networkManager;
+        ISecureChannelSecurityManager _securityManager;
         VirtualPeer _selfPeer;
         Dictionary<string, VirtualPeer> _virtualPeers = new Dictionary<string, VirtualPeer>();
 
@@ -61,11 +62,12 @@ namespace BitChatClient.Network
 
         #region constructor
 
-        public BitChatNetwork(string networkName, string sharedSecret, Certificate[] knownPeerCerts, IBitChatNetworkManager networkManager)
+        public BitChatNetwork(string networkName, string sharedSecret, Certificate[] knownPeerCerts, IBitChatNetworkManager networkManager, ISecureChannelSecurityManager securityManager)
         {
             _networkName = networkName;
             _sharedSecret = sharedSecret;
             _networkManager = networkManager;
+            _securityManager = securityManager;
 
             //load self as virtual peer
             Certificate selfCert = networkManager.GetLocalCredentials().Certificate;
@@ -164,7 +166,7 @@ namespace BitChatClient.Network
                 //secure channel
                 try
                 {
-                    SecureChannelStream secureChannel = new SecureChannelClientStream(channel, connection.RemotePeerEP, _networkManager.GetLocalCredentials(), _sharedSecret, _networkManager.GetTrustedRootCertificates());
+                    SecureChannelStream secureChannel = new SecureChannelClientStream(channel, connection.RemotePeerEP, _networkManager.GetLocalCredentials(), _sharedSecret, _networkManager.GetTrustedRootCertificates(), _securityManager);
 
                     JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel, _networkManager.CheckCertificateRevocationList());
                 }

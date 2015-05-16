@@ -23,8 +23,6 @@ namespace BitChatClient.Network.SecureChannel
 {
     interface ISecureChannelSecurityManager
     {
-        bool ProceedHandshake(string remotePublicKeyXML);
-
         bool ProceedConnection(Certificate remoteCertificate); 
     }
 }
