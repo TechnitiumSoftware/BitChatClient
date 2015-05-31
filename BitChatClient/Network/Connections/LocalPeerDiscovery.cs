@@ -28,7 +28,7 @@ using System.Threading;
 
 namespace BitChatClient.Network.Connections
 {
-    delegate void DiscoveredPeerInfo(LocalPeerDiscovery sender, IPEndPoint peerEP, List<byte[]> chatHashes);
+    delegate void DiscoveredPeerInfo(LocalPeerDiscovery sender, IPEndPoint peerEP, List<BinaryID> chatHashes);
 
     class LocalPeerDiscovery : IDisposable
     {
@@ -50,9 +50,7 @@ namespace BitChatClient.Network.Connections
         ushort _peerDiscoveryPort;
         ushort _announcePort;
 
-        List<byte[]> _chatHashes = new List<byte[]>(5);
-
-        HashAlgorithm _hashAlgoSHA1 = HashAlgorithm.Create("SHA1");
+        List<BinaryID> _chatHashes = new List<BinaryID>(5);
 
         #endregion
 
@@ -113,7 +111,7 @@ namespace BitChatClient.Network.Connections
 
         #region public
 
-        public void StartAnnounce(byte[] chatHash)
+        public void StartAnnounce(BinaryID chatHash)
         {
             lock (_chatHashes)
             {
@@ -136,7 +134,7 @@ namespace BitChatClient.Network.Connections
             }
         }
 
-        public void StopAnnounce(byte[] chatHash)
+        public void StopAnnounce(BinaryID chatHash)
         {
             lock (_chatHashes)
             {
@@ -156,23 +154,11 @@ namespace BitChatClient.Network.Connections
 
         #region private
 
-        private int FindChatHashIndex(byte[] chatHash)
+        private int FindChatHashIndex(BinaryID chatHash)
         {
             for (int i = 0; i < _chatHashes.Count; i++)
             {
-                byte[] currentChatHash = _chatHashes[i];
-                bool found = true;
-
-                for (int j = 0; j < 20; j++)
-                {
-                    if (currentChatHash[j] != chatHash[j])
-                    {
-                        found = false;
-                        break;
-                    }
-                }
-
-                if (found)
+                if (_chatHashes[i].Equals(chatHash))
                     return i;
             }
 
@@ -192,28 +178,24 @@ namespace BitChatClient.Network.Connections
                 Debug.Write("LocalPeerDiscovery.AnnounceAsync", "");
 
                 //CREATE ADVERTISEMENT
-                byte[] challenge = BinaryID.GenerateRandomID().ID;
-                byte[] currentChatHash = new byte[20];
+                byte[] challenge = BinaryID.GenerateRandomID256().ID;
                 byte[] buffer = new byte[_BUFFER_MAX_SIZE];
 
                 using (MemoryStream mS = new MemoryStream(buffer))
                 {
-                    mS.WriteByte(1); //version 1 byte
+                    mS.WriteByte(2); //version 1 byte
                     mS.Write(BitConverter.GetBytes(_announcePort), 0, 2); //bitchat port
-                    mS.Write(challenge, 0, 20); //challenge
+                    mS.Write(challenge, 0, 32); //challenge
 
                     lock (_chatHashes)
                     {
-                        foreach (byte[] chatHash in _chatHashes)
+                        foreach (BinaryID chatHash in _chatHashes)
                         {
-                            Buffer.BlockCopy(chatHash, 0, currentChatHash, 0, 20);
-
-                            for (int i = 0; i < 20; i++)
-                                currentChatHash[i] = Convert.ToByte(currentChatHash[i] ^ challenge[i]);
-
-                            byte[] hash = _hashAlgoSHA1.ComputeHash(currentChatHash);
-
-                            mS.Write(hash, 0, 20);
+                            using (HMACSHA256 hmacSHA256 = new HMACSHA256(chatHash.ID))
+                            {
+                                byte[] hmac = hmacSHA256.ComputeHash(challenge);
+                                mS.Write(hmac, 0, 32);
+                            }
                         }
                     }
 
@@ -351,7 +333,7 @@ namespace BitChatClient.Network.Connections
 
                         switch (dataRecv.ReadByte()) //version
                         {
-                            case 1:
+                            case 2:
                                 //read remote service port
                                 byte[] data = new byte[2];
                                 dataRecv.Read(data, 0, 2);
@@ -359,54 +341,41 @@ namespace BitChatClient.Network.Connections
                                 IPEndPoint remoteServiceEP = new IPEndPoint(fromEP.Address, servicePort);
 
                                 //read challenge
-                                byte[] challenge = new byte[20];
-                                dataRecv.Read(challenge, 0, 20);
+                                byte[] challenge = new byte[32];
+                                dataRecv.Read(challenge, 0, 32);
 
                                 //read all hashed ChatHash
-                                List<byte[]> recvHashes = new List<byte[]>();
+                                List<BinaryID> recvHMACs = new List<BinaryID>();
 
-                                data = new byte[20];
-                                while (dataRecv.Read(data, 0, 20) == 20)
+                                data = new byte[32];
+                                while (dataRecv.Read(data, 0, 32) == 32)
                                 {
-                                    byte[] recvHash = new byte[20];
-                                    Buffer.BlockCopy(data, 0, recvHash, 0, 20);
-                                    recvHashes.Add(recvHash);
+                                    byte[] recvHMAC = new byte[32];
+                                    Buffer.BlockCopy(data, 0, recvHMAC, 0, 32);
+                                    recvHMACs.Add(new BinaryID(recvHMAC));
                                 }
 
                                 //compare and find valid chatHashes
 
-                                List<byte[]> validHashes = new List<byte[]>();
+                                List<BinaryID> validHashes = new List<BinaryID>();
 
                                 lock (_chatHashes)
                                 {
                                     byte[] currentChatHash = new byte[20];
 
-                                    foreach (byte[] chatHash in _chatHashes)
+                                    foreach (BinaryID chatHash in _chatHashes)
                                     {
-                                        //get hash of local (chatHash XOR challenge)
-                                        Buffer.BlockCopy(chatHash, 0, currentChatHash, 0, 20);
+                                        BinaryID computedHmac;
 
-                                        for (int i = 0; i < 20; i++)
-                                            currentChatHash[i] = Convert.ToByte(currentChatHash[i] ^ challenge[i]);
-
-                                        byte[] hash = _hashAlgoSHA1.ComputeHash(currentChatHash);
+                                        using (HMACSHA256 hmacSHA256 = new HMACSHA256(chatHash.ID))
+                                        {
+                                            computedHmac = new BinaryID(hmacSHA256.ComputeHash(challenge));
+                                        }
 
                                         //find match in received hashes
-
-                                        foreach (byte[] recvChatHash in recvHashes)
+                                        foreach (BinaryID recvHMAC in recvHMACs)
                                         {
-                                            bool isEqual = true;
-
-                                            for (int i = 0; i < 20; i++)
-                                            {
-                                                if (hash[i] != recvChatHash[i])
-                                                {
-                                                    isEqual = false;
-                                                    break;
-                                                }
-                                            }
-
-                                            if (isEqual)
+                                            if (recvHMAC.Equals(computedHmac))
                                             {
                                                 validHashes.Add(chatHash);
                                                 break;
