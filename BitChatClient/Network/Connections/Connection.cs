@@ -897,7 +897,17 @@ namespace BitChatClient.Network.Connections
 
             public override void Write(byte[] buffer, int offset, int count)
             {
-                _connection.WriteDataFrame(buffer, offset, count, _channelName, _channelType);
+                int frameCount = ushort.MaxValue + 1;
+
+                while (count > 0)
+                {
+                    if (count < frameCount)
+                        frameCount = count;
+
+                    _connection.WriteDataFrame(buffer, offset, frameCount, _channelName, _channelType);
+                    offset += frameCount;
+                    count -= frameCount;
+                }
             }
 
             #endregion
