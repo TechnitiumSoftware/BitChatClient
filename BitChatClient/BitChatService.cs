@@ -45,7 +45,7 @@ namespace BitChatClient
 
         #region constructor
 
-        public BitChatService(BitChatProfile profile, Certificate[] trustedRootCertificates, InvalidCertificateEvent invalidCertEventHandler)
+        public BitChatService(BitChatProfile profile, Certificate[] trustedRootCertificates, SecureChannelCryptoOptionFlags supportedCryptoOptions, InvalidCertificateEvent invalidCertEventHandler)
         {
             //verify root certs
             foreach (Certificate trustedCert in trustedRootCertificates)
@@ -56,7 +56,7 @@ namespace BitChatClient
 
             _invalidCertEventHandler = invalidCertEventHandler;
 
-            _manager = new InternalBitChatService(this, profile, trustedRootCertificates);
+            _manager = new InternalBitChatService(this, profile, trustedRootCertificates, supportedCryptoOptions);
 
             foreach (BitChatProfile.BitChatInfo bitChatInfo in profile.BitChatInfoList)
                 _bitChats.Add(_manager.CreateBitChat(bitChatInfo.NetworkName, bitChatInfo.SharedSecret, bitChatInfo.PeerCertificateList, bitChatInfo.SharedFileList, bitChatInfo.TrackerURIs));
@@ -195,6 +195,7 @@ namespace BitChatClient
             BitChatService _service;
             BitChatProfile _profile;
             Certificate[] _trustedRootCertificates;
+            SecureChannelCryptoOptionFlags _supportedCryptoOptions;
 
             ConnectionManager _connectionManager;
             LocalPeerDiscovery _localDiscovery;
@@ -204,11 +205,12 @@ namespace BitChatClient
 
             #region constructor
 
-            public InternalBitChatService(BitChatService service, BitChatProfile profile, Certificate[] trustedRootCertificates)
+            public InternalBitChatService(BitChatService service, BitChatProfile profile, Certificate[] trustedRootCertificates, SecureChannelCryptoOptionFlags supportedCryptoOptions)
             {
                 _service = service;
                 _profile = profile;
                 _trustedRootCertificates = trustedRootCertificates;
+                _supportedCryptoOptions = supportedCryptoOptions;
 
                 _connectionManager = new ConnectionManager(_profile.LocalEP, ChannelRequest);
                 _localDiscovery = new LocalPeerDiscovery(41733, _connectionManager.LocalEP.Port);
@@ -261,7 +263,7 @@ namespace BitChatClient
                     _networks.Add(network.NetworkID, network);
                 }
 
-                _localDiscovery.StartAnnounce(network.NetworkID.ID);
+                _localDiscovery.StartAnnounce(network.NetworkID);
 
                 if (trackerURIs == null)
                     trackerURIs = _profile.TrackerURIs;
@@ -278,12 +280,10 @@ namespace BitChatClient
 
             #region LocalDiscovery support
 
-            private void _localDiscovery_PeerDiscovered(LocalPeerDiscovery sender, IPEndPoint peerEP, List<byte[]> networkIDs)
+            private void _localDiscovery_PeerDiscovered(LocalPeerDiscovery sender, IPEndPoint peerEP, List<BinaryID> networkIDs)
             {
-                foreach (byte[] networkIDRaw in networkIDs)
+                foreach (BinaryID networkID in networkIDs)
                 {
-                    BinaryID networkID = new BinaryID(networkIDRaw);
-
                     lock (_networks)
                     {
                         if (_networks.ContainsKey(networkID))
@@ -328,6 +328,11 @@ namespace BitChatClient
                 return _trustedRootCertificates;
             }
 
+            public SecureChannelCryptoOptionFlags GetSupportedCryptoOptions()
+            {
+                return _supportedCryptoOptions;
+            }
+
             public bool CheckCertificateRevocationList()
             {
                 return _profile.CheckCertificateRevocationList;
@@ -359,7 +364,7 @@ namespace BitChatClient
                                 network = _networks[channelName];
                             }
 
-                            SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _profile.LocalCertificateStore, network.SharedSecret, _trustedRootCertificates, this);
+                            SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _profile.LocalCertificateStore, _trustedRootCertificates, this, _supportedCryptoOptions, network.SharedSecret);
 
                             network.JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel, _profile.CheckCertificateRevocationList);
                             break;

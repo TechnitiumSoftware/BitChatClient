@@ -166,7 +166,7 @@ namespace BitChatClient.Network
                 //secure channel
                 try
                 {
-                    SecureChannelStream secureChannel = new SecureChannelClientStream(channel, connection.RemotePeerEP, _networkManager.GetLocalCredentials(), _sharedSecret, _networkManager.GetTrustedRootCertificates(), _securityManager);
+                    SecureChannelStream secureChannel = new SecureChannelClientStream(channel, connection.RemotePeerEP, _networkManager.GetLocalCredentials(), _networkManager.GetTrustedRootCertificates(), _securityManager, _networkManager.GetSupportedCryptoOptions(), _sharedSecret);
 
                     JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel, _networkManager.CheckCertificateRevocationList());
                 }

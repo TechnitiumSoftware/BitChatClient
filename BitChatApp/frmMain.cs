@@ -34,6 +34,7 @@ using System.Net;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using BitChatClient.Network.SecureChannel;
 
 namespace BitChatApp
 {
@@ -69,7 +70,7 @@ namespace BitChatApp
             _profileFilePath = profileFilePath;
 
             //start bitchat service
-            _service = new BitChatService(profile, Program.TRUSTED_CERTIFICATES, InvalidCertificateEvent);
+            _service = new BitChatService(profile, Program.TRUSTED_CERTIFICATES, SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256 | SecureChannelCryptoOptionFlags.ECDHE256_RSA_WITH_AES256_CBC_HMAC_SHA256, InvalidCertificateEvent);
 
             //add firewall entry
             switch (Environment.OSVersion.Platform)

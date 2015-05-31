@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 using BitChatClient.Network.Connections;
+using BitChatClient.Network.SecureChannel;
 using System.Net;
 using TechnitiumLibrary.Security.Cryptography;
 
@@ -30,6 +31,8 @@ namespace BitChatClient.Network
         CertificateStore GetLocalCredentials();
 
         Certificate[] GetTrustedRootCertificates();
+
+        SecureChannelCryptoOptionFlags GetSupportedCryptoOptions();
 
         bool CheckCertificateRevocationList();
 
