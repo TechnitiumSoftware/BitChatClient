@@ -20,136 +20,251 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using System;
 using System.IO;
 using System.Net;
+using System.Security.Cryptography;
 using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatClient.Network.SecureChannel
 {
     class SecureChannelServerStream : SecureChannelStream
     {
+        #region variables
+
+        int _version;
+
+        CertificateStore _serverCredentials;
+        Certificate[] _trustedRootCertificates;
+        ISecureChannelSecurityManager _manager;
+        SecureChannelCryptoOptionFlags _supportedOptions;
+        string _preSharedKey;
+
+        #endregion
+
         #region constructor
 
-        public SecureChannelServerStream(Stream stream, IPEndPoint remotePeerEP, CertificateStore serverCredentials, string sharedSecret, Certificate[] trustedRootCertificates, ISecureChannelSecurityManager manager)
+        public SecureChannelServerStream(Stream stream, IPEndPoint remotePeerEP, CertificateStore serverCredentials, Certificate[] trustedRootCertificates, ISecureChannelSecurityManager manager, SecureChannelCryptoOptionFlags supportedOptions, string preSharedKey = null)
             : base(remotePeerEP)
         {
+            _serverCredentials = serverCredentials;
+            _trustedRootCertificates = trustedRootCertificates;
+            _manager = manager;
+            _supportedOptions = supportedOptions;
+            _preSharedKey = preSharedKey;
+
             try
             {
-                //0. send protocol version
+                //send server protocol version
                 stream.WriteByte(3);
 
-                SecureChannelPacket.PublicKey clientPublicKey;
-                SymmetricCryptoKey encryptionKey;
+                //read client protocol version
+                _version = stream.ReadByte();
 
-                #region 1. challenge handshake
+                switch (_version)
                 {
-                    //1.1 challenge client and verify response
-                    {
-                        //generate random challenge
-                        byte[] serverChallenge = GenerateRandomChallenge(serverCredentials.Certificate.PublicKeyXML);
+                    case 3:
+                        ProtocolV3(stream, serverCredentials, trustedRootCertificates, manager, preSharedKey, supportedOptions);
+                        break;
 
-                        //send challenge
-                        SecureChannelPacket.WritePacket(stream, SecureChannelErrorCode.NoError, serverChallenge, 0, serverChallenge.Length);
-
-                        //read response
-                        SecureChannelPacket clientResponse = new SecureChannelPacket(stream);
-
-                        //verify response
-                        if (!IsChallengeResponseValid(serverChallenge, clientResponse.Data, sharedSecret))
-                            throw new SecureChannelException(SecureChannelErrorCode.InvalidChallengeResponse, "SecureChannel invalid challenge response.");
-                    }
-
-                    //1.2. read client challenge and respond
-                    {
-                        //read challenge
-                        SecureChannelPacket clientChallenge = new SecureChannelPacket(stream);
-
-                        //generate response
-                        byte[] serverResponse = GenerateChallengeResponse(clientChallenge.Data, sharedSecret);
-
-                        //send response
-                        SecureChannelPacket.WritePacket(stream, SecureChannelErrorCode.NoError, serverResponse, 0, serverResponse.Length);
-                    }
+                    default:
+                        throw new SecureChannelException(SecureChannelCode.ProtocolVersionNotSupported, "SecureChannel protocol version '" + _version + "' not supported.");
                 }
-                #endregion
-
-                #region 2. exchange public key
-                {
-                    //read client public key & options
-                    clientPublicKey = new SecureChannelPacket(stream).GetPublicKey();
-
-                    //send server public key & options
-                    byte[] publicKey = (new SecureChannelPacket.PublicKey(_supportedOptions, serverCredentials.PrivateKey.Algorithm, serverCredentials.PrivateKey.GetPublicKey())).ToArray();
-                    SecureChannelPacket.WritePacket(stream, SecureChannelErrorCode.NoError, publicKey, 0, publicKey.Length);
-
-                    //match crypto options & generate encryption key
-                    encryptionKey = MatchOptionsAndGenerateEncryptionKey(clientPublicKey.CryptoOptions, serverCredentials.Certificate);
-
-                    //enable encryption layer
-                    _cryptoWriter = encryptionKey.GetEncryptor();
-                }
-                #endregion
-
-                #region 3. exchange channel key
-                {
-                    //read client channel key
-                    SecureChannelPacket clientChannelKey = new SecureChannelPacket(stream);
-
-                    //send server channel key
-                    byte[] encryptedChannelKey = AsymmetricCryptoKey.Encrypt(encryptionKey.ToArray(), clientPublicKey.PublicKeyEncryptionAlgorithm, clientPublicKey.PublicKeyXML);
-                    SecureChannelPacket.WritePacket(stream, SecureChannelErrorCode.NoError, encryptedChannelKey, 0, encryptedChannelKey.Length);
-
-                    //save channel decryption key
-                    SymmetricCryptoKey decryptionKey;
-
-                    using (MemoryStream data = new MemoryStream(serverCredentials.PrivateKey.Decrypt(clientChannelKey.Data)))
-                    {
-                        decryptionKey = new SymmetricCryptoKey(data);
-                    }
-
-                    //enable encryption layer
-                    _cryptoReader = decryptionKey.GetDecryptor();
-                }
-                #endregion
-
-                #region 4. exchange & verify certificates
-                {
-                    //init variables
-                    _baseStream = stream;
-                    _blockSizeBytes = encryptionKey.BlockSize / 8;
-
-                    //read client certificate
-                    _remotePeerCert = new Certificate(new SecureChannelPacket(this).GetDataStream());
-
-                    //verify client certificate
-                    if ((clientPublicKey.PublicKeyEncryptionAlgorithm != _remotePeerCert.PublicKeyEncryptionAlgorithm) || (clientPublicKey.PublicKeyXML != _remotePeerCert.PublicKeyXML))
-                        throw new SecureChannelException(SecureChannelErrorCode.InvalidRemoteCertificate, "Certificate public key does not match with handshake public key.");
-
-                    try
-                    {
-                        _remotePeerCert.Verify(trustedRootCertificates);
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new SecureChannelException(SecureChannelErrorCode.InvalidRemoteCertificate, "Invalid remote certificate.", ex);
-                    }
-
-                    if ((manager != null) && !manager.ProceedConnection(_remotePeerCert))
-                        throw new SecureChannelException(SecureChannelErrorCode.SecurityManagerDeclinedAccess, "Security manager declined access.");
-
-                    //send server certificate
-                    byte[] serverCert = serverCredentials.Certificate.ToArray();
-                    SecureChannelPacket.WritePacket(this, SecureChannelErrorCode.NoError, serverCert, 0, serverCert.Length);
-
-                    //read ok
-                    SecureChannelPacket ok = new SecureChannelPacket(this);
-                }
-                #endregion
             }
             catch (SecureChannelException ex)
             {
-                if (_baseStream == null)
-                    SecureChannelPacket.WritePacket(stream, ex.ErrorCode, null, 0, 0);
-                else
-                    SecureChannelPacket.WritePacket(this, ex.ErrorCode, null, 0, 0);
+                try
+                {
+                    if (_baseStream == null)
+                        SecureChannelPacket.WritePacket(stream, ex.Code);
+                    else
+                        SecureChannelPacket.WritePacket(this, ex.Code);
+                }
+                catch
+                { }
+
+                throw;
+            }
+        }
+
+        #endregion
+
+        #region private
+
+        private void ProtocolV3(Stream stream, CertificateStore serverCredentials, Certificate[] trustedRootCertificates, ISecureChannelSecurityManager manager, string preSharedKey, SecureChannelCryptoOptionFlags supportedOptions)
+        {
+            #region 1. hello handshake
+
+            //read client hello
+            SecureChannelPacket.Hello clientHello = (new SecureChannelPacket(stream)).GetHello();
+
+            //select crypto option
+            _selectedCryptoOption = supportedOptions & clientHello.CryptoOptions;
+
+            if (_selectedCryptoOption == SecureChannelCryptoOptionFlags.None)
+            {
+                throw new SecureChannelException(SecureChannelCode.NoMatchingCryptoAvailable);
+            }
+            else if ((_selectedCryptoOption & SecureChannelCryptoOptionFlags.ECDHE256_RSA_WITH_AES256_CBC_HMAC_SHA256) > 0)
+            {
+                _selectedCryptoOption = SecureChannelCryptoOptionFlags.ECDHE256_RSA_WITH_AES256_CBC_HMAC_SHA256;
+            }
+            else if ((_selectedCryptoOption & SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256) > 0)
+            {
+                _selectedCryptoOption = SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256;
+            }
+            else
+            {
+                throw new SecureChannelException(SecureChannelCode.NoMatchingCryptoAvailable);
+            }
+
+            //send server hello
+            SecureChannelPacket.Hello serverHello = new SecureChannelPacket.Hello(BinaryID.GenerateRandomID256(), _selectedCryptoOption);
+            SecureChannelPacket.WritePacket(stream, serverHello);
+
+            #endregion
+
+            #region 2. key exchange
+
+            //read client key exchange data
+            SecureChannelPacket.KeyExchange clientKeyExchange = (new SecureChannelPacket(stream)).GetKeyExchange();
+
+            SymmetricEncryptionAlgorithm encAlgo;
+            string hashAlgo;
+            KeyAgreement keyAgreement;
+
+            switch (_selectedCryptoOption)
+            {
+                case SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256:
+                    encAlgo = SymmetricEncryptionAlgorithm.Rijndael;
+                    hashAlgo = "SHA256";
+                    keyAgreement = KeyAgreement.Create(KeyAgreementAlgorithm.DiffieHellman, 2048, KeyDerivationFunction.Hmac, KeyDerivationHashAlgorithm.SHA256);
+                    break;
+
+                case SecureChannelCryptoOptionFlags.ECDHE256_RSA_WITH_AES256_CBC_HMAC_SHA256:
+                    encAlgo = SymmetricEncryptionAlgorithm.Rijndael;
+                    hashAlgo = "SHA256";
+                    keyAgreement = KeyAgreement.Create(KeyAgreementAlgorithm.ECDiffieHellman, 256, KeyDerivationFunction.Hmac, KeyDerivationHashAlgorithm.SHA256);
+                    break;
+
+                default:
+                    throw new SecureChannelException(SecureChannelCode.NoMatchingCryptoAvailable);
+            }
+
+            //send server key exchange data
+            SecureChannelPacket.KeyExchange serverKeyExchange = new SecureChannelPacket.KeyExchange(keyAgreement.GetPublicKeyXML(), serverCredentials.PrivateKey, hashAlgo);
+            SecureChannelPacket.WritePacket(stream, serverKeyExchange);
+
+            //generate: master key = HMAC(client hello + server hello + psk, derived key)
+            using (MemoryStream mS = new MemoryStream(128))
+            {
+                clientHello.WriteTo(mS);
+                serverHello.WriteTo(mS);
+
+                if (!string.IsNullOrEmpty(preSharedKey))
+                {
+                    byte[] psk = System.Text.Encoding.UTF8.GetBytes(preSharedKey);
+                    mS.Write(psk, 0, psk.Length);
+                }
+
+                keyAgreement.HmacMessage = mS.ToArray();
+            }
+
+            byte[] masterKey = keyAgreement.DeriveKeyMaterial(clientKeyExchange.PublicKeyXML);
+
+            //enable channel encryption
+            switch (encAlgo)
+            {
+                case SymmetricEncryptionAlgorithm.Rijndael:
+                    //using MD5 for generating AES IV of 128bit block size
+                    HashAlgorithm md5Hash = HashAlgorithm.Create("MD5");
+                    byte[] eIV = md5Hash.ComputeHash(serverHello.Nonce.ID);
+                    byte[] dIV = md5Hash.ComputeHash(clientHello.Nonce.ID);
+
+                    //create encryption and decryption objects
+                    SymmetricCryptoKey encryptionKey = new SymmetricCryptoKey(SymmetricEncryptionAlgorithm.Rijndael, masterKey, eIV, PaddingMode.None);
+                    SymmetricCryptoKey decryptionKey = new SymmetricCryptoKey(SymmetricEncryptionAlgorithm.Rijndael, masterKey, dIV, PaddingMode.None);
+
+                    //enable encryption
+                    EnableEncryption(stream, encryptionKey, decryptionKey, new HMACSHA256(masterKey));
+                    break;
+
+                default:
+                    throw new SecureChannelException(SecureChannelCode.NoMatchingCryptoAvailable);
+            }
+
+            //channel encryption is ON!
+
+            #endregion
+
+            #region 3. exchange & verify certificates & signatures
+
+            //read client certificate
+            if (!_reNegotiate)
+            {
+                _remotePeerCert = (new SecureChannelPacket(this)).GetCertificate();
+
+                //verify client certificate
+                try
+                {
+                    _remotePeerCert.Verify(trustedRootCertificates);
+                }
+                catch (Exception ex)
+                {
+                    throw new SecureChannelException(SecureChannelCode.InvalidRemoteCertificate, "Invalid remote certificate.", ex);
+                }
+            }
+
+            //verify key exchange signature
+            switch (_selectedCryptoOption)
+            {
+                case SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256:
+                case SecureChannelCryptoOptionFlags.ECDHE256_RSA_WITH_AES256_CBC_HMAC_SHA256:
+                    if (_remotePeerCert.PublicKeyEncryptionAlgorithm != AsymmetricEncryptionAlgorithm.RSA)
+                        throw new SecureChannelException(SecureChannelCode.InvalidRemoteCertificateAlgorithm);
+
+                    if (!clientKeyExchange.IsSignatureValid(_remotePeerCert, "SHA256"))
+                        throw new SecureChannelException(SecureChannelCode.InvalidRemoteKeyExchangeSignature);
+
+                    break;
+
+                default:
+                    throw new SecureChannelException(SecureChannelCode.NoMatchingCryptoAvailable);
+            }
+
+            if ((manager != null) && !manager.ProceedConnection(_remotePeerCert))
+                throw new SecureChannelException(SecureChannelCode.SecurityManagerDeclinedAccess, "Security manager declined access.");
+
+            //send server certificate
+            if (!_reNegotiate)
+                SecureChannelPacket.WritePacket(this, serverCredentials.Certificate);
+
+            #endregion
+        }
+
+        #endregion
+
+        #region overrides
+
+        protected override void StartReNegotiation()
+        {
+            try
+            {
+                switch (_version)
+                {
+                    case 3:
+                        ProtocolV3(_baseStream, _serverCredentials, _trustedRootCertificates, _manager, _preSharedKey, _supportedOptions);
+                        break;
+
+                    default:
+                        throw new SecureChannelException(SecureChannelCode.ProtocolVersionNotSupported, "SecureChannel protocol version '" + _version + "' not supported.");
+                }
+            }
+            catch (SecureChannelException ex)
+            {
+                try
+                {
+                    SecureChannelPacket.WritePacket(_baseStream, ex.Code);
+                }
+                catch
+                { }
 
                 throw;
             }

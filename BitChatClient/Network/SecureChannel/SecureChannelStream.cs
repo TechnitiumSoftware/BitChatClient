@@ -21,36 +21,50 @@ using System;
 using System.IO;
 using System.Net;
 using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Security.Cryptography;
 
 /*
- =============
- = VERSION 3 =
- =============
+=============
+= VERSION 3 =
+=============
+
+FEATURES-
+---------
+ - random challenge on both ends to prevent replay attacks.
+ - ephemeral keys used for key exchange to provide perfect forward secrecy.
+ - pre-shared key based auth to prevent direct certificate disclosure, preventing identity disclosure to active attacker.
+ - encrypted digital certificate exchange to prevent certificate disclosure while exchange, preventing identity disclosure to passive attacker.
+ - digital certificate based authentication for ensuring identity and prevent MiTM.
+ - secure channel data packet authenticated by HMAC(cipher-text) to provide authenticated encryption.
+ - key re-negotation feature for allowing the secure channel to remain always on.
  
-    SERVER               CLIENT
- <==================================>
-    version     --->
-    challenge   ---> 
-                <---    response
-                <---    challenge
-    response    --->
- <----------------------------------> challenge handshake complete
-                <---    public key
-    public key  --->
- <----------------------------------> encrypted key exchange
-                <---    channel key
-  channel key   --->
- <----------------------------------> encryption layer ON
-                <---    certificate
-  certificate   --->
-                <---    ok
- <----------------------------------> data exchange ON
-    data        <-->    data
- 
+<============================================================================>
+                            SERVER        CLIENT
+<============================================================================>
+                           version  --->
+                                    <---  version supported
+<----------------------------------------------------------------------------> version selection done
+                                          client nonce +
+                                    <---  crypto options  
+                    server nonce +  
+            selected crypto option  ---> 
+<----------------------------------------------------------------------------> hello handshake done
+                                    <---  ephemeral public key +
+                                          signature
+            ephemeral public key +
+                         signature  --->
+<----------------------------------------------------------------------------> key exchange done
+    master key = HMAC(client hello + server hello + optional psk, derived key)
+<----------------------------------------------------------------------------> master key generated on both sides with optional pre-shared key; encryption layer ON
+                                    <---  certificate
+                       certificate  --->
+<----------------------------------------------------------------------------> cert exchange done
+    verify certificate and ephemeral public key signature
+<----------------------------------------------------------------------------> final authentication done; data exchange ON
+                              data  <-->  data
+<============================================================================>
  */
 
 namespace BitChatClient.Network.SecureChannel
@@ -58,36 +72,35 @@ namespace BitChatClient.Network.SecureChannel
     enum SecureChannelCryptoOptionFlags : byte
     {
         None = 0,
-        RSA_AES256 = 1
+        DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256 = 1,
+        ECDHE256_RSA_WITH_AES256_CBC_HMAC_SHA256 = 2
     }
 
     abstract class SecureChannelStream : Stream
     {
         #region variables
 
-        static HashAlgorithm _hashAlgoSHA256 = HashAlgorithm.Create("SHA256");
-        static RandomNumberGenerator _rnd = new RNGCryptoServiceProvider();
+        protected static RandomNumberGenerator _rnd = new RNGCryptoServiceProvider();
         static RandomNumberGenerator _rndPadding = new RNGCryptoServiceProvider();
 
-        protected const SecureChannelCryptoOptionFlags _supportedOptions = SecureChannelCryptoOptionFlags.RSA_AES256;
-
         IPEndPoint _remotePeerEP;
-
         protected Certificate _remotePeerCert;
-        protected SecureChannelCryptoOptionFlags _selectedCryptoOption;
 
         //io & crypto related
         protected Stream _baseStream;
-        protected int _blockSizeBytes;
-
-        protected ICryptoTransform _cryptoWriter;
-        protected ICryptoTransform _cryptoReader;
+        protected bool _reNegotiate = false;
+        protected SecureChannelCryptoOptionFlags _selectedCryptoOption;
+        int _blockSizeBytes;
+        ICryptoTransform _cryptoEncryptor;
+        ICryptoTransform _cryptoDecryptor;
+        HMAC _authHMAC;
 
         //buffering
         const int BUFFER_SIZE = 65536;
+        int _authHMACSize;
 
         byte[] _writeBufferData = new byte[BUFFER_SIZE];
-        int _writeBufferPosition = 2;
+        int _writeBufferPosition;
         byte[] _writeEncryptedData = new byte[BUFFER_SIZE];
 
         byte[] _readBufferData = new byte[BUFFER_SIZE];
@@ -190,7 +203,7 @@ namespace BitChatClient.Network.SecureChannel
 
             do
             {
-                int bytesAvailable = BUFFER_SIZE - _writeBufferPosition;
+                int bytesAvailable = BUFFER_SIZE - _writeBufferPosition - _authHMACSize;
                 if (bytesAvailable < count)
                 {
                     if (bytesAvailable > 0)
@@ -215,48 +228,68 @@ namespace BitChatClient.Network.SecureChannel
 
         public override void Flush()
         {
-            if (_writeBufferPosition == 2)
-                return;
-
-            //calc header and padding
-            ushort dataLength = Convert.ToUInt16(_writeBufferPosition); //2bytes header length
-
-            int bytesPadding = 0;
-            int pendingBytes = dataLength % _blockSizeBytes;
-            if (pendingBytes > 0)
-                bytesPadding = _blockSizeBytes - pendingBytes;
-
-            //write padding
-            if (bytesPadding > 0)
+            lock (this) //flush lock
             {
-                byte[] padding = new byte[bytesPadding];
-                _rndPadding.GetBytes(padding);
+                if ((_writeBufferPosition == 3) && !_reNegotiate)
+                    return;
 
-                Buffer.BlockCopy(padding, 0, _writeBufferData, _writeBufferPosition, padding.Length);
-                _writeBufferPosition += padding.Length;
+                //calc header and padding
+                ushort dataLength = Convert.ToUInt16(_writeBufferPosition); //includes 3 bytes header length
+                int bytesPadding = 0;
+                int pendingBytes = dataLength % _blockSizeBytes;
+                if (pendingBytes > 0)
+                    bytesPadding = _blockSizeBytes - pendingBytes;
+
+                //write header
+                byte[] header = BitConverter.GetBytes(dataLength);
+                _writeBufferData[0] = header[0];
+                _writeBufferData[1] = header[1];
+
+                if (_reNegotiate)
+                    _writeBufferData[2] = 1; //re-negotiate
+                else
+                    _writeBufferData[2] = 0; //no flags
+
+                //write padding
+                if (bytesPadding > 0)
+                {
+                    byte[] padding = new byte[bytesPadding];
+                    _rndPadding.GetBytes(padding);
+
+                    Buffer.BlockCopy(padding, 0, _writeBufferData, _writeBufferPosition, padding.Length);
+                    _writeBufferPosition += padding.Length;
+                }
+
+                //encrypt buffered data
+                if (_cryptoEncryptor.CanTransformMultipleBlocks)
+                {
+                    _cryptoEncryptor.TransformBlock(_writeBufferData, 0, _writeBufferPosition, _writeEncryptedData, 0);
+                }
+                else
+                {
+                    for (int offset = 0; offset < _writeBufferPosition; offset += _blockSizeBytes)
+                        _cryptoEncryptor.TransformBlock(_writeBufferData, offset, _blockSizeBytes, _writeEncryptedData, offset);
+                }
+
+                //append auth hmac to encrypted data
+                byte[] authHMAC = _authHMAC.ComputeHash(_writeEncryptedData, 0, _writeBufferPosition);
+                Buffer.BlockCopy(authHMAC, 0, _writeEncryptedData, _writeBufferPosition, authHMAC.Length);
+                _writeBufferPosition += authHMAC.Length;
+
+                //write encrypted data + auth hmac
+                _baseStream.Write(_writeEncryptedData, 0, _writeBufferPosition);
+
+                //reset buffer
+                _writeBufferPosition = 3;
+
+                //check for re-negotiation
+                if (_reNegotiate)
+                {
+                    Monitor.Pulse(this); //signal waiting read() thread
+                    Monitor.Wait(this); //wait till re-negotiation completes
+                    _reNegotiate = false;
+                }
             }
-
-            //write header
-            byte[] header = BitConverter.GetBytes(dataLength);
-            _writeBufferData[0] = header[0];
-            _writeBufferData[1] = header[1];
-
-            //encrypt buffered data
-            if (_cryptoWriter.CanTransformMultipleBlocks)
-            {
-                _cryptoWriter.TransformBlock(_writeBufferData, 0, _writeBufferPosition, _writeEncryptedData, 0);
-            }
-            else
-            {
-                for (int offset = 0; offset < _writeBufferPosition; offset += _blockSizeBytes)
-                    _cryptoWriter.TransformBlock(_writeBufferData, offset, _blockSizeBytes, _writeEncryptedData, offset);
-            }
-
-            //write encrypted data
-            _baseStream.Write(_writeEncryptedData, 0, _writeBufferPosition);
-
-            //reset buffer
-            _writeBufferPosition = 2;
         }
 
         public override int Read(byte[] buffer, int offset, int count)
@@ -266,22 +299,20 @@ namespace BitChatClient.Network.SecureChannel
 
             int bytesAvailableForRead = _readBufferLength - _readBufferPosition;
 
-            if (bytesAvailableForRead < 1)
+            while (bytesAvailableForRead < 1)
             {
                 //read first block to read the encrypted frame size
                 OffsetStream.StreamRead(_baseStream, _readEncryptedData, 0, _blockSizeBytes);
-
-                //decrypt first block
-                _cryptoReader.TransformBlock(_readEncryptedData, 0, _blockSizeBytes, _readBufferData, 0);
-
-                //read frame header
-                int dataLength = BitConverter.ToUInt16(_readBufferData, 0);
+                _cryptoDecryptor.TransformBlock(_readEncryptedData, 0, _blockSizeBytes, _readBufferData, 0);
                 _readBufferPosition = _blockSizeBytes;
+
+                //read frame header 2 byte length
+                int dataLength = BitConverter.ToUInt16(_readBufferData, 0);
                 _readBufferLength = dataLength;
 
                 dataLength -= _blockSizeBytes;
 
-                if (_cryptoReader.CanTransformMultipleBlocks)
+                if (_cryptoDecryptor.CanTransformMultipleBlocks)
                 {
                     if (dataLength > 0)
                     {
@@ -293,10 +324,9 @@ namespace BitChatClient.Network.SecureChannel
                         int pendingBytes = pendingBlocks * _blockSizeBytes;
 
                         //read pending blocks
-                        OffsetStream.StreamRead(_baseStream, _readEncryptedData, 0, pendingBytes);
-
-                        //decrypt blocks
-                        _cryptoReader.TransformBlock(_readEncryptedData, 0, pendingBytes, _readBufferData, _readBufferPosition);
+                        OffsetStream.StreamRead(_baseStream, _readEncryptedData, _readBufferPosition, pendingBytes);
+                        _cryptoDecryptor.TransformBlock(_readEncryptedData, _readBufferPosition, pendingBytes, _readBufferData, _readBufferPosition);
+                        _readBufferPosition += pendingBytes;
                     }
                 }
                 else
@@ -304,18 +334,43 @@ namespace BitChatClient.Network.SecureChannel
                     while (dataLength > 0)
                     {
                         //read next block
-                        OffsetStream.StreamRead(_baseStream, _readEncryptedData, 0, _blockSizeBytes);
-
-                        //decrypt block
-                        _cryptoReader.TransformBlock(_readEncryptedData, 0, _blockSizeBytes, _readBufferData, _readBufferPosition);
+                        OffsetStream.StreamRead(_baseStream, _readEncryptedData, _readBufferPosition, _blockSizeBytes);
+                        _cryptoDecryptor.TransformBlock(_readEncryptedData, 0, _blockSizeBytes, _readBufferData, _readBufferPosition);
                         _readBufferPosition += _blockSizeBytes;
 
                         dataLength -= _blockSizeBytes;
                     }
                 }
 
-                _readBufferPosition = 2;
+                //read auth hmac
+                BinaryID authHMAC = new BinaryID(new byte[_authHMACSize]);
+                OffsetStream.StreamRead(_baseStream, authHMAC.ID, 0, _authHMACSize);
+
+                //verify auth hmac with computed hmac
+                BinaryID computedAuthHMAC = new BinaryID(_authHMAC.ComputeHash(_readEncryptedData, 0, _readBufferPosition));
+
+                if (!computedAuthHMAC.Equals(authHMAC))
+                    throw new SecureChannelException(SecureChannelCode.InvalidMessageHMACReceived);
+
+                _readBufferPosition = 3;
                 bytesAvailableForRead = _readBufferLength - _readBufferPosition;
+
+                //check header flags
+                if (_readBufferData[2] == 1)
+                {
+                    //re-negotiate
+                    lock (this) //take flush lock
+                    {
+                        if (!_reNegotiate)
+                        {
+                            ThreadPool.QueueUserWorkItem(AsyncCallReNegotiateNow, null);
+                            Monitor.Wait(this); //wait till flush() thread blocks
+                        }
+
+                        StartReNegotiation();
+                        Monitor.Pulse(this); //signal flush() thread complete
+                    }
+                }
             }
 
             {
@@ -331,89 +386,40 @@ namespace BitChatClient.Network.SecureChannel
             }
         }
 
+        private void AsyncCallReNegotiateNow(object state)
+        {
+            ReNegotiateNow();
+        }
+
+        #endregion
+
+        #region public
+
+        public void ReNegotiateNow()
+        {
+            _reNegotiate = true;
+            this.Flush();
+        }
+
         #endregion
 
         #region protected
 
-        protected byte[] GenerateRandomChallenge(string seed)
+        protected abstract void StartReNegotiation();
+
+        protected void EnableEncryption(Stream inputStream, SymmetricCryptoKey encryptionKey, SymmetricCryptoKey decryptionKey, HMAC authHMAC)
         {
-            using (MemoryStream mS = new MemoryStream(1024))
-            {
-                byte[] buffer = new byte[255];
-                _rnd.GetBytes(buffer);
-                mS.Write(buffer, 0, buffer.Length);
+            //create reader and writer objects
+            _cryptoEncryptor = encryptionKey.GetEncryptor();
+            _cryptoDecryptor = decryptionKey.GetDecryptor();
 
-                byte[] buffer2 = BitConverter.GetBytes(Thread.CurrentThread.ManagedThreadId);
-                mS.Write(buffer2, 0, buffer2.Length);
+            //init variables
+            _baseStream = inputStream;
+            _blockSizeBytes = encryptionKey.BlockSize / 8;
+            _authHMAC = authHMAC;
 
-                buffer = Encoding.UTF8.GetBytes(seed);
-                mS.Write(buffer, 0, buffer.Length);
-
-                byte[] buffer3 = BitConverter.GetBytes(System.Diagnostics.Process.GetCurrentProcess().Id);
-                mS.Write(buffer2, 0, buffer2.Length);
-
-                buffer = BitConverter.GetBytes(DateTime.UtcNow.ToBinary());
-                mS.Write(buffer, 0, buffer.Length);
-
-                buffer = new byte[255];
-                _rnd.GetBytes(buffer);
-                mS.Write(buffer, 0, buffer.Length);
-
-                //get challenge
-                return _hashAlgoSHA256.ComputeHash(mS.ToArray());
-            }
-        }
-
-        protected byte[] GenerateChallengeResponse(byte[] challenge, string sharedSecret)
-        {
-            byte[] hmacKey = _hashAlgoSHA256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(sharedSecret));
-            using (HMACSHA256 hmac = new HMACSHA256(hmacKey))
-            {
-                return hmac.ComputeHash(challenge, 0, challenge.Length);
-            }
-        }
-
-        protected bool IsChallengeResponseValid(byte[] challenge, byte[] response, string sharedSecret)
-        {
-            byte[] computedResponse = GenerateChallengeResponse(challenge, sharedSecret);
-
-            //verify
-
-            for (int i = 0; i < computedResponse.Length; i++)
-            {
-                if (computedResponse[i] != response[i])
-                    return false;
-            }
-
-            return true;
-        }
-
-        protected SymmetricCryptoKey MatchOptionsAndGenerateEncryptionKey(SecureChannelCryptoOptionFlags options, Certificate localCert)
-        {
-            //match crypto options
-            _selectedCryptoOption = _supportedOptions & options;
-
-            if ((_selectedCryptoOption & SecureChannelCryptoOptionFlags.RSA_AES256) > 0)
-            {
-                if (localCert.PublicKeyEncryptionAlgorithm != AsymmetricEncryptionAlgorithm.RSA)
-                    throw new SecureChannelException(SecureChannelErrorCode.NoMatchingCryptoAvailable, "SecureChannel handshake failed: no matching crypto option available");
-
-                _selectedCryptoOption = SecureChannelCryptoOptionFlags.RSA_AES256;
-            }
-            else
-            {
-                throw new SecureChannelException(SecureChannelErrorCode.NoMatchingCryptoAvailable, "SecureChannel handshake failed: no matching crypto option available");
-            }
-
-            //generate encryption key
-            switch (_selectedCryptoOption)
-            {
-                case SecureChannelCryptoOptionFlags.RSA_AES256:
-                    return new SymmetricCryptoKey(SymmetricEncryptionAlgorithm.Rijndael, 256, PaddingMode.None);
-
-                default:
-                    throw new IOException();
-            }
+            _authHMACSize = _authHMAC.HashSize / 8;
+            _writeBufferPosition = 3;
         }
 
         #endregion

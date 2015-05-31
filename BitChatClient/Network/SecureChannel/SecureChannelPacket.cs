@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Security.Cryptography;
@@ -29,7 +30,7 @@ namespace BitChatClient.Network.SecureChannel
     {
         #region variables
 
-        SecureChannelErrorCode _errorCode;
+        SecureChannelCode _code;
         byte[] _data;
 
         #endregion
@@ -38,9 +39,9 @@ namespace BitChatClient.Network.SecureChannel
 
         public SecureChannelPacket(Stream s)
         {
-            _errorCode = (SecureChannelErrorCode)s.ReadByte();
+            _code = (SecureChannelCode)s.ReadByte();
 
-            if (_errorCode == SecureChannelErrorCode.NoError)
+            if (_code == SecureChannelCode.None)
             {
                 byte[] buffer = new byte[2];
                 OffsetStream.StreamRead(s, buffer, 0, 2);
@@ -58,7 +59,7 @@ namespace BitChatClient.Network.SecureChannel
             }
             else
             {
-                throw new SecureChannelException(SecureChannelErrorCode.RemoteError, "Error packet received from remote.", new SecureChannelException(_errorCode));
+                throw new SecureChannelException(SecureChannelCode.RemoteError, "Error packet received from remote.", new SecureChannelException(_code));
             }
         }
 
@@ -66,33 +67,37 @@ namespace BitChatClient.Network.SecureChannel
 
         #region static
 
-        public static void WritePacket(Stream s, SecureChannelErrorCode errorCode, byte[] data, int offset, int count)
+        public static void WritePacket(Stream s, SecureChannelCode code)
+        {
+            s.WriteByte(Convert.ToByte(code));
+            s.Flush();
+        }
+
+        public static void WritePacket(Stream s, IWriteStream obj)
+        {
+            byte[] data = obj.ToArray();
+            WritePacket(s, data, 0, data.Length);
+        }
+
+        private static void WritePacket(Stream s, byte[] data, int offset, int count)
         {
             if (count > 65534)
                 throw new IOException("SecureChannelPacket data size cannot exceed 65534 bytes.");
 
-            if (errorCode == SecureChannelErrorCode.NoError)
+            byte[] buffer = new byte[1 + 2 + count];
+
+            buffer[0] = Convert.ToByte(SecureChannelCode.None);
+
+            if (count > 0)
             {
-                byte[] buffer = new byte[1 + 2 + count];
+                byte[] bufferCount = BitConverter.GetBytes(Convert.ToUInt16(count));
+                buffer[1] = bufferCount[0];
+                buffer[2] = bufferCount[1];
 
-                buffer[0] = Convert.ToByte(errorCode);
-
-                if (count > 0)
-                {
-                    byte[] bufferCount = BitConverter.GetBytes(Convert.ToUInt16(count));
-                    buffer[1] = bufferCount[0];
-                    buffer[2] = bufferCount[1];
-
-                    Buffer.BlockCopy(data, offset, buffer, 3, count);
-                }
-
-                s.Write(buffer, 0, buffer.Length);
-            }
-            else
-            {
-                s.WriteByte(Convert.ToByte(errorCode));
+                Buffer.BlockCopy(data, offset, buffer, 3, count);
             }
 
+            s.Write(buffer, 0, buffer.Length);
             s.Flush();
         }
 
@@ -100,17 +105,28 @@ namespace BitChatClient.Network.SecureChannel
 
         #region public
 
-        public PublicKey GetPublicKey()
+        public Hello GetHello()
         {
             using (MemoryStream mS = new MemoryStream(_data, false))
             {
-                return new PublicKey(mS);
+                return new Hello(mS);
             }
         }
 
-        public Stream GetDataStream()
+        public KeyExchange GetKeyExchange()
         {
-            return new MemoryStream(_data, false);
+            using (MemoryStream mS = new MemoryStream(_data, false))
+            {
+                return new KeyExchange(mS);
+            }
+        }
+
+        public Certificate GetCertificate()
+        {
+            using (MemoryStream mS = new MemoryStream(_data, false))
+            {
+                return new Certificate(mS);
+            }
         }
 
         #endregion
@@ -120,64 +136,133 @@ namespace BitChatClient.Network.SecureChannel
         public byte[] Data
         { get { return _data; } }
 
-        public SecureChannelErrorCode ErrorCode
-        { get { return _errorCode; } }
+        public SecureChannelCode Code
+        { get { return _code; } }
 
         #endregion
 
-        public class PublicKey : WriteStream
+        public class Hello : WriteStream
         {
             #region variables
 
+            BinaryID _nonce;
             SecureChannelCryptoOptionFlags _cryptoOptions;
-            AsymmetricEncryptionAlgorithm _publicKeyEncryptionAlgorithm;
-            string _publicKeyXML;
 
             #endregion
 
             #region constructor
 
-            public PublicKey(SecureChannelCryptoOptionFlags cryptoOptions, AsymmetricEncryptionAlgorithm publicKeyEncryptionAlgorithm, string publicKeyXML)
+            public Hello(BinaryID nonce, SecureChannelCryptoOptionFlags cryptoOptions)
             {
+                _nonce = nonce;
                 _cryptoOptions = cryptoOptions;
-                _publicKeyEncryptionAlgorithm = publicKeyEncryptionAlgorithm;
-                _publicKeyXML = publicKeyXML;
             }
 
-            internal PublicKey(Stream s)
+            public Hello(Stream s)
             {
-                BinaryReader bR = new BinaryReader(s);
-
-                _cryptoOptions = (SecureChannelCryptoOptionFlags)bR.ReadByte();
-                _publicKeyEncryptionAlgorithm = (AsymmetricEncryptionAlgorithm)bR.ReadByte();
-                _publicKeyXML = Encoding.ASCII.GetString(bR.ReadBytes(bR.ReadUInt16()));
+                _nonce = new BinaryID(s);
+                _cryptoOptions = (SecureChannelCryptoOptionFlags)s.ReadByte();
             }
 
             #endregion
 
             #region override
 
+            public override void WriteTo(Stream s)
+            {
+                _nonce.WriteTo(s);
+                s.WriteByte((byte)_cryptoOptions);
+            }
+
             public override void WriteTo(BinaryWriter bW)
             {
-                bW.Write((byte)_cryptoOptions);
-                bW.Write((byte)_publicKeyEncryptionAlgorithm);
-
-                bW.Write(Convert.ToUInt16(_publicKeyXML.Length));
-                bW.Write(Encoding.ASCII.GetBytes(_publicKeyXML));
+                throw new NotImplementedException();
             }
 
             #endregion
 
             #region properties
 
+            public BinaryID Nonce
+            { get { return _nonce; } }
+
             public SecureChannelCryptoOptionFlags CryptoOptions
             { get { return _cryptoOptions; } }
 
-            public AsymmetricEncryptionAlgorithm PublicKeyEncryptionAlgorithm
-            { get { return _publicKeyEncryptionAlgorithm; } }
+            #endregion
+        }
+
+        public class KeyExchange : WriteStream
+        {
+            #region variables
+
+            string _publicKeyXML;
+            byte[] _signature;
+
+            #endregion
+
+            #region constructor
+
+            public KeyExchange(string publicKeyXML, AsymmetricCryptoKey privateKey, string hashAlgo)
+            {
+                _publicKeyXML = publicKeyXML;
+                _signature = privateKey.Sign(new MemoryStream(Encoding.UTF8.GetBytes(_publicKeyXML), false), hashAlgo);
+            }
+
+            public KeyExchange(Stream s)
+            {
+                byte[] buffer = new byte[2];
+                ushort length;
+
+                OffsetStream.StreamRead(s, buffer, 0, 2);
+                length = BitConverter.ToUInt16(buffer, 0);
+                byte[] publicKey = new byte[length];
+                OffsetStream.StreamRead(s, publicKey, 0, length);
+                _publicKeyXML = Encoding.UTF8.GetString(publicKey);
+
+                OffsetStream.StreamRead(s, buffer, 0, 2);
+                length = BitConverter.ToUInt16(buffer, 0);
+                _signature = new byte[length];
+                OffsetStream.StreamRead(s, _signature, 0, length);
+            }
+
+            #endregion
+
+            #region public
+
+            public bool IsSignatureValid(Certificate signingCert, string hashAlgo)
+            {
+                return AsymmetricCryptoKey.Verify(new MemoryStream(Encoding.UTF8.GetBytes(_publicKeyXML), false), _signature, hashAlgo, signingCert);
+            }
+
+            #endregion
+
+            #region override
+
+            public override void WriteTo(Stream s)
+            {
+                byte[] publicKey = Encoding.UTF8.GetBytes(_publicKeyXML);
+                s.Write(BitConverter.GetBytes(Convert.ToUInt16(publicKey.Length)), 0, 2);
+                s.Write(publicKey, 0, publicKey.Length);
+
+                s.Write(BitConverter.GetBytes(Convert.ToUInt16(_signature.Length)), 0, 2);
+                s.Write(_signature, 0, _signature.Length);
+            }
+
+            public override void WriteTo(BinaryWriter bW)
+            {
+                throw new NotImplementedException();
+            }
+
+            #endregion
+
+            #region properties
 
             public string PublicKeyXML
             { get { return _publicKeyXML; } }
+
+            public byte[] Signature
+            { get { return _signature; } }
 
             #endregion
         }

@@ -22,15 +22,17 @@ using System.IO;
 
 namespace BitChatClient.Network.SecureChannel
 {
-    enum SecureChannelErrorCode : byte
+    enum SecureChannelCode : byte
     {
-        NoError = 0,
+        None = 0,
         RemoteError = 1,
         ProtocolVersionNotSupported = 2,
-        InvalidChallengeResponse = 3,
+        NoMatchingCryptoAvailable = 3,
         SecurityManagerDeclinedAccess = 4,
-        NoMatchingCryptoAvailable = 5,
-        InvalidRemoteCertificate = 6
+        InvalidRemoteCertificate = 5,
+        InvalidRemoteCertificateAlgorithm = 6,
+        InvalidRemoteKeyExchangeSignature = 7,
+        InvalidMessageHMACReceived = 8
     }
 
     [System.Serializable()]
@@ -38,27 +40,27 @@ namespace BitChatClient.Network.SecureChannel
     {
         #region variable
 
-        SecureChannelErrorCode _errorCode;
+        SecureChannelCode _code;
 
         #endregion
 
         #region constructor
 
-        public SecureChannelException(SecureChannelErrorCode errorCode)
+        public SecureChannelException(SecureChannelCode code)
         {
-            _errorCode = errorCode;
+            _code = code;
         }
 
-        public SecureChannelException(SecureChannelErrorCode errorCode, string message)
+        public SecureChannelException(SecureChannelCode code, string message)
             : base(message)
         {
-            _errorCode = errorCode;
+            _code = code;
         }
 
-        public SecureChannelException(SecureChannelErrorCode errorCode, string message, Exception innerException)
+        public SecureChannelException(SecureChannelCode code, string message, Exception innerException)
             : base(message, innerException)
         {
-            _errorCode = errorCode;
+            _code = code;
         }
 
         public SecureChannelException(System.Runtime.Serialization.SerializationInfo info, System.Runtime.Serialization.StreamingContext context)
@@ -69,8 +71,8 @@ namespace BitChatClient.Network.SecureChannel
 
         #region property
 
-        public SecureChannelErrorCode ErrorCode
-        { get { return _errorCode; } }
+        public SecureChannelCode Code
+        { get { return _code; } }
 
         #endregion
     }
