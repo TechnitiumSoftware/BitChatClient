@@ -36,10 +36,14 @@ namespace BitChatClient
 
         public BinaryID(byte[] id)
         {
-            if (id.Length != 20)
-                throw new BitChatException("BinaryID must be of 20 bytes.");
-
             _id = id;
+        }
+
+        public BinaryID(Stream s)
+        {
+            int length = s.ReadByte();
+            _id = new byte[length];
+            s.Read(_id, 0, length);
         }
 
         #endregion
@@ -47,35 +51,60 @@ namespace BitChatClient
         #region static
 
         static RandomNumberGenerator _rnd = new RNGCryptoServiceProvider();
-        static HashAlgorithm _hash = HashAlgorithm.Create("SHA1");
+        static HashAlgorithm _hashSHA1 = HashAlgorithm.Create("SHA1");
+        static HashAlgorithm _hashSHA256 = HashAlgorithm.Create("SHA256");
 
-        public static BinaryID GenerateRandomID()
+        public static BinaryID GenerateRandomID160()
         {
-            using (MemoryStream mS = new MemoryStream())
+            using (MemoryStream mS = new MemoryStream(64))
             {
                 byte[] buffer = new byte[20];
 
                 BinaryWriter bW = new BinaryWriter(mS);
 
-                bW.Write(DateTime.UtcNow.ToBinary());
                 _rnd.GetBytes(buffer);
                 bW.Write(buffer);
+
+                bW.Write(DateTime.UtcNow.ToBinary());
 
                 bW.Write(Thread.CurrentThread.ManagedThreadId);
-
-                _rnd.GetBytes(buffer);
-                bW.Write(buffer);
 
                 bW.Write(System.Diagnostics.Process.GetCurrentProcess().Id);
 
                 _rnd.GetBytes(buffer);
                 bW.Write(buffer);
-                bW.Write(DateTime.UtcNow.ToBinary());
 
                 bW.Flush();
 
                 mS.Position = 0;
-                return new BinaryID(_hash.ComputeHash(mS.ToArray()));
+                return new BinaryID(_hashSHA1.ComputeHash(mS.ToArray()));
+            }
+        }
+
+        public static BinaryID GenerateRandomID256()
+        {
+            using (MemoryStream mS = new MemoryStream(128))
+            {
+                byte[] buffer = new byte[32];
+
+                BinaryWriter bW = new BinaryWriter(mS);
+
+                _rnd.GetBytes(buffer);
+                bW.Write(buffer);
+
+                bW.Write(DateTime.UtcNow.ToBinary());
+
+                bW.Write(Thread.CurrentThread.ManagedThreadId);
+
+                bW.Write(System.Diagnostics.Process.GetCurrentProcess().Id);
+
+                _rnd.GetBytes(buffer);
+                bW.Write(buffer);
+
+                bW.Flush();
+
+                mS.Position = 0;
+                return new BinaryID(_hashSHA256.ComputeHash(mS.ToArray()));
             }
         }
 
@@ -125,6 +154,18 @@ namespace BitChatClient
         public override string ToString()
         {
             return BitConverter.ToString(_id).Replace("-", "").ToLower();
+        }
+
+        public void WriteTo(Stream s)
+        {
+            s.WriteByte(Convert.ToByte(_id.Length));
+            s.Write(_id, 0, _id.Length);
+        }
+
+        public void WriteTo(BinaryWriter bW)
+        {
+            bW.Write(Convert.ToByte(_id.Length));
+            bW.Write(_id, 0, _id.Length);
         }
 
         #endregion

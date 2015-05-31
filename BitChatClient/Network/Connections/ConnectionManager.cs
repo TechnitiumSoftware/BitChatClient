@@ -82,7 +82,7 @@ namespace BitChatClient.Network.Connections
 
             _externalSelfEP = (IPEndPoint)_tcpListener.LocalEndpoint;
             _requestHandler = requestHandler;
-            _localPeerID = BinaryID.GenerateRandomID();
+            _localPeerID = BinaryID.GenerateRandomID160();
 
             //start accepting connections
             _tcpListenerThread = new Thread(AcceptTcpConnectionAsync);
