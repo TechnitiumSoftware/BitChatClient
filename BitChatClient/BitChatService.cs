@@ -201,6 +201,9 @@ namespace BitChatClient
             LocalPeerDiscovery _localDiscovery;
             Dictionary<BinaryID, BitChatNetwork> _networks = new Dictionary<BinaryID, BitChatNetwork>();
 
+            int _reNegotiateOnBytesSent = 104857600; //100mb
+            int _reNegotiateAfterSeconds = 3600; //1hr
+
             #endregion
 
             #region constructor
@@ -333,6 +336,16 @@ namespace BitChatClient
                 return _supportedCryptoOptions;
             }
 
+            public int GetReNegotiateOnBytesSent()
+            {
+                return _reNegotiateOnBytesSent;
+            }
+
+            public int GetReNegotiateAfterSeconds()
+            {
+                return _reNegotiateAfterSeconds + 60;
+            }
+
             public bool CheckCertificateRevocationList()
             {
                 return _profile.CheckCertificateRevocationList;
@@ -364,7 +377,7 @@ namespace BitChatClient
                                 network = _networks[channelName];
                             }
 
-                            SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _profile.LocalCertificateStore, _trustedRootCertificates, this, _supportedCryptoOptions, network.SharedSecret);
+                            SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _profile.LocalCertificateStore, _trustedRootCertificates, this, _supportedCryptoOptions, _reNegotiateOnBytesSent, _reNegotiateAfterSeconds, network.SharedSecret);
 
                             network.JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel, _profile.CheckCertificateRevocationList);
                             break;
