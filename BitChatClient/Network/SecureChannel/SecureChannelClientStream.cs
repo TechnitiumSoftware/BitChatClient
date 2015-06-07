@@ -41,8 +41,8 @@ namespace BitChatClient.Network.SecureChannel
 
         #region constructor
 
-        public SecureChannelClientStream(Stream stream, IPEndPoint remotePeerEP, CertificateStore clientCredentials, Certificate[] trustedRootCertificates, ISecureChannelSecurityManager manager, SecureChannelCryptoOptionFlags supportedOptions, string preSharedKey = null)
-            : base(remotePeerEP)
+        public SecureChannelClientStream(Stream stream, IPEndPoint remotePeerEP, CertificateStore clientCredentials, Certificate[] trustedRootCertificates, ISecureChannelSecurityManager manager, SecureChannelCryptoOptionFlags supportedOptions, int reNegotiateOnBytesSent, int reNegotiateAfterSeconds, string preSharedKey = null)
+            : base(remotePeerEP, reNegotiateOnBytesSent, reNegotiateAfterSeconds)
         {
             _clientCredentials = clientCredentials;
             _trustedRootCertificates = trustedRootCertificates;
@@ -109,6 +109,9 @@ namespace BitChatClient.Network.SecureChannel
 
             #region 2. key exchange
 
+            //read server key exchange data
+            SecureChannelPacket.KeyExchange serverKeyExchange = (new SecureChannelPacket(stream)).GetKeyExchange();
+
             SymmetricEncryptionAlgorithm encAlgo;
             string hashAlgo;
             KeyAgreement keyAgreement;
@@ -118,13 +121,13 @@ namespace BitChatClient.Network.SecureChannel
                 case SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256:
                     encAlgo = SymmetricEncryptionAlgorithm.Rijndael;
                     hashAlgo = "SHA256";
-                    keyAgreement = KeyAgreement.Create(KeyAgreementAlgorithm.DiffieHellman, 2048, KeyDerivationFunction.Hmac, KeyDerivationHashAlgorithm.SHA256);
+                    keyAgreement = new DiffieHellman(DiffieHellmanGroupType.RFC3526, 2048, KeyAgreementKeyDerivationFunction.Hmac, KeyAgreementKeyDerivationHashAlgorithm.SHA256);
                     break;
 
                 case SecureChannelCryptoOptionFlags.ECDHE256_RSA_WITH_AES256_CBC_HMAC_SHA256:
                     encAlgo = SymmetricEncryptionAlgorithm.Rijndael;
                     hashAlgo = "SHA256";
-                    keyAgreement = KeyAgreement.Create(KeyAgreementAlgorithm.ECDiffieHellman, 256, KeyDerivationFunction.Hmac, KeyDerivationHashAlgorithm.SHA256);
+                    keyAgreement = new TechnitiumLibrary.Security.Cryptography.ECDiffieHellman(256, KeyAgreementKeyDerivationFunction.Hmac, KeyAgreementKeyDerivationHashAlgorithm.SHA256);
                     break;
 
                 default:
@@ -134,9 +137,6 @@ namespace BitChatClient.Network.SecureChannel
             //send client key exchange data
             SecureChannelPacket.KeyExchange clientKeyExchange = new SecureChannelPacket.KeyExchange(keyAgreement.GetPublicKeyXML(), clientCredentials.PrivateKey, hashAlgo);
             SecureChannelPacket.WritePacket(stream, clientKeyExchange);
-
-            //read server key exchange data
-            SecureChannelPacket.KeyExchange serverKeyExchange = (new SecureChannelPacket(stream)).GetKeyExchange();
 
             //generate: master key = HMAC(client hello + server hello + psk, derived key)
             using (MemoryStream mS = new MemoryStream(128))

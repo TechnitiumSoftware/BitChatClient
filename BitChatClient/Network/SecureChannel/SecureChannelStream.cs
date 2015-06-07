@@ -51,10 +51,10 @@ FEATURES-
                     server nonce +  
             selected crypto option  ---> 
 <----------------------------------------------------------------------------> hello handshake done
-                                    <---  ephemeral public key +
-                                          signature
             ephemeral public key +
                          signature  --->
+                                    <---  ephemeral public key +
+                                          signature
 <----------------------------------------------------------------------------> key exchange done
     master key = HMAC(client hello + server hello + optional psk, derived key)
 <----------------------------------------------------------------------------> master key generated on both sides with optional pre-shared key; encryption layer ON
@@ -69,14 +69,14 @@ FEATURES-
 
 namespace BitChatClient.Network.SecureChannel
 {
-    enum SecureChannelCryptoOptionFlags : byte
+    public enum SecureChannelCryptoOptionFlags : byte
     {
         None = 0,
         DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256 = 1,
         ECDHE256_RSA_WITH_AES256_CBC_HMAC_SHA256 = 2
     }
 
-    abstract class SecureChannelStream : Stream
+    public abstract class SecureChannelStream : Stream
     {
         #region variables
 
@@ -88,12 +88,21 @@ namespace BitChatClient.Network.SecureChannel
 
         //io & crypto related
         protected Stream _baseStream;
-        protected bool _reNegotiate = false;
         protected SecureChannelCryptoOptionFlags _selectedCryptoOption;
         int _blockSizeBytes;
         ICryptoTransform _cryptoEncryptor;
         ICryptoTransform _cryptoDecryptor;
         HMAC _authHMAC;
+
+        //re-negotiation
+        long _reNegotiateOnBytesSent;
+        int _reNegotiateAfterSeconds;
+        protected bool _reNegotiate = false;
+        bool _reNegotiateBlockFlush = false;
+        long _bytesSent = 0;
+        DateTime _connectedOn;
+        Timer _reNegotiationTimer;
+        const int _reNegotiationTimerInterval = 30000;
 
         //buffering
         const int BUFFER_SIZE = 65536;
@@ -112,9 +121,14 @@ namespace BitChatClient.Network.SecureChannel
 
         #region constructor
 
-        public SecureChannelStream(IPEndPoint remotePeerEP)
+        public SecureChannelStream(IPEndPoint remotePeerEP, int reNegotiateOnBytesSent, int reNegotiateAfterSeconds)
         {
             _remotePeerEP = remotePeerEP;
+            _reNegotiateOnBytesSent = reNegotiateOnBytesSent;
+            _reNegotiateAfterSeconds = reNegotiateAfterSeconds;
+
+            if ((_reNegotiateOnBytesSent > 0) || (_reNegotiateAfterSeconds > 0))
+                _reNegotiationTimer = new Timer(reNegotiationTimerCallback, null, _reNegotiationTimerInterval, _reNegotiationTimerInterval);
         }
 
         #endregion
@@ -233,6 +247,8 @@ namespace BitChatClient.Network.SecureChannel
                 if ((_writeBufferPosition == 3) && !_reNegotiate)
                     return;
 
+                _bytesSent += _writeBufferPosition - 3;
+
                 //calc header and padding
                 ushort dataLength = Convert.ToUInt16(_writeBufferPosition); //includes 3 bytes header length
                 int bytesPadding = 0;
@@ -282,12 +298,11 @@ namespace BitChatClient.Network.SecureChannel
                 //reset buffer
                 _writeBufferPosition = 3;
 
-                //check for re-negotiation
-                if (_reNegotiate)
+                //check for re-negotiation blocking
+                if (_reNegotiateBlockFlush)
                 {
-                    Monitor.Pulse(this); //signal waiting read() thread
                     Monitor.Wait(this); //wait till re-negotiation completes
-                    _reNegotiate = false;
+                    _reNegotiateBlockFlush = false;
                 }
             }
         }
@@ -363,12 +378,13 @@ namespace BitChatClient.Network.SecureChannel
                     {
                         if (!_reNegotiate)
                         {
-                            ThreadPool.QueueUserWorkItem(AsyncCallReNegotiateNow, null);
-                            Monitor.Wait(this); //wait till flush() thread blocks
+                            _reNegotiate = true;
+                            this.Flush();
                         }
 
                         StartReNegotiation();
-                        Monitor.Pulse(this); //signal flush() thread complete
+                        Monitor.PulseAll(this); //signal flush() thread complete
+                        _reNegotiate = false;
                     }
                 }
             }
@@ -386,9 +402,19 @@ namespace BitChatClient.Network.SecureChannel
             }
         }
 
-        private void AsyncCallReNegotiateNow(object state)
+        #endregion
+
+        #region private
+
+        private void reNegotiationTimerCallback(object state)
         {
-            ReNegotiateNow();
+            try
+            {
+                if (((_reNegotiateOnBytesSent > 0) && (_bytesSent > _reNegotiateOnBytesSent)) || ((_reNegotiateAfterSeconds > 0) && (_connectedOn.AddSeconds(_reNegotiateAfterSeconds) < DateTime.UtcNow)))
+                    ReNegotiateNow();
+            }
+            catch
+            { }
         }
 
         #endregion
@@ -398,6 +424,7 @@ namespace BitChatClient.Network.SecureChannel
         public void ReNegotiateNow()
         {
             _reNegotiate = true;
+            _reNegotiateBlockFlush = true;
             this.Flush();
         }
 
@@ -420,6 +447,9 @@ namespace BitChatClient.Network.SecureChannel
 
             _authHMACSize = _authHMAC.HashSize / 8;
             _writeBufferPosition = 3;
+
+            _bytesSent = 0;
+            _connectedOn = DateTime.UtcNow;
         }
 
         #endregion
