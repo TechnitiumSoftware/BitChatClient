@@ -148,7 +148,10 @@ namespace BitChatClient
 
         public override int GetHashCode()
         {
-            return BitConverter.ToInt32(_id, 0);
+            if (_id.Length < 4)
+                return 0;
+            else
+                return BitConverter.ToInt32(_id, 0);
         }
 
         public override string ToString()
