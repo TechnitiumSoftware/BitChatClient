@@ -330,6 +330,7 @@ namespace BitChatClient.Network.Connections
                         #region Parse & Process
 
                         dataRecv.Position = 0;
+                        dataRecv.SetLength(bytesRecv);
 
                         switch (dataRecv.ReadByte()) //version
                         {
