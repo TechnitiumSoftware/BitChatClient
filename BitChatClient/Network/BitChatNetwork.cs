@@ -23,7 +23,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
-using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using TechnitiumLibrary.IO;
@@ -45,8 +44,6 @@ namespace BitChatClient.Network
         #endregion
 
         #region variables
-
-        static HashAlgorithm _hash = HashAlgorithm.Create("SHA1");
 
         string _networkName;
         string _sharedSecret;
@@ -79,7 +76,7 @@ namespace BitChatClient.Network
                 _virtualPeers.Add(knownPeerCert.IssuedTo.EmailAddress.Address, new VirtualPeer(knownPeerCert));
 
             //compute network id
-            ComputeNetworkID();
+            _networkID = new BinaryID(PBKDF2.CreateHMACSHA256(_sharedSecret, Encoding.UTF8.GetBytes(_networkName.ToLower()), 1000).GetBytes(20));
         }
 
         #endregion
@@ -126,26 +123,6 @@ namespace BitChatClient.Network
         #endregion
 
         #region private
-
-        private void ComputeNetworkID()
-        {
-            byte[] name = Encoding.UTF8.GetBytes(_networkName.ToLower());
-            byte[] secretHash = _hash.ComputeHash(Encoding.UTF8.GetBytes(_sharedSecret.ToLower()));
-
-            //mask secret hash for partial data loss
-            for (int i = 0; i < secretHash.Length; i += 2)
-                secretHash[i] = 255;
-
-            using (MemoryStream mS = new MemoryStream())
-            {
-                mS.Write(name, 0, name.Length);
-                mS.Write(secretHash, 0, secretHash.Length);
-                mS.Write(name, 0, name.Length);
-
-                mS.Position = 0;
-                _networkID = new BinaryID(_hash.ComputeHash(mS));
-            }
-        }
 
         private void MakeConnectionAsync(object state)
         {
