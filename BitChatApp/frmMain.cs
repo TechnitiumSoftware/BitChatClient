@@ -69,8 +69,24 @@ namespace BitChatApp
             _profile = profile;
             _profileFilePath = profileFilePath;
 
+            SecureChannelCryptoOptionFlags cryptoOptions;
+
+            switch (Environment.OSVersion.Platform)
+            {
+                case PlatformID.Win32NT:
+                    if (Environment.OSVersion.Version.Major > 5)
+                        cryptoOptions = SecureChannelCryptoOptionFlags.ECDHE256_RSA_WITH_AES256_CBC_HMAC_SHA256 | SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256;
+                    else
+                        cryptoOptions = SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256;
+                    break;
+
+                default:
+                    cryptoOptions = SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256;
+                    break;
+            }
+
             //start bitchat service
-            _service = new BitChatService(profile, Program.TRUSTED_CERTIFICATES, SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256 | SecureChannelCryptoOptionFlags.ECDHE256_RSA_WITH_AES256_CBC_HMAC_SHA256, InvalidCertificateEvent);
+            _service = new BitChatService(profile, Program.TRUSTED_CERTIFICATES, cryptoOptions, InvalidCertificateEvent);
 
             //add firewall entry
             switch (Environment.OSVersion.Platform)
@@ -692,7 +708,7 @@ namespace BitChatApp
         private void SaveProfile()
         {
             //write profile in tmp file
-            using (FileStream fS = new FileStream(_profileFilePath + ".tmp", FileMode.Create, FileAccess.Write, FileShare.None))
+            using (FileStream fS = new FileStream(_profileFilePath + ".tmp", FileMode.Create, FileAccess.ReadWrite, FileShare.None))
             {
                 _service.UpdateProfile();
                 _profile.ClientData = SaveProfileSettings();

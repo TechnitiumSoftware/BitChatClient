@@ -39,6 +39,8 @@
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.label15 = new System.Windows.Forms.Label();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
+            this.lblUPnPStatus = new System.Windows.Forms.Label();
+            this.label5 = new System.Windows.Forms.Label();
             this.chkUseCRL = new System.Windows.Forms.CheckBox();
             this.txtTrackers = new System.Windows.Forms.TextBox();
             this.label2 = new System.Windows.Forms.Label();
@@ -50,8 +52,6 @@
             this.label1 = new System.Windows.Forms.Label();
             this.btnOK = new System.Windows.Forms.Button();
             this.btnClose = new System.Windows.Forms.Button();
-            this.label5 = new System.Windows.Forms.Label();
-            this.lblUPnPStatus = new System.Windows.Forms.Label();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.SuspendLayout();
@@ -63,6 +63,7 @@
             this.linkLabel1.Name = "linkLabel1";
             this.linkLabel1.Size = new System.Drawing.Size(128, 13);
             this.linkLabel1.TabIndex = 40;
+            this.linkLabel1.TabStop = true;
             this.linkLabel1.Text = "Read terms and condition";
             this.linkLabel1.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel1_LinkClicked);
             // 
@@ -163,6 +164,24 @@
             this.groupBox2.TabIndex = 9;
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Profile Settings";
+            // 
+            // lblUPnPStatus
+            // 
+            this.lblUPnPStatus.AutoSize = true;
+            this.lblUPnPStatus.Location = new System.Drawing.Point(101, 46);
+            this.lblUPnPStatus.Name = "lblUPnPStatus";
+            this.lblUPnPStatus.Size = new System.Drawing.Size(53, 13);
+            this.lblUPnPStatus.TabIndex = 43;
+            this.lblUPnPStatus.Text = "Unknown";
+            // 
+            // label5
+            // 
+            this.label5.AutoSize = true;
+            this.label5.Location = new System.Drawing.Point(30, 46);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(68, 13);
+            this.label5.TabIndex = 42;
+            this.label5.Text = "UPnP Status";
             // 
             // chkUseCRL
             // 
@@ -266,24 +285,6 @@
             this.btnClose.Text = "Close";
             this.btnClose.UseVisualStyleBackColor = true;
             this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
-            // 
-            // label5
-            // 
-            this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(30, 46);
-            this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(68, 13);
-            this.label5.TabIndex = 42;
-            this.label5.Text = "UPnP Status";
-            // 
-            // lblUPnPStatus
-            // 
-            this.lblUPnPStatus.AutoSize = true;
-            this.lblUPnPStatus.Location = new System.Drawing.Point(101, 46);
-            this.lblUPnPStatus.Name = "lblUPnPStatus";
-            this.lblUPnPStatus.Size = new System.Drawing.Size(53, 13);
-            this.lblUPnPStatus.TabIndex = 43;
-            this.lblUPnPStatus.Text = "Unknown";
             // 
             // frmSettings
             // 

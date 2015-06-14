@@ -80,7 +80,7 @@ namespace BitChatAppMono
                 }
                 catch
                 {
-                    MessageBox.Show("Invalid password. Please try again.", "Invalid Password!", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                    MessageBox.Show("Invalid password or file data tampered. Please try again.", "Invalid Password!", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
 
                     txtPassword.Text = "";
                     txtPassword.Focus();
