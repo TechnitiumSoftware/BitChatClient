@@ -56,7 +56,7 @@ FEATURES-
                                     <---  ephemeral public key +
                                           signature
 <----------------------------------------------------------------------------> key exchange done
-    master key = HMAC(client hello + server hello + optional psk, derived key)
+master key = HMAC(client hello + server hello + optional PBKDF2(psk, client hello + server hello, 10000), derived key)
 <----------------------------------------------------------------------------> master key generated on both sides with optional pre-shared key; encryption layer ON
                                     <---  certificate
                        certificate  --->
@@ -97,25 +97,30 @@ namespace BitChatClient.Network.SecureChannel
         //re-negotiation
         long _reNegotiateOnBytesSent;
         int _reNegotiateAfterSeconds;
-        protected bool _reNegotiate = false;
-        bool _reNegotiateBlockFlush = false;
+        protected bool _reNegotiating = false;
         long _bytesSent = 0;
         DateTime _connectedOn;
         Timer _reNegotiationTimer;
         const int _reNegotiationTimerInterval = 30000;
+
+        object _writeLock = new object();
+        object _readLock = new object();
 
         //buffering
         const int BUFFER_SIZE = 65536;
         int _authHMACSize;
 
         byte[] _writeBufferData = new byte[BUFFER_SIZE];
-        int _writeBufferPosition;
+        int _writeBufferPosition = 3;
+        byte[] _writeBufferPadding;
         byte[] _writeEncryptedData = new byte[BUFFER_SIZE];
 
         byte[] _readBufferData = new byte[BUFFER_SIZE];
         int _readBufferPosition;
         int _readBufferLength;
         byte[] _readEncryptedData = new byte[BUFFER_SIZE];
+
+        MemoryStream _reNegotiateReadBuffer;
 
         #endregion
 
@@ -126,9 +131,6 @@ namespace BitChatClient.Network.SecureChannel
             _remotePeerEP = remotePeerEP;
             _reNegotiateOnBytesSent = reNegotiateOnBytesSent;
             _reNegotiateAfterSeconds = reNegotiateAfterSeconds;
-
-            if ((_reNegotiateOnBytesSent > 0) || (_reNegotiateAfterSeconds > 0))
-                _reNegotiationTimer = new Timer(reNegotiationTimerCallback, null, _reNegotiationTimerInterval, _reNegotiationTimerInterval);
         }
 
         #endregion
@@ -215,39 +217,44 @@ namespace BitChatClient.Network.SecureChannel
             if (count < 1)
                 return;
 
-            do
+            lock (_writeLock)
             {
-                int bytesAvailable = BUFFER_SIZE - _writeBufferPosition - _authHMACSize;
-                if (bytesAvailable < count)
+                do
                 {
-                    if (bytesAvailable > 0)
+                    int bytesAvailable = BUFFER_SIZE - _writeBufferPosition - _authHMACSize;
+                    if (bytesAvailable < count)
+                    {
+                        if (bytesAvailable > 0)
+                        {
+                            Buffer.BlockCopy(buffer, offset, _writeBufferData, _writeBufferPosition, count);
+                            _writeBufferPosition += count;
+                            offset += bytesAvailable;
+                            count -= bytesAvailable;
+                        }
+
+                        Flush();
+                    }
+                    else
                     {
                         Buffer.BlockCopy(buffer, offset, _writeBufferData, _writeBufferPosition, count);
                         _writeBufferPosition += count;
-                        offset += bytesAvailable;
-                        count -= bytesAvailable;
+                        break;
                     }
-
-                    Flush();
                 }
-                else
-                {
-                    Buffer.BlockCopy(buffer, offset, _writeBufferData, _writeBufferPosition, count);
-                    _writeBufferPosition += count;
-                    break;
-                }
+                while (true);
             }
-            while (true);
         }
 
         public override void Flush()
         {
-            lock (this) //flush lock
+            lock (_writeLock)
             {
-                if ((_writeBufferPosition == 3) && !_reNegotiate)
+                if ((_writeBufferPosition == 3) && !_reNegotiating)
                     return;
 
                 _bytesSent += _writeBufferPosition - 3;
+
+                //write secure channel frame
 
                 //calc header and padding
                 ushort dataLength = Convert.ToUInt16(_writeBufferPosition); //includes 3 bytes header length
@@ -261,7 +268,7 @@ namespace BitChatClient.Network.SecureChannel
                 _writeBufferData[0] = header[0];
                 _writeBufferData[1] = header[1];
 
-                if (_reNegotiate)
+                if (_reNegotiating)
                     _writeBufferData[2] = 1; //re-negotiate
                 else
                     _writeBufferData[2] = 0; //no flags
@@ -269,11 +276,10 @@ namespace BitChatClient.Network.SecureChannel
                 //write padding
                 if (bytesPadding > 0)
                 {
-                    byte[] padding = new byte[bytesPadding];
-                    _rndPadding.GetBytes(padding);
+                    _rndPadding.GetBytes(_writeBufferPadding);
 
-                    Buffer.BlockCopy(padding, 0, _writeBufferData, _writeBufferPosition, padding.Length);
-                    _writeBufferPosition += padding.Length;
+                    Buffer.BlockCopy(_writeBufferPadding, 0, _writeBufferData, _writeBufferPosition, bytesPadding);
+                    _writeBufferPosition += bytesPadding;
                 }
 
                 //encrypt buffered data
@@ -297,13 +303,6 @@ namespace BitChatClient.Network.SecureChannel
 
                 //reset buffer
                 _writeBufferPosition = 3;
-
-                //check for re-negotiation blocking
-                if (_reNegotiateBlockFlush)
-                {
-                    Monitor.Wait(this); //wait till re-negotiation completes
-                    _reNegotiateBlockFlush = false;
-                }
             }
         }
 
@@ -312,93 +311,60 @@ namespace BitChatClient.Network.SecureChannel
             if (count < 1)
                 throw new IOException("Count must be atleast 1 byte.");
 
-            int bytesAvailableForRead = _readBufferLength - _readBufferPosition;
-
-            while (bytesAvailableForRead < 1)
+            lock (_readLock)
             {
-                //read first block to read the encrypted frame size
-                OffsetStream.StreamRead(_baseStream, _readEncryptedData, 0, _blockSizeBytes);
-                _cryptoDecryptor.TransformBlock(_readEncryptedData, 0, _blockSizeBytes, _readBufferData, 0);
-                _readBufferPosition = _blockSizeBytes;
+                int bytesAvailableForRead;
 
-                //read frame header 2 byte length
-                int dataLength = BitConverter.ToUInt16(_readBufferData, 0);
-                _readBufferLength = dataLength;
-
-                dataLength -= _blockSizeBytes;
-
-                if (_cryptoDecryptor.CanTransformMultipleBlocks)
-                {
-                    if (dataLength > 0)
-                    {
-                        int pendingBlocks = dataLength / _blockSizeBytes;
-
-                        if (dataLength % _blockSizeBytes > 0)
-                            pendingBlocks++;
-
-                        int pendingBytes = pendingBlocks * _blockSizeBytes;
-
-                        //read pending blocks
-                        OffsetStream.StreamRead(_baseStream, _readEncryptedData, _readBufferPosition, pendingBytes);
-                        _cryptoDecryptor.TransformBlock(_readEncryptedData, _readBufferPosition, pendingBytes, _readBufferData, _readBufferPosition);
-                        _readBufferPosition += pendingBytes;
-                    }
-                }
+                if (_reNegotiateReadBuffer == null)
+                    bytesAvailableForRead = _readBufferLength - _readBufferPosition;
                 else
+                    bytesAvailableForRead = Convert.ToInt32(_reNegotiateReadBuffer.Length - _reNegotiateReadBuffer.Position);
+
+                while (bytesAvailableForRead < 1)
                 {
-                    while (dataLength > 0)
+                    bytesAvailableForRead = ReadSecureChannelFrame();
+                    if (bytesAvailableForRead == -1)
+                        continue;
+
+                    //check header flags
+                    if (_readBufferData[2] == 1)
                     {
-                        //read next block
-                        OffsetStream.StreamRead(_baseStream, _readEncryptedData, _readBufferPosition, _blockSizeBytes);
-                        _cryptoDecryptor.TransformBlock(_readEncryptedData, 0, _blockSizeBytes, _readBufferData, _readBufferPosition);
-                        _readBufferPosition += _blockSizeBytes;
-
-                        dataLength -= _blockSizeBytes;
-                    }
-                }
-
-                //read auth hmac
-                BinaryID authHMAC = new BinaryID(new byte[_authHMACSize]);
-                OffsetStream.StreamRead(_baseStream, authHMAC.ID, 0, _authHMACSize);
-
-                //verify auth hmac with computed hmac
-                BinaryID computedAuthHMAC = new BinaryID(_authHMAC.ComputeHash(_readEncryptedData, 0, _readBufferPosition));
-
-                if (!computedAuthHMAC.Equals(authHMAC))
-                    throw new SecureChannelException(SecureChannelCode.InvalidMessageHMACReceived);
-
-                _readBufferPosition = 3;
-                bytesAvailableForRead = _readBufferLength - _readBufferPosition;
-
-                //check header flags
-                if (_readBufferData[2] == 1)
-                {
-                    //re-negotiate
-                    lock (this) //take flush lock
-                    {
-                        if (!_reNegotiate)
+                        //received re-negotiate flag
+                        lock (_writeLock)
                         {
-                            _reNegotiate = true;
+                            _reNegotiating = true;
                             this.Flush();
-                        }
 
-                        StartReNegotiation();
-                        Monitor.PulseAll(this); //signal flush() thread complete
-                        _reNegotiate = false;
+                            StartReNegotiation();
+                            _reNegotiating = false;
+                        }
                     }
                 }
-            }
 
-            {
-                int bytesToRead = count;
+                {
+                    int bytesToRead = count;
 
-                if (bytesToRead > bytesAvailableForRead)
-                    bytesToRead = bytesAvailableForRead;
+                    if (bytesToRead > bytesAvailableForRead)
+                        bytesToRead = bytesAvailableForRead;
 
-                Buffer.BlockCopy(_readBufferData, _readBufferPosition, buffer, offset, bytesToRead);
-                _readBufferPosition += bytesToRead;
+                    if (_reNegotiateReadBuffer == null)
+                    {
+                        Buffer.BlockCopy(_readBufferData, _readBufferPosition, buffer, offset, bytesToRead);
+                        _readBufferPosition += bytesToRead;
+                    }
+                    else
+                    {
+                        _reNegotiateReadBuffer.Read(buffer, offset, bytesToRead);
 
-                return bytesToRead;
+                        if (_reNegotiateReadBuffer.Length == _reNegotiateReadBuffer.Position)
+                        {
+                            _reNegotiateReadBuffer.Dispose();
+                            _reNegotiateReadBuffer = null;
+                        }
+                    }
+
+                    return bytesToRead;
+                }
             }
         }
 
@@ -406,7 +372,68 @@ namespace BitChatClient.Network.SecureChannel
 
         #region private
 
-        private void reNegotiationTimerCallback(object state)
+        private int ReadSecureChannelFrame()
+        {
+            //read secure channel frame
+
+            //read first block to read the encrypted packet size
+            OffsetStream.StreamRead(_baseStream, _readEncryptedData, 0, _blockSizeBytes);
+            _cryptoDecryptor.TransformBlock(_readEncryptedData, 0, _blockSizeBytes, _readBufferData, 0);
+            _readBufferPosition = _blockSizeBytes;
+
+            //read frame header 2 byte length
+            int dataLength = BitConverter.ToUInt16(_readBufferData, 0);
+            _readBufferLength = dataLength;
+
+            dataLength -= _blockSizeBytes;
+
+            if (_cryptoDecryptor.CanTransformMultipleBlocks)
+            {
+                if (dataLength > 0)
+                {
+                    int pendingBlocks = dataLength / _blockSizeBytes;
+
+                    if (dataLength % _blockSizeBytes > 0)
+                        pendingBlocks++;
+
+                    int pendingBytes = pendingBlocks * _blockSizeBytes;
+
+                    //read pending blocks
+                    OffsetStream.StreamRead(_baseStream, _readEncryptedData, _readBufferPosition, pendingBytes);
+                    _cryptoDecryptor.TransformBlock(_readEncryptedData, _readBufferPosition, pendingBytes, _readBufferData, _readBufferPosition);
+                    _readBufferPosition += pendingBytes;
+                }
+            }
+            else
+            {
+                while (dataLength > 0)
+                {
+                    //read next block
+                    OffsetStream.StreamRead(_baseStream, _readEncryptedData, _readBufferPosition, _blockSizeBytes);
+                    _cryptoDecryptor.TransformBlock(_readEncryptedData, _readBufferPosition, _blockSizeBytes, _readBufferData, _readBufferPosition);
+                    _readBufferPosition += _blockSizeBytes;
+
+                    dataLength -= _blockSizeBytes;
+                }
+            }
+
+            //read auth hmac
+            BinaryID authHMAC = new BinaryID(new byte[_authHMACSize]);
+            OffsetStream.StreamRead(_baseStream, authHMAC.ID, 0, _authHMACSize);
+
+            //verify auth hmac with computed hmac
+            BinaryID computedAuthHMAC = new BinaryID(_authHMAC.ComputeHash(_readEncryptedData, 0, _readBufferPosition));
+
+            if (!computedAuthHMAC.Equals(authHMAC))
+                throw new SecureChannelException(SecureChannelCode.InvalidMessageHMACReceived);
+
+            _readBufferPosition = 3;
+
+            //return bytes available in this frame to read
+            return _readBufferLength - _readBufferPosition;
+        }
+
+        private void ReNegotiationTimerCallback(object state)
         {
             try
             {
@@ -415,6 +442,10 @@ namespace BitChatClient.Network.SecureChannel
             }
             catch
             { }
+            finally
+            {
+                _reNegotiationTimer.Change(_reNegotiationTimerInterval, Timeout.Infinite);
+            }
         }
 
         #endregion
@@ -423,9 +454,46 @@ namespace BitChatClient.Network.SecureChannel
 
         public void ReNegotiateNow()
         {
-            _reNegotiate = true;
-            _reNegotiateBlockFlush = true;
-            this.Flush();
+            //re-negotiotion initiator needs to have a special read buffer to store the decrypted data that was on the way from other end while the negotiation start is indicated.
+
+            lock (_readLock)
+            {
+                if (_reNegotiateReadBuffer != null)
+                    return; //read buffer from previous re-negotiation is still not empty to proceed
+
+                lock (_writeLock)
+                {
+                    _reNegotiating = true;
+                    this.Flush();
+
+                    //read in-transit packets into special read buffer
+                    int bytesAvailableForRead;
+
+                    do
+                    {
+                        bytesAvailableForRead = ReadSecureChannelFrame();
+                        if (bytesAvailableForRead == -1)
+                            continue;
+
+                        if (bytesAvailableForRead > 0)
+                        {
+                            if (_reNegotiateReadBuffer == null)
+                                _reNegotiateReadBuffer = new MemoryStream(BUFFER_SIZE * 10);
+
+                            _reNegotiateReadBuffer.Write(_readBufferData, _readBufferPosition, bytesAvailableForRead);
+                        }
+                    }
+                    while (_readBufferData[2] != 1);
+
+                    //received re-negotiate flag
+
+                    StartReNegotiation();
+                    _reNegotiating = false;
+
+                    if (_reNegotiateReadBuffer != null)
+                        _reNegotiateReadBuffer.Position = 0;
+                }
+            }
         }
 
         #endregion
@@ -433,6 +501,25 @@ namespace BitChatClient.Network.SecureChannel
         #region protected
 
         protected abstract void StartReNegotiation();
+
+        protected byte[] GenerateMasterKey(SecureChannelPacket.Hello clientHello, SecureChannelPacket.Hello serverHello, string preSharedKey, KeyAgreement keyAgreement, string otherPartyPublicKeyXML)
+        {
+            using (MemoryStream mS = new MemoryStream(128))
+            {
+                clientHello.WriteTo(mS);
+                serverHello.WriteTo(mS);
+
+                if (!string.IsNullOrEmpty(preSharedKey))
+                {
+                    byte[] psk = PBKDF2.CreateHMACSHA256(preSharedKey, mS.ToArray(), 10000).GetBytes(32);
+                    mS.Write(psk, 0, psk.Length);
+                }
+
+                keyAgreement.HmacMessage = mS.ToArray();
+            }
+
+            return keyAgreement.DeriveKeyMaterial(otherPartyPublicKeyXML);
+        }
 
         protected void EnableEncryption(Stream inputStream, SymmetricCryptoKey encryptionKey, SymmetricCryptoKey decryptionKey, HMAC authHMAC)
         {
@@ -443,13 +530,18 @@ namespace BitChatClient.Network.SecureChannel
             //init variables
             _baseStream = inputStream;
             _blockSizeBytes = encryptionKey.BlockSize / 8;
+            _writeBufferPadding = new byte[_blockSizeBytes];
             _authHMAC = authHMAC;
-
             _authHMACSize = _authHMAC.HashSize / 8;
-            _writeBufferPosition = 3;
 
             _bytesSent = 0;
             _connectedOn = DateTime.UtcNow;
+
+            if (_reNegotiationTimer == null)
+            {
+                if ((_reNegotiateOnBytesSent > 0) || (_reNegotiateAfterSeconds > 0))
+                    _reNegotiationTimer = new Timer(ReNegotiationTimerCallback, null, _reNegotiationTimerInterval, Timeout.Infinite);
+            }
         }
 
         #endregion

@@ -152,22 +152,8 @@ namespace BitChatClient.Network.SecureChannel
             //read client key exchange data
             SecureChannelPacket.KeyExchange clientKeyExchange = (new SecureChannelPacket(stream)).GetKeyExchange();
 
-            //generate: master key = HMAC(client hello + server hello + psk, derived key)
-            using (MemoryStream mS = new MemoryStream(128))
-            {
-                clientHello.WriteTo(mS);
-                serverHello.WriteTo(mS);
-
-                if (!string.IsNullOrEmpty(preSharedKey))
-                {
-                    byte[] psk = System.Text.Encoding.UTF8.GetBytes(preSharedKey);
-                    mS.Write(psk, 0, psk.Length);
-                }
-
-                keyAgreement.HmacMessage = mS.ToArray();
-            }
-
-            byte[] masterKey = keyAgreement.DeriveKeyMaterial(clientKeyExchange.PublicKeyXML);
+            //generate master key
+            byte[] masterKey = GenerateMasterKey(clientHello, serverHello, _preSharedKey, keyAgreement, clientKeyExchange.PublicKeyXML);
 
             //enable channel encryption
             switch (encAlgo)
@@ -196,9 +182,9 @@ namespace BitChatClient.Network.SecureChannel
 
             #region 3. exchange & verify certificates & signatures
 
-            //read client certificate
-            if (!_reNegotiate)
+            if (!_reNegotiating)
             {
+                //read client certificate
                 _remotePeerCert = (new SecureChannelPacket(this)).GetCertificate();
 
                 //verify client certificate
@@ -233,7 +219,7 @@ namespace BitChatClient.Network.SecureChannel
                 throw new SecureChannelException(SecureChannelCode.SecurityManagerDeclinedAccess, "Security manager declined access.");
 
             //send server certificate
-            if (!_reNegotiate)
+            if (!_reNegotiating)
                 SecureChannelPacket.WritePacket(this, serverCredentials.Certificate);
 
             #endregion

@@ -22,7 +22,7 @@ using System.IO;
 
 namespace BitChatClient.Network.SecureChannel
 {
-    enum SecureChannelCode : byte
+    public enum SecureChannelCode : byte
     {
         None = 0,
         RemoteError = 1,
@@ -36,7 +36,7 @@ namespace BitChatClient.Network.SecureChannel
     }
 
     [System.Serializable()]
-    class SecureChannelException : IOException
+    public class SecureChannelException : IOException
     {
         #region variable
 

@@ -26,7 +26,7 @@ using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatClient.Network.SecureChannel
 {
-    class SecureChannelPacket
+    public class SecureChannelPacket
     {
         #region variables
 

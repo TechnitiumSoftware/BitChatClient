@@ -25,7 +25,7 @@ using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatClient.Network.SecureChannel
 {
-    class SecureChannelClientStream : SecureChannelStream
+    public class SecureChannelClientStream : SecureChannelStream
     {
         #region variables
 
@@ -138,22 +138,8 @@ namespace BitChatClient.Network.SecureChannel
             SecureChannelPacket.KeyExchange clientKeyExchange = new SecureChannelPacket.KeyExchange(keyAgreement.GetPublicKeyXML(), clientCredentials.PrivateKey, hashAlgo);
             SecureChannelPacket.WritePacket(stream, clientKeyExchange);
 
-            //generate: master key = HMAC(client hello + server hello + psk, derived key)
-            using (MemoryStream mS = new MemoryStream(128))
-            {
-                clientHello.WriteTo(mS);
-                serverHello.WriteTo(mS);
-
-                if (!string.IsNullOrEmpty(preSharedKey))
-                {
-                    byte[] psk = System.Text.Encoding.UTF8.GetBytes(preSharedKey);
-                    mS.Write(psk, 0, psk.Length);
-                }
-
-                keyAgreement.HmacMessage = mS.ToArray();
-            }
-
-            byte[] masterKey = keyAgreement.DeriveKeyMaterial(serverKeyExchange.PublicKeyXML);
+            //generate master key
+            byte[] masterKey = GenerateMasterKey(clientHello, serverHello, _preSharedKey, keyAgreement, serverKeyExchange.PublicKeyXML);
 
             //enable channel encryption
             switch (encAlgo)
@@ -182,7 +168,7 @@ namespace BitChatClient.Network.SecureChannel
 
             #region 3. exchange & verify certificates & signatures
 
-            if (!_reNegotiate)
+            if (!_reNegotiating)
             {
                 //send client certificate
                 SecureChannelPacket.WritePacket(this, clientCredentials.Certificate);
