@@ -19,6 +19,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
 using System.IO;
+using System.Net;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatClient.Network.SecureChannel
 {
@@ -41,26 +43,34 @@ namespace BitChatClient.Network.SecureChannel
         #region variable
 
         SecureChannelCode _code;
+        IPEndPoint _peerEP;
+        Certificate _peerCertificate;
 
         #endregion
 
         #region constructor
 
-        public SecureChannelException(SecureChannelCode code)
+        public SecureChannelException(SecureChannelCode code, IPEndPoint peerEP, Certificate peerCertificate)
         {
             _code = code;
+            _peerEP = peerEP;
+            _peerCertificate = peerCertificate;
         }
 
-        public SecureChannelException(SecureChannelCode code, string message)
+        public SecureChannelException(SecureChannelCode code, IPEndPoint peerEP, Certificate peerCertificate, string message)
             : base(message)
         {
             _code = code;
+            _peerEP = peerEP;
+            _peerCertificate = peerCertificate;
         }
 
-        public SecureChannelException(SecureChannelCode code, string message, Exception innerException)
+        public SecureChannelException(SecureChannelCode code, IPEndPoint peerEP, Certificate peerCertificate, string message, Exception innerException)
             : base(message, innerException)
         {
             _code = code;
+            _peerEP = peerEP;
+            _peerCertificate = peerCertificate;
         }
 
         public SecureChannelException(System.Runtime.Serialization.SerializationInfo info, System.Runtime.Serialization.StreamingContext context)
@@ -73,6 +83,12 @@ namespace BitChatClient.Network.SecureChannel
 
         public SecureChannelCode Code
         { get { return _code; } }
+
+        public IPEndPoint PeerEP
+        { get { return _peerEP; } }
+
+        public Certificate PeerCertificate
+        { get { return _peerCertificate; } }
 
         #endregion
     }

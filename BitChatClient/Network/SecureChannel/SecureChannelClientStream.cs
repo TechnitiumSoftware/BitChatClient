@@ -65,7 +65,7 @@ namespace BitChatClient.Network.SecureChannel
                         break;
 
                     default:
-                        throw new SecureChannelException(SecureChannelCode.ProtocolVersionNotSupported, "SecureChannel protocol version '" + _version + "' not supported.");
+                        throw new SecureChannelException(SecureChannelCode.ProtocolVersionNotSupported, _remotePeerEP, _remotePeerCert, "SecureChannel protocol version '" + _version + "' not supported.");
                 }
             }
             catch (SecureChannelException ex)
@@ -80,7 +80,7 @@ namespace BitChatClient.Network.SecureChannel
                 catch
                 { }
 
-                throw;
+                throw new SecureChannelException(ex.Code, _remotePeerEP, _remotePeerCert, ex.Message, ex.InnerException);
             }
         }
 
@@ -103,7 +103,7 @@ namespace BitChatClient.Network.SecureChannel
             _selectedCryptoOption = supportedOptions & serverHello.CryptoOptions;
 
             if (_selectedCryptoOption == SecureChannelCryptoOptionFlags.None)
-                throw new SecureChannelException(SecureChannelCode.NoMatchingCryptoAvailable);
+                throw new SecureChannelException(SecureChannelCode.NoMatchingCryptoAvailable, _remotePeerEP, _remotePeerCert);
 
             #endregion
 
@@ -131,7 +131,7 @@ namespace BitChatClient.Network.SecureChannel
                     break;
 
                 default:
-                    throw new SecureChannelException(SecureChannelCode.NoMatchingCryptoAvailable);
+                    throw new SecureChannelException(SecureChannelCode.NoMatchingCryptoAvailable, _remotePeerEP, _remotePeerCert);
             }
 
             //send client key exchange data
@@ -155,11 +155,11 @@ namespace BitChatClient.Network.SecureChannel
                     SymmetricCryptoKey decryptionKey = new SymmetricCryptoKey(SymmetricEncryptionAlgorithm.Rijndael, masterKey, dIV, PaddingMode.None);
 
                     //enable encryption
-                    EnableEncryption(stream, encryptionKey, decryptionKey, new HMACSHA256(masterKey));
+                    EnableEncryption(stream, encryptionKey, decryptionKey, new HMACSHA256(masterKey), new HMACSHA256(masterKey));
                     break;
 
                 default:
-                    throw new SecureChannelException(SecureChannelCode.NoMatchingCryptoAvailable);
+                    throw new SecureChannelException(SecureChannelCode.NoMatchingCryptoAvailable, _remotePeerEP, _remotePeerCert);
             }
 
             //channel encryption is ON!
@@ -183,7 +183,7 @@ namespace BitChatClient.Network.SecureChannel
                 }
                 catch (Exception ex)
                 {
-                    throw new SecureChannelException(SecureChannelCode.InvalidRemoteCertificate, "Invalid remote certificate.", ex);
+                    throw new SecureChannelException(SecureChannelCode.InvalidRemoteCertificate, _remotePeerEP, _remotePeerCert, "Invalid remote certificate.", ex);
                 }
             }
 
@@ -193,19 +193,19 @@ namespace BitChatClient.Network.SecureChannel
                 case SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256:
                 case SecureChannelCryptoOptionFlags.ECDHE256_RSA_WITH_AES256_CBC_HMAC_SHA256:
                     if (_remotePeerCert.PublicKeyEncryptionAlgorithm != AsymmetricEncryptionAlgorithm.RSA)
-                        throw new SecureChannelException(SecureChannelCode.InvalidRemoteCertificateAlgorithm);
+                        throw new SecureChannelException(SecureChannelCode.InvalidRemoteCertificateAlgorithm, _remotePeerEP, _remotePeerCert);
 
                     if (!serverKeyExchange.IsSignatureValid(_remotePeerCert, "SHA256"))
-                        throw new SecureChannelException(SecureChannelCode.InvalidRemoteKeyExchangeSignature);
+                        throw new SecureChannelException(SecureChannelCode.InvalidRemoteKeyExchangeSignature, _remotePeerEP, _remotePeerCert);
 
                     break;
 
                 default:
-                    throw new SecureChannelException(SecureChannelCode.NoMatchingCryptoAvailable);
+                    throw new SecureChannelException(SecureChannelCode.NoMatchingCryptoAvailable, _remotePeerEP, _remotePeerCert);
             }
 
             if ((manager != null) && !manager.ProceedConnection(_remotePeerCert))
-                throw new SecureChannelException(SecureChannelCode.SecurityManagerDeclinedAccess, "Security manager declined access.");
+                throw new SecureChannelException(SecureChannelCode.SecurityManagerDeclinedAccess, _remotePeerEP, _remotePeerCert, "Security manager declined access.");
 
             #endregion
         }
@@ -225,7 +225,7 @@ namespace BitChatClient.Network.SecureChannel
                         break;
 
                     default:
-                        throw new SecureChannelException(SecureChannelCode.ProtocolVersionNotSupported, "SecureChannel protocol version '" + _version + "' not supported.");
+                        throw new SecureChannelException(SecureChannelCode.ProtocolVersionNotSupported, _remotePeerEP, _remotePeerCert, "SecureChannel protocol version '" + _version + "' not supported.");
                 }
             }
             catch (SecureChannelException ex)
