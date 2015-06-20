@@ -33,7 +33,7 @@
             this.label2 = new System.Windows.Forms.Label();
             this.txtPassword = new System.Windows.Forms.TextBox();
             this.btnOK = new System.Windows.Forms.Button();
-            this.btnClose = new System.Windows.Forms.Button();
+            this.btnOptions = new System.Windows.Forms.Button();
             this.label4 = new System.Windows.Forms.Label();
             this.labProfileName = new System.Windows.Forms.Label();
             this.lnkForgotPassword = new System.Windows.Forms.LinkLabel();
@@ -80,16 +80,16 @@
             this.btnOK.UseVisualStyleBackColor = true;
             this.btnOK.Click += new System.EventHandler(this.btnOK_Click);
             // 
-            // btnClose
+            // btnOptions
             // 
-            this.btnClose.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnClose.Location = new System.Drawing.Point(397, 110);
-            this.btnClose.Name = "btnClose";
-            this.btnClose.Size = new System.Drawing.Size(75, 23);
-            this.btnClose.TabIndex = 4;
-            this.btnClose.Text = "&Close";
-            this.btnClose.UseVisualStyleBackColor = true;
-            this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
+            this.btnOptions.DialogResult = System.Windows.Forms.DialogResult.Cancel;
+            this.btnOptions.Location = new System.Drawing.Point(397, 110);
+            this.btnOptions.Name = "btnOptions";
+            this.btnOptions.Size = new System.Drawing.Size(75, 23);
+            this.btnOptions.TabIndex = 4;
+            this.btnOptions.Text = "&Options";
+            this.btnOptions.UseVisualStyleBackColor = true;
+            this.btnOptions.Click += new System.EventHandler(this.btnOptions_Click);
             // 
             // label4
             // 
@@ -138,13 +138,13 @@
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
-            this.CancelButton = this.btnClose;
+            this.CancelButton = this.btnOptions;
             this.ClientSize = new System.Drawing.Size(484, 141);
             this.Controls.Add(this.pictureBox1);
             this.Controls.Add(this.lnkForgotPassword);
             this.Controls.Add(this.labProfileName);
             this.Controls.Add(this.label4);
-            this.Controls.Add(this.btnClose);
+            this.Controls.Add(this.btnOptions);
             this.Controls.Add(this.btnOK);
             this.Controls.Add(this.txtPassword);
             this.Controls.Add(this.label2);
@@ -169,7 +169,7 @@
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.TextBox txtPassword;
         private System.Windows.Forms.Button btnOK;
-        private System.Windows.Forms.Button btnClose;
+        private System.Windows.Forms.Button btnOptions;
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.Label labProfileName;
         private System.Windows.Forms.LinkLabel lnkForgotPassword;

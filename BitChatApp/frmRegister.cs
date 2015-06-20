@@ -237,7 +237,7 @@ namespace BitChatApp
             {
                 _profile.LocalCertificateStore.Certificate = Registration.GetSignedCertificate(Program.SIGNUP_URI, _profile.LocalCertificateStore);
 
-                using (FileStream fS = new FileStream(_profileFilePath, FileMode.Create, FileAccess.Write))
+                using (FileStream fS = new FileStream(_profileFilePath, FileMode.Create, FileAccess.ReadWrite))
                 {
                     _profile.WriteTo(fS);
                 }
@@ -268,7 +268,7 @@ namespace BitChatApp
 
                 _profileFilePath = Path.Combine(_localAppData, _profile.LocalCertificateStore.Certificate.IssuedTo.Name + ".profile");
 
-                using (FileStream fS = new FileStream(_profileFilePath, FileMode.Create, FileAccess.Write))
+                using (FileStream fS = new FileStream(_profileFilePath, FileMode.Create, FileAccess.ReadWrite))
                 {
                     _profile.WriteTo(fS);
                 }

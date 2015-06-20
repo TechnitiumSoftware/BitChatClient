@@ -27,6 +27,7 @@ using BitChatClient;
 using System.IO;
 using TechnitiumLibrary.Security.Cryptography;
 using TechnitiumLibrary.Net;
+using BitChatClient.Network.SecureChannel;
 
 namespace BitChatApp.UserControls
 {
@@ -64,6 +65,7 @@ namespace BitChatApp.UserControls
             _chat.MessageReceived += _chat_MessageReceived;
             _chat.PeerAdded += _chat_PeerAdded;
             _chat.PeerHasRevokedCertificate += _chat_PeerHasRevokedCertificate;
+            _chat.PeerSecureChannelException += _chat_PeerSecureChannelException;
 
             this.Title = _chat.NetworkName;
         }
@@ -97,6 +99,25 @@ namespace BitChatApp.UserControls
         private void _chat_PeerHasRevokedCertificate(BitChat sender, InvalidCertificateException ex)
         {
             AddMessage(new ChatMessageInfoItem(ex.Message));
+        }
+
+        private void _chat_PeerSecureChannelException(BitChat sender, SecureChannelException ex)
+        {
+            string peerInfo;
+
+            if (ex.PeerCertificate == null)
+                peerInfo = "[" + ex.PeerEP.ToString() + "]";
+            else
+                peerInfo = ex.PeerCertificate.IssuedTo.Name + " <" + ex.PeerCertificate.IssuedTo.EmailAddress.Address + "> [" + ex.PeerEP.ToString() + "]";
+
+            string desc;
+
+            if (ex.Code == SecureChannelCode.RemoteError)
+                desc = "RemoteError: " + (ex.InnerException as SecureChannelException).Code.ToString();
+            else
+                desc = ex.Code.ToString();
+
+            AddMessage(new ChatMessageInfoItem("Secure channel with peer '" + peerInfo + "' encountered '" + desc + "' exception.", DateTime.Now));
         }
 
         private void _chat_MessageReceived(BitChat.Peer sender, string message)
