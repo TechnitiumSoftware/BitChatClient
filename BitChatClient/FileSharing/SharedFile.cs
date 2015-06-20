@@ -153,8 +153,6 @@ namespace BitChatClient.FileSharing
 
         internal static SharedFile LoadFile(string filePath, SharedFileMetaData metaData, FileBlockState[] blockAvailable, bool isPaused, BitChat chat, SynchronizationContext syncCxt)
         {
-            FileStream fS = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
-
             //check if file already shared
             lock (_sharedFiles)
             {
@@ -162,7 +160,6 @@ namespace BitChatClient.FileSharing
 
                 if (_sharedFiles.ContainsKey(metaData.FileID))
                 {
-                    fS.Dispose();
                     sharedFile = _sharedFiles[metaData.FileID];
                 }
                 else
@@ -174,6 +171,13 @@ namespace BitChatClient.FileSharing
                         if (blockAvailable[i] == FileBlockState.Available)
                             availableBlocksCount++;
                     }
+
+                    FileStream fS;
+
+                    if (blockAvailable.Length == availableBlocksCount)
+                        fS = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    else
+                        fS = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite);
 
                     sharedFile = new SharedFile(fS, metaData, blockAvailable, availableBlocksCount, syncCxt);
                     sharedFile._state = SharedFileState.Paused;
@@ -307,7 +311,7 @@ namespace BitChatClient.FileSharing
 
         private void RaiseEventFileDownloadStarted()
         {
-            _syncCxt.Send(new SendOrPostCallback(FileDownloadStartedCallback), null);
+            _syncCxt.Post(new SendOrPostCallback(FileDownloadStartedCallback), null);
         }
 
         private void FileDownloadStartedCallback(object obj)
@@ -321,7 +325,7 @@ namespace BitChatClient.FileSharing
 
         private void RaiseEventFileDownloaded()
         {
-            _syncCxt.Send(new SendOrPostCallback(FileDownloadedCallback), null);
+            _syncCxt.Post(new SendOrPostCallback(FileDownloadedCallback), null);
         }
 
         private void FileDownloadedCallback(object obj)
@@ -338,7 +342,7 @@ namespace BitChatClient.FileSharing
             if (_isComplete)
                 return;
 
-            _syncCxt.Send(new SendOrPostCallback(BlockDownloadedCallback), null);
+            _syncCxt.Post(new SendOrPostCallback(BlockDownloadedCallback), null);
         }
 
         private void BlockDownloadedCallback(object obj)
@@ -380,7 +384,7 @@ namespace BitChatClient.FileSharing
 
         private void RaiseEventFileRemoved()
         {
-            _syncCxt.Send(new SendOrPostCallback(FileRemovedCallback), null);
+            _syncCxt.Post(new SendOrPostCallback(FileRemovedCallback), null);
         }
 
         private void FileRemovedCallback(object obj)
@@ -640,7 +644,7 @@ namespace BitChatClient.FileSharing
                     {
                         if ((DateTime.UtcNow - download.LastResponse).TotalSeconds > DOWNLOAD_INACTIVE_INTERVAL_SECONDS)
                         {
-                            Debug.Write("SharedFile.DownloadMonitorAsync", "InactiveBlock: " + download.BlockNumber);
+                            //Debug.Write("SharedFile.DownloadMonitorAsync", "InactiveBlock: " + download.BlockNumber);
 
                             if (!download.IsDownloadPeerSet())
                             {
@@ -776,7 +780,7 @@ namespace BitChatClient.FileSharing
                     if (WriteBlock(downloadedBlock))
                     {
                         //block downloaded
-                        Debug.Write("SharedFile.BlockDownloaded", "block: " + downloadedBlock.BlockNumber);
+                        //Debug.Write("SharedFile.BlockDownloaded", "block: " + downloadedBlock.BlockNumber);
 
                         if (BlockDownloaded != null)
                             RaiseEventBlockDownloaded();
@@ -829,7 +833,7 @@ namespace BitChatClient.FileSharing
                         SendFileAdvertisement();
 
                         //notify event to UI
-                        Debug.Write("SharedFile.BlockDownloaded", "COMPLETED!");
+                        //Debug.Write("SharedFile.BlockDownloaded", "COMPLETED!");
 
                         if (FileDownloaded != null)
                             RaiseEventFileDownloaded();
