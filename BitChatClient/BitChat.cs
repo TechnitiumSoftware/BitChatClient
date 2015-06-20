@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using BitChatClient.FileSharing;
 using BitChatClient.Network;
+using BitChatClient.Network.SecureChannel;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -33,6 +34,7 @@ namespace BitChatClient
     public delegate void PeerHasRevokedCertificate(BitChat sender, InvalidCertificateException ex);
     public delegate void MessageReceived(BitChat.Peer sender, string message);
     public delegate void FileAdded(BitChat sender, SharedFile sharedFile);
+    public delegate void PeerSecureChannelException(BitChat sender, SecureChannelException ex);
 
     public enum BitChatNetworkStatus
     {
@@ -47,6 +49,7 @@ namespace BitChatClient
 
         public event PeerAdded PeerAdded;
         public event PeerHasRevokedCertificate PeerHasRevokedCertificate;
+        public event PeerSecureChannelException PeerSecureChannelException;
         public event MessageReceived MessageReceived;
         public event FileAdded FileAdded;
         public event EventHandler Leave;
@@ -98,6 +101,7 @@ namespace BitChatClient
             _network = network;
             _network.VirtualPeerAdded += _network_VirtualPeerAdded;
             _network.VirtualPeerHasRevokedCertificate += _network_VirtualPeerHasRevokedCertificate;
+            _network.VirtualPeerSecureChannelException += _network_VirtualPeerSecureChannelException;
 
             foreach (BitChatNetwork.VirtualPeer virtualPeer in _network.GetVirtualPeerList())
             {
@@ -177,7 +181,7 @@ namespace BitChatClient
 
         private void RaiseEventPeerAdded(Peer peer)
         {
-            _syncCxt.Send(PeerAddedCallback, peer);
+            _syncCxt.Post(PeerAddedCallback, peer);
         }
 
         private void PeerAddedCallback(object state)
@@ -191,7 +195,7 @@ namespace BitChatClient
 
         private void RaiseEventPeerHasRevokedCertificate(InvalidCertificateException ex)
         {
-            _syncCxt.Send(PeerHasRevokedCertificateCallback, ex);
+            _syncCxt.Post(PeerHasRevokedCertificateCallback, ex);
         }
 
         private void PeerHasRevokedCertificateCallback(object state)
@@ -203,9 +207,23 @@ namespace BitChatClient
             catch { }
         }
 
+        private void RaiseEventPeerSecureChannelException(SecureChannelException ex)
+        {
+            _syncCxt.Post(PeerSecureChannelExceptionCallback, ex);
+        }
+
+        private void PeerSecureChannelExceptionCallback(object state)
+        {
+            try
+            {
+                PeerSecureChannelException(this, state as SecureChannelException);
+            }
+            catch { }
+        }
+
         private void RaiseEventMessageReceived(Peer peer, string message)
         {
-            _syncCxt.Send(MessageReceivedCallback, new object[] { peer, message });
+            _syncCxt.Post(MessageReceivedCallback, new object[] { peer, message });
         }
 
         private void MessageReceivedCallback(object state)
@@ -219,7 +237,7 @@ namespace BitChatClient
 
         private void RaiseEventFileAdded(SharedFile file)
         {
-            _syncCxt.Send(FileAddedCallback, file);
+            _syncCxt.Post(FileAddedCallback, file);
         }
 
         private void FileAddedCallback(object state)
@@ -233,7 +251,7 @@ namespace BitChatClient
 
         private void RaiseEventLeave()
         {
-            _syncCxt.Send(LeaveCallback, null);
+            _syncCxt.Post(LeaveCallback, null);
         }
 
         private void LeaveCallback(object state)
@@ -386,6 +404,12 @@ namespace BitChatClient
         {
             if (PeerHasRevokedCertificate != null)
                 RaiseEventPeerHasRevokedCertificate(ex);
+        }
+
+        private void _network_VirtualPeerSecureChannelException(BitChatNetwork sender, SecureChannelException ex)
+        {
+            if (PeerSecureChannelException != null)
+                RaiseEventPeerSecureChannelException(ex);
         }
 
         private void SendFileAdvertisement(SharedFile sharedFile)
@@ -779,7 +803,7 @@ namespace BitChatClient
 
             private void RaiseEventStateChanged()
             {
-                _bitchat._syncCxt.Send(StateChangedCallback, null);
+                _bitchat._syncCxt.Post(StateChangedCallback, null);
             }
 
             private void StateChangedCallback(object state)
@@ -793,7 +817,7 @@ namespace BitChatClient
 
             internal void RaiseEventNetworkStatusUpdated()
             {
-                _bitchat._syncCxt.Send(NetworkStatusUpdatedCallBack, null);
+                _bitchat._syncCxt.Post(NetworkStatusUpdatedCallBack, null);
             }
 
             private void NetworkStatusUpdatedCallBack(object state)

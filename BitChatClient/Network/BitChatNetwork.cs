@@ -33,6 +33,7 @@ namespace BitChatClient.Network
     delegate void VirtualPeerAdded(BitChatNetwork sender, BitChatNetwork.VirtualPeer virtualPeer);
     delegate void VirtualPeerHasRevokedCertificate(BitChatNetwork sender, InvalidCertificateException ex);
     delegate void VirtualPeerPacketReceived(BitChatNetwork.VirtualPeer sender, Stream packetDataStream, IPEndPoint remotePeerEP);
+    delegate void VirtualPeerSecureChannelException(BitChatNetwork sender, SecureChannelException ex);
 
     class BitChatNetwork : IDisposable
     {
@@ -40,6 +41,7 @@ namespace BitChatClient.Network
 
         public event VirtualPeerAdded VirtualPeerAdded;
         public event VirtualPeerHasRevokedCertificate VirtualPeerHasRevokedCertificate;
+        public event VirtualPeerSecureChannelException VirtualPeerSecureChannelException;
 
         #endregion
 
@@ -68,12 +70,12 @@ namespace BitChatClient.Network
 
             //load self as virtual peer
             Certificate selfCert = networkManager.GetLocalCredentials().Certificate;
-            _selfPeer = new VirtualPeer(selfCert);
+            _selfPeer = new VirtualPeer(selfCert, this);
             _virtualPeers.Add(selfCert.IssuedTo.EmailAddress.Address, _selfPeer);
 
             //load known peers
             foreach (Certificate knownPeerCert in knownPeerCerts)
-                _virtualPeers.Add(knownPeerCert.IssuedTo.EmailAddress.Address, new VirtualPeer(knownPeerCert));
+                _virtualPeers.Add(knownPeerCert.IssuedTo.EmailAddress.Address, new VirtualPeer(knownPeerCert, this));
 
             //compute network id
             _networkID = new BinaryID(PBKDF2.CreateHMACSHA256(_sharedSecret, Encoding.UTF8.GetBytes(_networkName.ToLower()), 1000).GetBytes(20));
@@ -146,6 +148,13 @@ namespace BitChatClient.Network
                     SecureChannelStream secureChannel = new SecureChannelClientStream(channel, connection.RemotePeerEP, _networkManager.GetLocalCredentials(), _networkManager.GetTrustedRootCertificates(), _securityManager, _networkManager.GetSupportedCryptoOptions(), _networkManager.GetReNegotiateOnBytesSent(), _networkManager.GetReNegotiateAfterSeconds(), _sharedSecret);
 
                     JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel, _networkManager.CheckCertificateRevocationList());
+                }
+                catch (SecureChannelException ex)
+                {
+                    if (VirtualPeerSecureChannelException != null)
+                        VirtualPeerSecureChannelException(this, ex);
+
+                    channel.Dispose();
                 }
                 catch
                 {
@@ -258,7 +267,7 @@ namespace BitChatClient.Network
                 }
                 else
                 {
-                    vPeer = new VirtualPeer(peerStream.RemotePeerCertificate);
+                    vPeer = new VirtualPeer(peerStream.RemotePeerCertificate, this);
                     _virtualPeers.Add(peerID, vPeer);
 
                     peerAdded = true;
@@ -380,6 +389,7 @@ namespace BitChatClient.Network
             const int MAX_BUFFER_SIZE = 65532;
 
             Certificate _peerCert;
+            BitChatNetwork _network;
             bool _isOnline;
 
             List<SecureChannelStream> _streamList = new List<SecureChannelStream>();
@@ -389,9 +399,10 @@ namespace BitChatClient.Network
 
             #region constructor
 
-            internal VirtualPeer(Certificate peerCert)
+            internal VirtualPeer(Certificate peerCert, BitChatNetwork network)
             {
                 _peerCert = peerCert;
+                _network = network;
             }
 
             #endregion
@@ -467,8 +478,15 @@ namespace BitChatClient.Network
                         { }
                     }
                 }
-                catch
-                { }
+                catch (SecureChannelException ex)
+                {
+                    if (_network.VirtualPeerSecureChannelException != null)
+                        _network.VirtualPeerSecureChannelException(_network, ex);
+                }
+                catch (Exception ex)
+                {
+                    Debug.Write("VirtualPeer.ReadPacketAsync", ex);
+                }
                 finally
                 {
                     int totalStreamsAvailable;
@@ -521,8 +539,10 @@ namespace BitChatClient.Network
                             stream.Write(data, offset, count);
                             stream.Flush();
                         }
-                        catch
-                        { }
+                        catch (Exception ex)
+                        {
+                            Debug.Write("VirtualPeer.WritePacket", ex);
+                        }
                     }
                 }
             }
