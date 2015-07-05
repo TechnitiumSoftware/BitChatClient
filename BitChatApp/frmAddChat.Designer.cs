@@ -30,7 +30,7 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmAddChat));
             this.label1 = new System.Windows.Forms.Label();
-            this.txtNetworkName = new System.Windows.Forms.TextBox();
+            this.txtNetworkNameOrPeerEmailAddress = new System.Windows.Forms.TextBox();
             this.txtPassword = new System.Windows.Forms.TextBox();
             this.label2 = new System.Windows.Forms.Label();
             this.btnOK = new System.Windows.Forms.Button();
@@ -41,20 +41,20 @@
             // 
             // label1
             // 
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(92, 15);
+            this.label1.Location = new System.Drawing.Point(38, 15);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(60, 13);
+            this.label1.Size = new System.Drawing.Size(114, 17);
             this.label1.TabIndex = 0;
             this.label1.Text = "Chat Name";
+            this.label1.TextAlign = System.Drawing.ContentAlignment.TopRight;
             // 
-            // txtNetworkName
+            // txtNetworkNameOrPeerEmailAddress
             // 
-            this.txtNetworkName.Location = new System.Drawing.Point(158, 12);
-            this.txtNetworkName.MaxLength = 50;
-            this.txtNetworkName.Name = "txtNetworkName";
-            this.txtNetworkName.Size = new System.Drawing.Size(207, 20);
-            this.txtNetworkName.TabIndex = 1;
+            this.txtNetworkNameOrPeerEmailAddress.Location = new System.Drawing.Point(158, 12);
+            this.txtNetworkNameOrPeerEmailAddress.MaxLength = 50;
+            this.txtNetworkNameOrPeerEmailAddress.Name = "txtNetworkNameOrPeerEmailAddress";
+            this.txtNetworkNameOrPeerEmailAddress.Size = new System.Drawing.Size(207, 20);
+            this.txtNetworkNameOrPeerEmailAddress.TabIndex = 1;
             // 
             // txtPassword
             // 
@@ -129,7 +129,7 @@
             this.Controls.Add(this.btnOK);
             this.Controls.Add(this.txtPassword);
             this.Controls.Add(this.label2);
-            this.Controls.Add(this.txtNetworkName);
+            this.Controls.Add(this.txtNetworkNameOrPeerEmailAddress);
             this.Controls.Add(this.label1);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -147,7 +147,7 @@
         #endregion
 
         private System.Windows.Forms.Label label1;
-        public System.Windows.Forms.TextBox txtNetworkName;
+        public System.Windows.Forms.TextBox txtNetworkNameOrPeerEmailAddress;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.Button btnOK;
         private System.Windows.Forms.Button btnCancel;

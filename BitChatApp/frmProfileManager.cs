@@ -128,6 +128,7 @@ namespace BitChatApp
         private void lstProfiles_SelectedIndexChanged(object sender, EventArgs e)
         {
             btnStart.Enabled = (lstProfiles.SelectedItem != null);
+            btnReIssueProfile.Enabled = btnStart.Enabled;
             btnDeleteProfile.Enabled = btnStart.Enabled;
             btnExportProfile.Enabled = btnStart.Enabled;
         }
@@ -179,6 +180,38 @@ namespace BitChatApp
             }
 
             this.Show();
+        }
+
+        private void btnReIssueProfile_Click(object sender, EventArgs e)
+        {
+            if (MessageBox.Show("Reissuing a profile certificate will allow you register again with the same email address and change your information in the profile certificate while keeping all your profile settings intact.\r\n\r\nAre you sure you want to reissue the selected profile?\r\n\r\nWarning! This will revoke the previously issued profile certificate however, your settings will remain intact.", "Reissue Profile Certificate?", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == System.Windows.Forms.DialogResult.Yes)
+            {
+                this.Hide();
+
+                _profileFilePath = Path.Combine(_localAppData, (lstProfiles.SelectedItem as string) + ".profile");
+
+                using (frmPassword frm = new frmPassword(_profileFilePath))
+                {
+                    if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
+                    {
+                        _profile = frm.Profile;
+
+                        using (frmRegister frmReg = new frmRegister(_localAppData, _profile, _profileFilePath, true))
+                        {
+                            if (frmReg.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
+                            {
+                                _profile = frmReg.Profile;
+                                _profileFilePath = frmReg.ProfileFilePath;
+
+                                string profileName = Path.GetFileNameWithoutExtension(_profileFilePath);
+                                lstProfiles.SelectedItem = profileName;
+                            }
+                        }
+                    }
+                }
+
+                this.Show();
+            }
         }
 
         private void btnDeleteProfile_Click(object sender, EventArgs e)

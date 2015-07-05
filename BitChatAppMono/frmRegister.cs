@@ -18,8 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 using BitChatClient;
-using TechnitiumLibrary.Net.BitTorrent;
-using TechnitiumLibrary.Security.Cryptography;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -28,9 +26,12 @@ using System.IO;
 using System.Net;
 using System.Net.Mail;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Windows.Forms;
+using TechnitiumLibrary.Net.BitTorrent;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatAppMono
 {
@@ -41,6 +42,8 @@ namespace BitChatAppMono
         BitChatProfile _profile;
         string _profileFilePath;
         string _localAppData;
+
+        RSAParameters _parameters;
 
         #endregion
 
@@ -53,20 +56,63 @@ namespace BitChatAppMono
             InitializeComponent();
         }
 
-        public frmRegister(BitChatProfile profile, string profileFilePath)
+        public frmRegister(string localAppData, BitChatProfile profile, string profileFilePath, bool reissue)
         {
+            _localAppData = localAppData;
             _profile = profile;
             _profileFilePath = profileFilePath;
 
             InitializeComponent();
 
-            pnlRegister.Visible = false;
-            pnlDownloadCert.Visible = true;
+            if (reissue)
+            {
+                CertificateProfile certProfile = _profile.LocalCertificateStore.Certificate.IssuedTo;
+
+                txtName.Text = certProfile.Name;
+                txtEmail.Text = certProfile.EmailAddress.Address;
+                txtEmail.ReadOnly = true;
+
+                if (certProfile.Website != null)
+                    txtWebsite.Text = certProfile.Website.AbsoluteUri;
+
+                txtPhone.Text = certProfile.PhoneNumber;
+                txtStreetAddress.Text = certProfile.StreetAddress;
+                txtCity.Text = certProfile.City;
+                txtState.Text = certProfile.State;
+                txtCountry.Text = certProfile.Country;
+                txtPostalCode.Text = certProfile.PostalCode;
+            }
+            else
+            {
+                lblRegisteredEmail.Text = _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address;
+
+                pnlRegister.Visible = false;
+                pnlDownloadCert.Visible = true;
+            }
         }
 
         #endregion
 
         #region private
+
+        private void rbImportRSA_CheckedChanged(object sender, EventArgs e)
+        {
+            if (rbImportRSA.Checked)
+            {
+                using (frmImportPEM frm = new frmImportPEM())
+                {
+                    if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
+                    {
+                        _parameters = frm.Parameters;
+                    }
+                    else
+                    {
+                        rbAutoGenRSA.Checked = true;
+                        rbImportRSA.Checked = false;
+                    }
+                }
+            }
+        }
 
         private void btnBack_Click(object sender, EventArgs e)
         {
@@ -200,7 +246,12 @@ namespace BitChatAppMono
 
             pnlRegister.Visible = false;
             lblPanelTitle.Text = "Registering...";
-            lblPanelMessage.Text = "Please wait while we generate your profile private key and register your profile certificate.\r\n\r\nRegistering on " + Program.SIGNUP_URI.Host + " ...";
+
+            if (rbImportRSA.Checked)
+                lblPanelMessage.Text = "Please wait while we register your profile certificate.\r\n\r\nRegistering on https://" + Program.SIGNUP_URI.Host + " ...";
+            else
+                lblPanelMessage.Text = "Please wait while we generate your profile private key and register your profile certificate.\r\n\r\nRegistering on https://" + Program.SIGNUP_URI.Host + " ...";
+
             pnlMessages.Visible = true;
 
             Action<CertificateProfile> d = new Action<CertificateProfile>(RegisterAsync);
@@ -232,13 +283,19 @@ namespace BitChatAppMono
             try
             {
                 //register
-                AsymmetricCryptoKey privateKey = new AsymmetricCryptoKey(AsymmetricEncryptionAlgorithm.RSA, 4096);
+                AsymmetricCryptoKey privateKey;
+
+                if (rbImportRSA.Checked)
+                    privateKey = AsymmetricCryptoKey.CreateUsing(_parameters);
+                else
+                    privateKey = new AsymmetricCryptoKey(AsymmetricEncryptionAlgorithm.RSA, 4096);
+
                 Certificate selfSignedCert = new Certificate(CertificateType.RootCA, "", profile, CertificateCapability.SignCACertificate, DateTime.UtcNow, DateTime.UtcNow, AsymmetricEncryptionAlgorithm.RSA, privateKey.GetPublicKey());
                 selfSignedCert.SelfSign("SHA256", privateKey, null);
 
-                Registration.Register(Program.SIGNUP_URI, selfSignedCert);
+                if (_profile == null)
+                    _profile = new BitChatProfile(null, new IPEndPoint(IPAddress.Parse("0.0.0.0"), 0), Environment.GetFolderPath(Environment.SpecialFolder.Desktop), BitChatProfile.DefaultTrackerURIs);
 
-                _profile = new BitChatProfile(null, new IPEndPoint(IPAddress.Parse("0.0.0.0"), 0), Environment.GetFolderPath(Environment.SpecialFolder.Desktop), BitChatProfile.DefaultTrackerURIs);
                 _profile.LocalCertificateStore = new CertificateStore(selfSignedCert, privateKey);
                 _profile.SetPassword(SymmetricEncryptionAlgorithm.Rijndael, 256, txtProfilePassword.Text);
 
@@ -248,6 +305,8 @@ namespace BitChatAppMono
                 {
                     _profile.WriteTo(fS);
                 }
+
+                Registration.Register(Program.SIGNUP_URI, selfSignedCert);
 
                 this.Invoke(new Action<object>(RegistrationSuccess), new object[] { null });
             }
@@ -259,6 +318,8 @@ namespace BitChatAppMono
 
         private void RegistrationSuccess(object state)
         {
+            lblRegisteredEmail.Text = _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address;
+
             pnlMessages.Visible = false;
             pnlRegister.Visible = false;
             pnlDownloadCert.Visible = true;

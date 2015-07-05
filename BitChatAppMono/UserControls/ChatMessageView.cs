@@ -67,7 +67,17 @@ namespace BitChatAppMono.UserControls
             _chat.PeerHasRevokedCertificate += _chat_PeerHasRevokedCertificate;
             _chat.PeerSecureChannelException += _chat_PeerSecureChannelException;
 
-            this.Title = _chat.NetworkName;
+            if (_chat.NetworkType == BitChatClient.Network.BitChatNetworkType.PrivateChat)
+            {
+                if (_chat.NetworkName == null)
+                    this.Title = _chat.PeerEmailAddress.Address;
+                else
+                    this.Title = _chat.NetworkName + " <" + _chat.PeerEmailAddress.Address + ">";
+            }
+            else
+            {
+                this.Title = _chat.NetworkName;
+            }
         }
 
         #endregion
@@ -89,11 +99,23 @@ namespace BitChatAppMono.UserControls
 
             if (!_chatItem.Selected)
                 _chatItem.SetNewMessage(message);
+
+            if (_chat.NetworkType == BitChatClient.Network.BitChatNetworkType.PrivateChat)
+            {
+                _chatItem.SetTitle(peer.PeerCertificate.IssuedTo.Name);
+                this.Title = peer.PeerCertificate.IssuedTo.Name + " <" + peer.PeerCertificate.IssuedTo.EmailAddress.Address + ">";
+            }
         }
 
         private void _chat_PeerAdded(BitChat sender, BitChat.Peer peer)
         {
             AddMessage(new ChatMessageInfoItem(peer.PeerCertificate.IssuedTo.Name + " joined chat", DateTime.Now));
+
+            if (sender.NetworkType == BitChatClient.Network.BitChatNetworkType.PrivateChat)
+            {
+                _chatItem.SetTitle(peer.PeerCertificate.IssuedTo.Name);
+                this.Title = peer.PeerCertificate.IssuedTo.Name + " <" + peer.PeerCertificate.IssuedTo.EmailAddress.Address + ">";
+            }
         }
 
         private void _chat_PeerHasRevokedCertificate(BitChat sender, InvalidCertificateException ex)

@@ -120,6 +120,12 @@
   <metadata name="pnlRegister.Locked" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
     <value>True</value>
   </metadata>
+  <metadata name="rbImportRSA.Locked" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+    <value>True</value>
+  </metadata>
+  <metadata name="rbAutoGenRSA.Locked" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+    <value>True</value>
+  </metadata>
   <metadata name="linkLabel1.Locked" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
     <value>True</value>
   </metadata>
@@ -214,7 +220,7 @@
     <value>True</value>
   </metadata>
   <data name="label3.Text" xml:space="preserve">
-    <value>Enter your details below to register your profile (digital certificate) to use with Bit Chat. Your email address will be verified during this process. If any incorrect information is provided, your profile request will be rejected.</value>
+    <value>Enter your details below to register your profile certificate (digital certificate) to use with Bit Chat. Your email address will be verified during this process. The information that you provide here can be viewed by anyone you chat with using Bit Chat. It is recommended that you keep the details brief.</value>
   </data>
   <metadata name="pnlMessages.Locked" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
     <value>True</value>
@@ -226,6 +232,9 @@
     <value>True</value>
   </metadata>
   <metadata name="pnlDownloadCert.Locked" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
+    <value>True</value>
+  </metadata>
+  <metadata name="lblRegisteredEmail.Locked" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">
     <value>True</value>
   </metadata>
   <metadata name="label21.Locked" type="System.Boolean, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089">

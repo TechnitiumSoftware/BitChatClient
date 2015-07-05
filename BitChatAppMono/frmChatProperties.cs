@@ -39,9 +39,17 @@ namespace BitChatAppMono
         {
             InitializeComponent();
 
-            txtNetwork.Text = chat.NetworkName;
-
             _chat = chat;
+
+            if (_chat.NetworkType == BitChatClient.Network.BitChatNetworkType.PrivateChat)
+            {
+                label1.Text = "Peer's Email Address";
+                txtNetwork.Text = chat.PeerEmailAddress.Address;
+            }
+            else
+            {
+                txtNetwork.Text = chat.NetworkName;
+            }
 
             foreach (TrackerClient tracker in _chat.GetTrackers())
             {

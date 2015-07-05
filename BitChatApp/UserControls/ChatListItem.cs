@@ -85,6 +85,11 @@ namespace BitChatApp.UserControls
 
         #region public
 
+        public void SetTitle(string title)
+        {
+            labTitle.Text = title;
+        }
+
         public void SetNewMessage(string message)
         {
             labLastMessage.Text = message;
