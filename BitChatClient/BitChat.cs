@@ -24,6 +24,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.Mail;
 using System.Threading;
 using TechnitiumLibrary.Net.BitTorrent;
 using TechnitiumLibrary.Security.Cryptography;
@@ -297,7 +298,10 @@ namespace BitChatClient
                     trackerURIs.Add(tracker.TrackerUri);
             }
 
-            return new BitChatProfile.BitChatInfo(_network.NetworkName, _network.SharedSecret, peerCerts.ToArray(), sharedFileInfo.ToArray(), trackerURIs.ToArray());
+            if (_network.Type == BitChatNetworkType.PrivateChat)
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.PeerEmailAddress.Address, _network.SharedSecret, peerCerts.ToArray(), sharedFileInfo.ToArray(), trackerURIs.ToArray());
+            else
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, peerCerts.ToArray(), sharedFileInfo.ToArray(), trackerURIs.ToArray());
         }
 
         public BitChat.Peer[] GetPeerList()
@@ -746,6 +750,12 @@ namespace BitChatClient
         #endregion
 
         #region properties
+
+        public BitChatNetworkType NetworkType
+        { get { return _network.Type; } }
+
+        public MailAddress PeerEmailAddress
+        { get { return _network.PeerEmailAddress; } }
 
         public string NetworkName
         { get { return _network.NetworkName; } }

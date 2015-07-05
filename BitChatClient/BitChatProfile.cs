@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 using BitChatClient.FileSharing;
+using BitChatClient.Network;
 using System;
 using System.IO;
 using System.Net;
@@ -303,7 +304,8 @@ namespace BitChatClient
         {
             #region variables
 
-            string _networkName;
+            BitChatNetworkType _type;
+            string _networkNameOrPeerEmailAddress;
             string _sharedSecret;
             Certificate[] _peerCerts;
             SharedFileInfo[] _sharedFiles;
@@ -313,9 +315,10 @@ namespace BitChatClient
 
             #region constructor
 
-            public BitChatInfo(string networkName, string sharedSecret, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs)
+            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs)
             {
-                _networkName = networkName;
+                _type = type;
+                _networkNameOrPeerEmailAddress = networkNameOrPeerEmailAddress;
                 _sharedSecret = sharedSecret;
                 _peerCerts = peerCerts;
                 _sharedFiles = sharedFiles;
@@ -333,7 +336,13 @@ namespace BitChatClient
                 {
                     case 1:
                     case 2:
-                        _networkName = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
+                    case 3:
+                        if (version > 2)
+                            _type = (BitChatNetworkType)bR.ReadByte();
+                        else
+                            _type = BitChatNetworkType.GroupChat;
+
+                        _networkNameOrPeerEmailAddress = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
                         _sharedSecret = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
 
                         _peerCerts = new Certificate[bR.ReadByte()];
@@ -366,11 +375,13 @@ namespace BitChatClient
             public override void WriteTo(BinaryWriter bW)
             {
                 bW.Write(Encoding.ASCII.GetBytes("BI"));
-                bW.Write((byte)2);
+                bW.Write((byte)3);
+
+                bW.Write((byte)_type);
 
                 byte[] buffer;
 
-                buffer = Encoding.UTF8.GetBytes(_networkName);
+                buffer = Encoding.UTF8.GetBytes(_networkNameOrPeerEmailAddress);
                 bW.Write(Convert.ToByte(buffer.Length));
                 bW.Write(buffer);
 
@@ -399,8 +410,11 @@ namespace BitChatClient
 
             #region properties
 
-            public string NetworkName
-            { get { return _networkName; } }
+            public BitChatNetworkType Type
+            { get { return _type; } }
+
+            public string NetworkNameOrPeerEmailAddress
+            { get { return _networkNameOrPeerEmailAddress; } }
 
             public string SharedSecret
             { get { return _sharedSecret; } }
