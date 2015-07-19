@@ -23,6 +23,7 @@ using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using TechnitiumLibrary.Net;
 using TechnitiumLibrary.Net.UPnP.Networking;
 
 namespace BitChatClient.Network.Connections
@@ -238,7 +239,7 @@ namespace BitChatClient.Network.Connections
 
             if (existingIP.AddressFamily == AddressFamily.InterNetwork)
             {
-                if (InternetGatewayDevice.IsPrivateIPv4(existingIP.Address))
+                if (NetUtilities.IsPrivateIPv4(existingIP.Address))
                     return false;
             }
 
@@ -438,7 +439,7 @@ namespace BitChatClient.Network.Connections
         {
             try
             {
-                DefaultNetworkInfo defaultNetworkInfo = InternetGatewayDevice.GetDefaultNetworkInfo();
+                DefaultNetworkInfo defaultNetworkInfo = NetUtilities.GetDefaultNetworkInfo();
                 if (defaultNetworkInfo == null)
                 {
                     //no internet available;

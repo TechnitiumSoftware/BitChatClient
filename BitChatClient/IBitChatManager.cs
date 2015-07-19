@@ -26,5 +26,9 @@ namespace BitChatClient
         IPEndPoint GetLocalEP();
 
         void RemoveBitChat(BitChat chat);
+
+        void StartLocalAnnouncement(BinaryID networkID);
+
+        void StopLocalAnnouncement(BinaryID networkID);
     }
 }

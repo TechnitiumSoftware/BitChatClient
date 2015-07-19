@@ -72,7 +72,7 @@ namespace BitChatClient.Network
 
         #region constructor
 
-        public BitChatNetwork(MailAddress peerEmailAddress, string sharedSecret, Certificate[] knownPeerCerts, IBitChatNetworkManager networkManager, ISecureChannelSecurityManager securityManager)
+        public BitChatNetwork(MailAddress peerEmailAddress, string sharedSecret, BinaryID networkID, Certificate[] knownPeerCerts, IBitChatNetworkManager networkManager, ISecureChannelSecurityManager securityManager)
         {
             _type = BitChatNetworkType.PrivateChat;
             _peerEmailAddress = peerEmailAddress;
@@ -85,22 +85,29 @@ namespace BitChatClient.Network
             if (knownPeerCerts.Length > 0)
                 _peerName = knownPeerCerts[0].IssuedTo.Name;
 
-            //compute network id
-            HashAlgorithm hash = HashAlgorithm.Create("SHA1");
-
-            byte[] peerEmailAddressHash = hash.ComputeHash(Encoding.UTF8.GetBytes(_peerEmailAddress.Address.ToLower()));
-            byte[] selfEmailAddressHash = hash.ComputeHash(Encoding.UTF8.GetBytes(networkManager.GetLocalCredentials().Certificate.IssuedTo.EmailAddress.Address.ToLower()));
-            byte[] salt = new byte[20];
-
-            for (int i = 0; i < 20; i++)
+            if (networkID == null)
             {
-                salt[i] = (byte)(peerEmailAddressHash[i] ^ selfEmailAddressHash[i]);
-            }
+                //compute network id
+                HashAlgorithm hash = HashAlgorithm.Create("SHA1");
 
-            _networkID = new BinaryID(PBKDF2.CreateHMACSHA1(_sharedSecret, salt, 1000).GetBytes(20));
+                byte[] peerEmailAddressHash = hash.ComputeHash(Encoding.UTF8.GetBytes(_peerEmailAddress.Address.ToLower()));
+                byte[] selfEmailAddressHash = hash.ComputeHash(Encoding.UTF8.GetBytes(networkManager.GetLocalCredentials().Certificate.IssuedTo.EmailAddress.Address.ToLower()));
+                byte[] salt = new byte[20];
+
+                for (int i = 0; i < 20; i++)
+                {
+                    salt[i] = (byte)(peerEmailAddressHash[i] ^ selfEmailAddressHash[i]);
+                }
+
+                _networkID = new BinaryID(PBKDF2.CreateHMACSHA1(_sharedSecret, salt, 200000).GetBytes(20));
+            }
+            else
+            {
+                _networkID = networkID;
+            }
         }
 
-        public BitChatNetwork(string networkName, string sharedSecret, Certificate[] knownPeerCerts, IBitChatNetworkManager networkManager, ISecureChannelSecurityManager securityManager)
+        public BitChatNetwork(string networkName, string sharedSecret, BinaryID networkID, Certificate[] knownPeerCerts, IBitChatNetworkManager networkManager, ISecureChannelSecurityManager securityManager)
         {
             _type = BitChatNetworkType.GroupChat;
             _networkName = networkName;
@@ -110,8 +117,15 @@ namespace BitChatClient.Network
 
             LoadPeers(knownPeerCerts);
 
-            //compute network id
-            _networkID = new BinaryID(PBKDF2.CreateHMACSHA1(_sharedSecret, Encoding.UTF8.GetBytes(_networkName.ToLower()), 1000).GetBytes(20));
+            if (networkID == null)
+            {
+                //compute network id
+                _networkID = new BinaryID(PBKDF2.CreateHMACSHA1(_sharedSecret, Encoding.UTF8.GetBytes(_networkName.ToLower()), 200000).GetBytes(20));
+            }
+            else
+            {
+                _networkID = networkID;
+            }
         }
 
         #endregion
@@ -684,6 +698,20 @@ namespace BitChatClient.Network
                 }
 
                 return new PeerInfo(_peerCert.IssuedTo.EmailAddress.Address, peerEPList);
+            }
+
+            public SecureChannelCryptoOptionFlags CipherSuite
+            {
+                get
+                {
+                    lock (_streamList)
+                    {
+                        if (_streamList.Count > 0)
+                            return _streamList[0].SelectedCryptoOption;
+                        else
+                            return SecureChannelCryptoOptionFlags.None;
+                    }
+                }
             }
 
             #endregion

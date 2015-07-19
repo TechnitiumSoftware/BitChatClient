@@ -21,8 +21,6 @@ using BitChatClient.FileSharing;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net;
-using System.Net.Sockets;
 using System.Text;
 
 namespace BitChatClient
@@ -32,6 +30,7 @@ namespace BitChatClient
         NOOP = 0,
         PeerExchange = 1,
         Text = 2,
+        TypingNotification = 3,
         FileAdvertisement = 4,
         FileShareParticipate = 5,
         FileShareUnparticipate = 6,
@@ -47,7 +46,12 @@ namespace BitChatClient
 
         public static byte[] CreateNOOPMessage()
         {
-            return new byte[1] { (byte)BitChatMessageType.NOOP };
+            return new byte[] { (byte)BitChatMessageType.NOOP };
+        }
+
+        public static byte[] CreateTypingNotification()
+        {
+            return new byte[] { (byte)BitChatMessageType.TypingNotification };
         }
 
         public static byte[] CreatePeerExchange(List<PeerInfo> peerInfoList)
