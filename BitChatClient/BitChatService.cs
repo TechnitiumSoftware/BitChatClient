@@ -19,11 +19,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using BitChatClient.Network;
 using BitChatClient.Network.Connections;
+using BitChatClient.Network.PeerDiscovery;
 using BitChatClient.Network.SecureChannel;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.Mail;
 using System.Threading;
 using TechnitiumLibrary.Security.Cryptography;
 
@@ -59,7 +61,12 @@ namespace BitChatClient
             _manager = new InternalBitChatService(this, profile, trustedRootCertificates, supportedCryptoOptions);
 
             foreach (BitChatProfile.BitChatInfo bitChatInfo in profile.BitChatInfoList)
-                _bitChats.Add(_manager.CreateBitChat(bitChatInfo.NetworkName, bitChatInfo.SharedSecret, bitChatInfo.PeerCertificateList, bitChatInfo.SharedFileList, bitChatInfo.TrackerURIs));
+            {
+                if (bitChatInfo.Type == BitChatNetworkType.PrivateChat)
+                    _bitChats.Add(_manager.CreateBitChat(new MailAddress(bitChatInfo.NetworkNameOrPeerEmailAddress), bitChatInfo.SharedSecret, bitChatInfo.NetworkID, bitChatInfo.PeerCertificateList, bitChatInfo.SharedFileList, bitChatInfo.TrackerURIs));
+                else
+                    _bitChats.Add(_manager.CreateBitChat(bitChatInfo.NetworkNameOrPeerEmailAddress, bitChatInfo.SharedSecret, bitChatInfo.NetworkID, bitChatInfo.PeerCertificateList, bitChatInfo.SharedFileList, bitChatInfo.TrackerURIs));
+            }
 
             //check profile cert revocation
             ThreadPool.QueueUserWorkItem(CheckCertificateRevocationAsync, new Certificate[] { profile.LocalCertificateStore.Certificate });
@@ -138,9 +145,21 @@ namespace BitChatClient
 
         #region public
 
+        public BitChat CreateBitChat(MailAddress peerEmailAddress, string sharedSecret)
+        {
+            BitChat bitChat = _manager.CreateBitChat(peerEmailAddress, sharedSecret, null, new Certificate[] { }, new BitChatProfile.SharedFileInfo[] { }, null);
+
+            lock (_bitChats)
+            {
+                _bitChats.Add(bitChat);
+            }
+
+            return bitChat;
+        }
+
         public BitChat CreateBitChat(string networkName, string sharedSecret)
         {
-            BitChat bitChat = _manager.CreateBitChat(networkName, sharedSecret, new Certificate[] { }, new BitChatProfile.SharedFileInfo[] { }, null);
+            BitChat bitChat = _manager.CreateBitChat(networkName, sharedSecret, null, new Certificate[] { }, new BitChatProfile.SharedFileInfo[] { }, null);
 
             lock (_bitChats)
             {
@@ -216,7 +235,9 @@ namespace BitChatClient
                 _supportedCryptoOptions = supportedCryptoOptions;
 
                 _connectionManager = new ConnectionManager(_profile.LocalEP, ChannelRequest);
-                _localDiscovery = new LocalPeerDiscovery(41733, _connectionManager.LocalEP.Port);
+
+                LocalPeerDiscovery.StartListener(41733);
+                _localDiscovery = new LocalPeerDiscovery(_connectionManager.LocalEP.Port);
                 _localDiscovery.PeerDiscovered += _localDiscovery_PeerDiscovered;
 
                 _profile.LocalEP = _connectionManager.LocalEP;
@@ -243,9 +264,6 @@ namespace BitChatClient
             {
                 if (!_disposed)
                 {
-                    if (_localDiscovery != null)
-                        _localDiscovery.Dispose();
-
                     if (_connectionManager != null)
                         _connectionManager.Dispose();
 
@@ -257,16 +275,29 @@ namespace BitChatClient
 
             #region public
 
-            public BitChat CreateBitChat(string networkName, string sharedSecret, Certificate[] knownPeerCerts, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs)
+            public BitChat CreateBitChat(MailAddress peerEmailAddress, string sharedSecret, BinaryID networkID, Certificate[] knownPeerCerts, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs)
             {
-                BitChatNetwork network = new BitChatNetwork(networkName, sharedSecret, knownPeerCerts, this, this);
+                BitChatNetwork network = new BitChatNetwork(peerEmailAddress, sharedSecret, networkID, knownPeerCerts, this, this);
 
                 lock (_networks)
                 {
                     _networks.Add(network.NetworkID, network);
                 }
 
-                _localDiscovery.StartAnnounce(network.NetworkID);
+                if (trackerURIs == null)
+                    trackerURIs = _profile.TrackerURIs;
+
+                return new BitChat(this, _profile, network, sharedFileInfoList, trackerURIs);
+            }
+
+            public BitChat CreateBitChat(string networkName, string sharedSecret, BinaryID networkID, Certificate[] knownPeerCerts, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs)
+            {
+                BitChatNetwork network = new BitChatNetwork(networkName, sharedSecret, networkID, knownPeerCerts, this, this);
+
+                lock (_networks)
+                {
+                    _networks.Add(network.NetworkID, network);
+                }
 
                 if (trackerURIs == null)
                     trackerURIs = _profile.TrackerURIs;
@@ -283,15 +314,12 @@ namespace BitChatClient
 
             #region LocalDiscovery support
 
-            private void _localDiscovery_PeerDiscovered(LocalPeerDiscovery sender, IPEndPoint peerEP, List<BinaryID> networkIDs)
+            private void _localDiscovery_PeerDiscovered(LocalPeerDiscovery sender, IPEndPoint peerEP, BinaryID networkID)
             {
-                foreach (BinaryID networkID in networkIDs)
+                lock (_networks)
                 {
-                    lock (_networks)
-                    {
-                        if (_networks.ContainsKey(networkID))
-                            _networks[networkID].MakeConnection(peerEP);
-                    }
+                    if (_networks.ContainsKey(networkID))
+                        _networks[networkID].MakeConnection(peerEP);
                 }
             }
 
@@ -310,6 +338,16 @@ namespace BitChatClient
                 {
                     _service._bitChats.Remove(chat);
                 }
+            }
+
+            public void StartLocalAnnouncement(BinaryID networkID)
+            {
+                _localDiscovery.StartTracking(networkID);
+            }
+
+            public void StopLocalAnnouncement(BinaryID networkID)
+            {
+                _localDiscovery.StopTracking(networkID);
             }
 
             #endregion

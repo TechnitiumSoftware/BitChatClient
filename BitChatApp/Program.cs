@@ -158,13 +158,13 @@ NgEA
                             {
                                 bool loadMainForm = false;
 
-                                if (mgr.Profile.LocalCertificateStore.Certificate.Capability == CertificateCapability.KeyExchange)
+                                if ((mgr.Profile.LocalCertificateStore.Certificate.Type == CertificateType.Normal) && (mgr.Profile.LocalCertificateStore.Certificate.Capability == CertificateCapability.KeyExchange))
                                 {
                                     loadMainForm = true;
                                 }
                                 else
                                 {
-                                    using (frmRegister frm = new frmRegister(mgr.Profile, mgr.ProfileFilePath))
+                                    using (frmRegister frm = new frmRegister(localAppData, mgr.Profile, mgr.ProfileFilePath, false))
                                     {
                                         loadMainForm = (frm.ShowDialog() == DialogResult.OK);
                                     }

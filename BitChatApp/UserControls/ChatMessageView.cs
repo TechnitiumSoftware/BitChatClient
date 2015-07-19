@@ -45,6 +45,7 @@ namespace BitChatApp.UserControls
         ChatListItem _chatItem;
 
         bool _skipSettingsModifiedEvent = false;
+        DateTime lastTypingNotification;
 
         #endregion
 
@@ -64,10 +65,21 @@ namespace BitChatApp.UserControls
 
             _chat.MessageReceived += _chat_MessageReceived;
             _chat.PeerAdded += _chat_PeerAdded;
+            _chat.PeerTyping += _chat_PeerTyping;
             _chat.PeerHasRevokedCertificate += _chat_PeerHasRevokedCertificate;
             _chat.PeerSecureChannelException += _chat_PeerSecureChannelException;
 
-            this.Title = _chat.NetworkName;
+            if (_chat.NetworkType == BitChatClient.Network.BitChatNetworkType.PrivateChat)
+            {
+                if (_chat.NetworkName == null)
+                    this.Title = _chat.PeerEmailAddress.Address;
+                else
+                    this.Title = _chat.NetworkName + " <" + _chat.PeerEmailAddress.Address + ">";
+            }
+            else
+            {
+                this.Title = _chat.NetworkName;
+            }
         }
 
         #endregion
@@ -89,11 +101,28 @@ namespace BitChatApp.UserControls
 
             if (!_chatItem.Selected)
                 _chatItem.SetNewMessage(message);
+
+            if (_chat.NetworkType == BitChatClient.Network.BitChatNetworkType.PrivateChat)
+            {
+                _chatItem.SetTitle(peer.PeerCertificate.IssuedTo.Name);
+                this.Title = peer.PeerCertificate.IssuedTo.Name + " <" + peer.PeerCertificate.IssuedTo.EmailAddress.Address + ">";
+            }
         }
 
         private void _chat_PeerAdded(BitChat sender, BitChat.Peer peer)
         {
             AddMessage(new ChatMessageInfoItem(peer.PeerCertificate.IssuedTo.Name + " joined chat", DateTime.Now));
+
+            if (sender.NetworkType == BitChatClient.Network.BitChatNetworkType.PrivateChat)
+            {
+                _chatItem.SetTitle(peer.PeerCertificate.IssuedTo.Name);
+                this.Title = peer.PeerCertificate.IssuedTo.Name + " <" + peer.PeerCertificate.IssuedTo.EmailAddress.Address + ">";
+            }
+        }
+
+        private void _chat_PeerTyping(BitChat sender, BitChat.Peer peer)
+        {
+            ShowPeerTypingNotification(peer.PeerCertificate.IssuedTo.Name, true);
         }
 
         private void _chat_PeerHasRevokedCertificate(BitChat sender, InvalidCertificateException ex)
@@ -128,6 +157,8 @@ namespace BitChatApp.UserControls
 
             if (!_chatItem.Selected)
                 _chatItem.SetNewMessage(sender.PeerCertificate.IssuedTo.Name + ": " + message);
+
+            ShowPeerTypingNotification(sender.PeerCertificate.IssuedTo.Name, false);
         }
 
         #endregion
@@ -190,6 +221,36 @@ namespace BitChatApp.UserControls
                 btnSend_Click(null, null);
 
                 e.Handled = true;
+                lastTypingNotification = DateTime.UtcNow.AddSeconds(-10);
+            }
+            else
+            {
+                DateTime current = DateTime.UtcNow;
+
+                if ((current - lastTypingNotification).TotalSeconds > 5)
+                {
+                    lastTypingNotification = current;
+                    _chat.SendTypingNotification();
+                }
+            }
+        }
+
+        private void txtMessage_KeyDown(object sender, KeyEventArgs e)
+        {
+            if (e.Control && (e.KeyCode == Keys.V))
+            {
+                if (Clipboard.ContainsFileDropList())
+                {
+                    List<string> fileNames = new List<string>();
+
+                    foreach (string filePath in Clipboard.GetFileDropList())
+                    {
+                        if (File.Exists(filePath))
+                            fileNames.Add(filePath);
+                    }
+
+                    ShareFiles(fileNames.ToArray());
+                }
             }
         }
 
@@ -224,6 +285,82 @@ namespace BitChatApp.UserControls
         #endregion
 
         #region private
+
+        private void ShowPeerTypingNotification(string peerName, bool add)
+        {
+            lock (timerTypingNotification)
+            {
+                List<string> peerNames;
+
+                if (labTypingNotification.Tag == null)
+                {
+                    peerNames = new List<string>(3);
+                    labTypingNotification.Tag = peerNames;
+                }
+                else
+                {
+                    peerNames = labTypingNotification.Tag as List<string>;
+                }
+
+                {
+                    if (add)
+                    {
+                        if (!peerNames.Contains(peerName))
+                            peerNames.Add(peerName);
+                    }
+                    else
+                    {
+                        if (peerName == null)
+                            peerNames.Clear();
+                        else
+                            peerNames.Remove(peerName);
+                    }
+                }
+
+                switch (peerNames.Count)
+                {
+                    case 0:
+                        labTypingNotification.Text = "";
+                        break;
+
+                    case 1:
+                        labTypingNotification.Text = peerNames[0] + " is typing...";
+                        break;
+
+                    case 2:
+                        labTypingNotification.Text = peerNames[0] + " and " + peerNames[1] + " are typing...";
+                        break;
+
+                    default:
+                        string tmp = peerNames[0];
+
+                        for (int i = 1; i < peerNames.Count - 1; i++)
+                        {
+                            tmp += ", " + peerNames[i];
+                        }
+
+                        tmp += " and " + peerNames[peerNames.Count - 1];
+                        labTypingNotification.Text = tmp + " are typing...";
+                        break;
+                }
+
+                if (peerName != null)
+                {
+                    timerTypingNotification.Stop();
+                    timerTypingNotification.Start();
+                }
+            }
+        }
+
+        private void timerTypingNotification_Tick(object sender, EventArgs e)
+        {
+            lock (timerTypingNotification)
+            {
+                timerTypingNotification.Stop();
+
+                ShowPeerTypingNotification(null, false);
+            }
+        }
 
         private void ShareFileAsync(string[] filenames)
         {

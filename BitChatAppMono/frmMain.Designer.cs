@@ -35,9 +35,11 @@ namespace BitChatAppMono
             this.mnuLeaveChat = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuProperties = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
-            this.mnuAddChat2 = new System.Windows.Forms.ToolStripMenuItem();
+            this.mnuAddPrivateChat2 = new System.Windows.Forms.ToolStripMenuItem();
+            this.mnuAddGroupChat2 = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuPlus = new System.Windows.Forms.ContextMenuStrip(this.components);
-            this.mnuAddChat1 = new System.Windows.Forms.ToolStripMenuItem();
+            this.mnuAddPrivateChat1 = new System.Windows.Forms.ToolStripMenuItem();
+            this.mnuAddGroupChat1 = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
             this.mnuProfileSettings = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuSwitchProfile = new System.Windows.Forms.ToolStripMenuItem();
@@ -72,40 +74,49 @@ namespace BitChatAppMono
             this.mnuLeaveChat,
             this.mnuProperties,
             this.toolStripSeparator1,
-            this.mnuAddChat2});
+            this.mnuAddPrivateChat2,
+            this.mnuAddGroupChat2});
             this.mnuChat.Name = "chatContextMenu";
-            this.mnuChat.Size = new System.Drawing.Size(133, 76);
+            this.mnuChat.Size = new System.Drawing.Size(164, 98);
             // 
             // mnuLeaveChat
             // 
             this.mnuLeaveChat.Name = "mnuLeaveChat";
-            this.mnuLeaveChat.Size = new System.Drawing.Size(132, 22);
+            this.mnuLeaveChat.Size = new System.Drawing.Size(163, 22);
             this.mnuLeaveChat.Text = "&Leave Chat";
             this.mnuLeaveChat.Click += new System.EventHandler(this.mnuLeaveChat_Click);
             // 
             // mnuProperties
             // 
             this.mnuProperties.Name = "mnuProperties";
-            this.mnuProperties.Size = new System.Drawing.Size(132, 22);
+            this.mnuProperties.Size = new System.Drawing.Size(163, 22);
             this.mnuProperties.Text = "P&roperties";
             this.mnuProperties.Click += new System.EventHandler(this.mnuProperties_Click);
             // 
             // toolStripSeparator1
             // 
             this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(129, 6);
+            this.toolStripSeparator1.Size = new System.Drawing.Size(160, 6);
             // 
-            // mnuAddChat2
+            // mnuAddPrivateChat2
             // 
-            this.mnuAddChat2.Name = "mnuAddChat2";
-            this.mnuAddChat2.Size = new System.Drawing.Size(132, 22);
-            this.mnuAddChat2.Text = "&Add Chat";
-            this.mnuAddChat2.Click += new System.EventHandler(this.mnuAddChat_Click);
+            this.mnuAddPrivateChat2.Name = "mnuAddPrivateChat2";
+            this.mnuAddPrivateChat2.Size = new System.Drawing.Size(163, 22);
+            this.mnuAddPrivateChat2.Text = "Add &Private Chat";
+            this.mnuAddPrivateChat2.Click += new System.EventHandler(this.mnuAddPrivateChat_Click);
+            // 
+            // mnuAddGroupChat2
+            // 
+            this.mnuAddGroupChat2.Name = "mnuAddGroupChat2";
+            this.mnuAddGroupChat2.Size = new System.Drawing.Size(163, 22);
+            this.mnuAddGroupChat2.Text = "Add &Group Chat";
+            this.mnuAddGroupChat2.Click += new System.EventHandler(this.mnuAddGroupChat_Click);
             // 
             // mnuPlus
             // 
             this.mnuPlus.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.mnuAddChat1,
+            this.mnuAddPrivateChat1,
+            this.mnuAddGroupChat1,
             this.toolStripSeparator3,
             this.mnuProfileSettings,
             this.mnuSwitchProfile,
@@ -116,13 +127,21 @@ namespace BitChatAppMono
             this.mnuPlus.Name = "systrayMenu";
             this.mnuPlus.Size = new System.Drawing.Size(174, 148);
             // 
-            // mnuAddChat1
+            // mnuAddPrivateChat1
             // 
-            this.mnuAddChat1.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
-            this.mnuAddChat1.Name = "mnuAddChat1";
-            this.mnuAddChat1.Size = new System.Drawing.Size(173, 22);
-            this.mnuAddChat1.Text = "Add Chat";
-            this.mnuAddChat1.Click += new System.EventHandler(this.mnuAddChat_Click);
+            this.mnuAddPrivateChat1.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
+            this.mnuAddPrivateChat1.Name = "mnuAddPrivateChat1";
+            this.mnuAddPrivateChat1.Size = new System.Drawing.Size(173, 22);
+            this.mnuAddPrivateChat1.Text = "Add &Private Chat";
+            this.mnuAddPrivateChat1.Click += new System.EventHandler(this.mnuAddPrivateChat_Click);
+            //  
+            // mnuAddGroupChat1
+            // 
+            this.mnuAddGroupChat1.Font = new System.Drawing.Font("Segoe UI", 9F);
+            this.mnuAddGroupChat1.Name = "mnuAddGroupChat1";
+            this.mnuAddGroupChat1.Size = new System.Drawing.Size(173, 22);
+            this.mnuAddGroupChat1.Text = "Add &Group Chat";
+            this.mnuAddGroupChat1.Click += new System.EventHandler(this.mnuAddGroupChat_Click);
             // 
             // toolStripSeparator3
             // 
@@ -133,14 +152,14 @@ namespace BitChatAppMono
             // 
             this.mnuProfileSettings.Name = "mnuProfileSettings";
             this.mnuProfileSettings.Size = new System.Drawing.Size(173, 22);
-            this.mnuProfileSettings.Text = "&Profile Settings";
+            this.mnuProfileSettings.Text = "Profile &Settings";
             this.mnuProfileSettings.Click += new System.EventHandler(this.mnuProfileSettings_Click);
             // 
             // mnuSwitchProfile
             // 
             this.mnuSwitchProfile.Name = "mnuSwitchProfile";
             this.mnuSwitchProfile.Size = new System.Drawing.Size(173, 22);
-            this.mnuSwitchProfile.Text = "&Switch Profile";
+            this.mnuSwitchProfile.Text = "S&witch Profile";
             this.mnuSwitchProfile.Click += new System.EventHandler(this.mnuSwitchProfile_Click);
             // 
             // mnuCheckUpdate
@@ -346,7 +365,6 @@ namespace BitChatAppMono
         private System.Windows.Forms.ToolStripMenuItem mnuProperties;
         private System.Windows.Forms.ContextMenuStrip mnuPlus;
         private System.Windows.Forms.ToolStripMenuItem mnuExit;
-        private System.Windows.Forms.ToolStripMenuItem mnuAddChat1;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
         private System.Windows.Forms.SplitContainer mainContainer;
         private System.Windows.Forms.Label lblUserName;
@@ -361,8 +379,11 @@ namespace BitChatAppMono
         private System.Windows.Forms.ToolStripMenuItem mnuAbout;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator5;
         private System.Windows.Forms.ToolStripMenuItem mnuCheckUpdate;
-        private System.Windows.Forms.ToolStripMenuItem mnuAddChat2;
+        private System.Windows.Forms.ToolStripMenuItem mnuAddGroupChat2;
+        private System.Windows.Forms.ToolStripMenuItem mnuAddGroupChat1;
         private System.Windows.Forms.ToolStripMenuItem mnuProfileSettings;
+        private System.Windows.Forms.ToolStripMenuItem mnuAddPrivateChat2;
+        private System.Windows.Forms.ToolStripMenuItem mnuAddPrivateChat1;
 
     }
 }

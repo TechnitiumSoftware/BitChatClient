@@ -76,6 +76,11 @@ namespace BitChatApp
                     labIcon.Text = "";
                 }
 
+                if (_peer.IsOnline)
+                    labIcon.BackColor = Color.FromArgb(102, 153, 255);
+                else
+                    labIcon.BackColor = Color.Gray;
+
                 labName.Text = name;
             }
             else
@@ -143,6 +148,9 @@ namespace BitChatApp
                     picNetwork.Image = BitChatApp.Properties.Resources.NoNetwork;
                     break;
             }
+
+            //cipher suite
+            labCipherSuite.Text = _peer.CipherSuite.ToString();
 
             //connected with
             PeerInfo[] connectedWith = _peer.ConnectedWith;

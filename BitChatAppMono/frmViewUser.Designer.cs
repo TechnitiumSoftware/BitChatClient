@@ -46,6 +46,8 @@
             this.label2 = new System.Windows.Forms.Label();
             this.labNetworkStatus = new System.Windows.Forms.Label();
             this.picNetwork = new System.Windows.Forms.PictureBox();
+            this.label3 = new System.Windows.Forms.Label();
+            this.labCipherSuite = new System.Windows.Forms.Label();
             ((System.ComponentModel.ISupportInitialize)(this.picNetwork)).BeginInit();
             this.SuspendLayout();
             // 
@@ -87,15 +89,15 @@
             // 
             // lstConnectedWith
             // 
-            this.lstConnectedWith.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            this.lstConnectedWith.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.lstConnectedWith.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.columnHeader1,
             this.columnHeader2});
             this.lstConnectedWith.FullRowSelect = true;
-            this.lstConnectedWith.Location = new System.Drawing.Point(12, 134);
+            this.lstConnectedWith.Location = new System.Drawing.Point(12, 180);
             this.lstConnectedWith.Name = "lstConnectedWith";
-            this.lstConnectedWith.Size = new System.Drawing.Size(330, 97);
+            this.lstConnectedWith.Size = new System.Drawing.Size(330, 90);
             this.lstConnectedWith.Sorting = System.Windows.Forms.SortOrder.Ascending;
             this.lstConnectedWith.TabIndex = 5;
             this.lstConnectedWith.UseCompatibleStateImageBehavior = false;
@@ -113,15 +115,15 @@
             // 
             // lstNotConnectedWith
             // 
-            this.lstNotConnectedWith.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            this.lstNotConnectedWith.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.lstNotConnectedWith.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.columnHeader3,
             this.columnHeader4});
             this.lstNotConnectedWith.FullRowSelect = true;
-            this.lstNotConnectedWith.Location = new System.Drawing.Point(12, 259);
+            this.lstNotConnectedWith.Location = new System.Drawing.Point(12, 296);
             this.lstNotConnectedWith.Name = "lstNotConnectedWith";
-            this.lstNotConnectedWith.Size = new System.Drawing.Size(330, 97);
+            this.lstNotConnectedWith.Size = new System.Drawing.Size(330, 90);
             this.lstNotConnectedWith.Sorting = System.Windows.Forms.SortOrder.Ascending;
             this.lstNotConnectedWith.TabIndex = 6;
             this.lstNotConnectedWith.UseCompatibleStateImageBehavior = false;
@@ -142,7 +144,7 @@
             this.label15.AutoSize = true;
             this.label15.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label15.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.label15.Location = new System.Drawing.Point(9, 116);
+            this.label15.Location = new System.Drawing.Point(9, 162);
             this.label15.Name = "label15";
             this.label15.Size = new System.Drawing.Size(97, 15);
             this.label15.TabIndex = 35;
@@ -153,7 +155,7 @@
             this.label1.AutoSize = true;
             this.label1.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label1.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.label1.Location = new System.Drawing.Point(9, 241);
+            this.label1.Location = new System.Drawing.Point(9, 278);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(119, 15);
             this.label1.TabIndex = 36;
@@ -163,7 +165,7 @@
             // 
             this.btnClose.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnClose.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnClose.Location = new System.Drawing.Point(267, 362);
+            this.btnClose.Location = new System.Drawing.Point(267, 392);
             this.btnClose.Name = "btnClose";
             this.btnClose.Size = new System.Drawing.Size(75, 23);
             this.btnClose.TabIndex = 37;
@@ -190,6 +192,7 @@
             this.lnkViewCert.Name = "lnkViewCert";
             this.lnkViewCert.Size = new System.Drawing.Size(80, 13);
             this.lnkViewCert.TabIndex = 1;
+            this.lnkViewCert.TabStop = true;
             this.lnkViewCert.Text = "View Certificate";
             this.lnkViewCert.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.lnkViewCert_LinkClicked);
             // 
@@ -209,23 +212,44 @@
             this.labNetworkStatus.AutoEllipsis = true;
             this.labNetworkStatus.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.labNetworkStatus.ForeColor = System.Drawing.Color.DimGray;
-            this.labNetworkStatus.Location = new System.Drawing.Point(110, 93);
+            this.labNetworkStatus.Location = new System.Drawing.Point(135, 93);
             this.labNetworkStatus.Name = "labNetworkStatus";
-            this.labNetworkStatus.Size = new System.Drawing.Size(98, 17);
+            this.labNetworkStatus.Size = new System.Drawing.Size(207, 17);
             this.labNetworkStatus.TabIndex = 51;
             this.labNetworkStatus.Text = "No Network";
-            this.labNetworkStatus.TextAlign = System.Drawing.ContentAlignment.TopRight;
             // 
             // picNetwork
             // 
             this.picNetwork.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.picNetwork.Image = global::BitChatAppMono.Properties.Resources.NoNetwork;
-            this.picNetwork.Location = new System.Drawing.Point(211, 86);
+            this.picNetwork.Location = new System.Drawing.Point(110, 86);
             this.picNetwork.Name = "picNetwork";
             this.picNetwork.Size = new System.Drawing.Size(24, 24);
             this.picNetwork.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
             this.picNetwork.TabIndex = 52;
             this.picNetwork.TabStop = false;
+            // 
+            // label3
+            // 
+            this.label3.AutoSize = true;
+            this.label3.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.label3.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
+            this.label3.Location = new System.Drawing.Point(9, 121);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(76, 15);
+            this.label3.TabIndex = 53;
+            this.label3.Text = "Cipher Suite";
+            // 
+            // labCipherSuite
+            // 
+            this.labCipherSuite.AutoEllipsis = true;
+            this.labCipherSuite.Font = new System.Drawing.Font("Arial", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.labCipherSuite.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
+            this.labCipherSuite.Location = new System.Drawing.Point(9, 136);
+            this.labCipherSuite.Name = "labCipherSuite";
+            this.labCipherSuite.Size = new System.Drawing.Size(333, 15);
+            this.labCipherSuite.TabIndex = 54;
+            this.labCipherSuite.Text = "ECDHE256_RSA_WITH_AES256_CBC_HMAC_SHA256";
             // 
             // frmViewUser
             // 
@@ -234,7 +258,9 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
             this.CancelButton = this.btnClose;
-            this.ClientSize = new System.Drawing.Size(354, 391);
+            this.ClientSize = new System.Drawing.Size(354, 421);
+            this.Controls.Add(this.labCipherSuite);
+            this.Controls.Add(this.label3);
             this.Controls.Add(this.picNetwork);
             this.Controls.Add(this.labNetworkStatus);
             this.Controls.Add(this.label2);
@@ -281,6 +307,8 @@
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.Label labNetworkStatus;
         private System.Windows.Forms.PictureBox picNetwork;
+        private System.Windows.Forms.Label label3;
+        private System.Windows.Forms.Label labCipherSuite;
 
     }
 }

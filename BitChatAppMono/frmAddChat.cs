@@ -17,27 +17,74 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+using BitChatClient.Network;
 using System;
 using System.Collections.Generic;
+using System.Net.Mail;
 using System.Windows.Forms;
 
 namespace BitChatAppMono
 {
     public partial class frmAddChat : Form
     {
+        #region variables
+
+        BitChatNetworkType _type;
+
+        #endregion
+
         #region Form Code
 
         public frmAddChat()
         {
             InitializeComponent();
+
+            _type = BitChatNetworkType.GroupChat;
+            this.Text = "Add Group Chat";
+        }
+
+        public frmAddChat(BitChatNetworkType type)
+        {
+            InitializeComponent();
+
+            _type = type;
+
+            if (type == BitChatNetworkType.PrivateChat)
+            {
+                this.Text = "Add Private Chat";
+
+                label1.Text = "Peer's Email Address";
+                label3.Text = "(case insensitive name. example: user@example.com)";
+                label4.Text = "Both peers must use same Shared Secret and enter each other's email address.";
+            }
         }
 
         private void btnOK_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrEmpty(txtNetworkName.Text))
+            txtNetworkNameOrPeerEmailAddress.Text = txtNetworkNameOrPeerEmailAddress.Text.Trim();
+
+            if (string.IsNullOrEmpty(txtNetworkNameOrPeerEmailAddress.Text))
             {
-                MessageBox.Show("Please enter a network name for the new chat.");
+                if (_type == BitChatNetworkType.PrivateChat)
+                    MessageBox.Show("Please enter an email address of your peer to chat with.", "Invalid Email Address", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                else
+                    MessageBox.Show("Please enter a network name for the new chat.", "Missing Network Name", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
                 return;
+            }
+
+            if (_type == BitChatNetworkType.PrivateChat)
+            {
+                try
+                {
+                    MailAddress x = new MailAddress(txtNetworkNameOrPeerEmailAddress.Text);
+                }
+                catch
+                {
+                    MessageBox.Show("Please enter a valid email address of your peer to chat with.", "Invalid Email Address", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+                    return;
+                }
             }
 
             this.DialogResult = System.Windows.Forms.DialogResult.OK;

@@ -34,7 +34,8 @@ namespace BitChatClient.Network.SecureChannel
         InvalidRemoteCertificate = 5,
         InvalidRemoteCertificateAlgorithm = 6,
         InvalidRemoteKeyExchangeSignature = 7,
-        InvalidMessageHMACReceived = 8
+        InvalidMessageHMACReceived = 8,
+        ProtocolAuthenticationFailed = 9
     }
 
     [System.Serializable()]

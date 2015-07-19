@@ -88,7 +88,7 @@ namespace BitChatApp
             }
         }
 
-        private void btnOptions_Click(object sender, EventArgs e)
+        private void btnBack_Click(object sender, EventArgs e)
         {
             this.Close();
         }

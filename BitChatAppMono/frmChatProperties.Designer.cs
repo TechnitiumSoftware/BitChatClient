@@ -180,29 +180,29 @@
             // 
             // label1
             // 
-            this.label1.AutoSize = true;
             this.label1.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label1.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.label1.Location = new System.Drawing.Point(58, 14);
+            this.label1.Location = new System.Drawing.Point(12, 14);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(69, 15);
+            this.label1.Size = new System.Drawing.Size(140, 15);
             this.label1.TabIndex = 52;
             this.label1.Text = "Chat Name";
+            this.label1.TextAlign = System.Drawing.ContentAlignment.TopRight;
             // 
             // txtNetwork
             // 
-            this.txtNetwork.Location = new System.Drawing.Point(133, 12);
+            this.txtNetwork.Location = new System.Drawing.Point(158, 12);
             this.txtNetwork.Name = "txtNetwork";
             this.txtNetwork.ReadOnly = true;
-            this.txtNetwork.Size = new System.Drawing.Size(200, 20);
+            this.txtNetwork.Size = new System.Drawing.Size(233, 20);
             this.txtNetwork.TabIndex = 0;
             // 
             // txtSecret
             // 
-            this.txtSecret.Location = new System.Drawing.Point(448, 12);
+            this.txtSecret.Location = new System.Drawing.Point(492, 12);
             this.txtSecret.Name = "txtSecret";
             this.txtSecret.ReadOnly = true;
-            this.txtSecret.Size = new System.Drawing.Size(200, 20);
+            this.txtSecret.Size = new System.Drawing.Size(180, 20);
             this.txtSecret.TabIndex = 1;
             this.txtSecret.Text = "########";
             // 
@@ -211,7 +211,7 @@
             this.label3.AutoSize = true;
             this.label3.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.label3.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.label3.Location = new System.Drawing.Point(353, 14);
+            this.label3.Location = new System.Drawing.Point(397, 14);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(89, 15);
             this.label3.TabIndex = 54;
@@ -220,7 +220,7 @@
             // chkShowSecret
             // 
             this.chkShowSecret.AutoSize = true;
-            this.chkShowSecret.Location = new System.Drawing.Point(448, 38);
+            this.chkShowSecret.Location = new System.Drawing.Point(492, 38);
             this.chkShowSecret.Name = "chkShowSecret";
             this.chkShowSecret.Size = new System.Drawing.Size(124, 17);
             this.chkShowSecret.TabIndex = 2;

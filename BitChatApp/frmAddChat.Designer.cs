@@ -30,31 +30,32 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmAddChat));
             this.label1 = new System.Windows.Forms.Label();
-            this.txtNetworkName = new System.Windows.Forms.TextBox();
+            this.txtNetworkNameOrPeerEmailAddress = new System.Windows.Forms.TextBox();
             this.txtPassword = new System.Windows.Forms.TextBox();
             this.label2 = new System.Windows.Forms.Label();
             this.btnOK = new System.Windows.Forms.Button();
             this.btnCancel = new System.Windows.Forms.Button();
             this.label3 = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
+            this.label5 = new System.Windows.Forms.Label();
             this.SuspendLayout();
             // 
             // label1
             // 
-            this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(92, 15);
+            this.label1.Location = new System.Drawing.Point(38, 15);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(60, 13);
+            this.label1.Size = new System.Drawing.Size(114, 17);
             this.label1.TabIndex = 0;
             this.label1.Text = "Chat Name";
+            this.label1.TextAlign = System.Drawing.ContentAlignment.TopRight;
             // 
-            // txtNetworkName
+            // txtNetworkNameOrPeerEmailAddress
             // 
-            this.txtNetworkName.Location = new System.Drawing.Point(158, 12);
-            this.txtNetworkName.MaxLength = 50;
-            this.txtNetworkName.Name = "txtNetworkName";
-            this.txtNetworkName.Size = new System.Drawing.Size(207, 20);
-            this.txtNetworkName.TabIndex = 1;
+            this.txtNetworkNameOrPeerEmailAddress.Location = new System.Drawing.Point(158, 12);
+            this.txtNetworkNameOrPeerEmailAddress.MaxLength = 50;
+            this.txtNetworkNameOrPeerEmailAddress.Name = "txtNetworkNameOrPeerEmailAddress";
+            this.txtNetworkNameOrPeerEmailAddress.Size = new System.Drawing.Size(207, 20);
+            this.txtNetworkNameOrPeerEmailAddress.TabIndex = 1;
             // 
             // txtPassword
             // 
@@ -78,7 +79,7 @@
             // btnOK
             // 
             this.btnOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnOK.Location = new System.Drawing.Point(297, 96);
+            this.btnOK.Location = new System.Drawing.Point(297, 112);
             this.btnOK.Name = "btnOK";
             this.btnOK.Size = new System.Drawing.Size(75, 23);
             this.btnOK.TabIndex = 4;
@@ -90,7 +91,7 @@
             // 
             this.btnCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnCancel.Location = new System.Drawing.Point(378, 96);
+            this.btnCancel.Location = new System.Drawing.Point(378, 112);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(75, 23);
             this.btnCancel.TabIndex = 5;
@@ -109,11 +110,21 @@
             // 
             // label4
             // 
-            this.label4.Location = new System.Drawing.Point(12, 90);
+            this.label4.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.label4.Location = new System.Drawing.Point(12, 106);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(265, 26);
             this.label4.TabIndex = 7;
             this.label4.Text = "All chat participants must use same Chat Name and Shared Secret combination.";
+            // 
+            // label5
+            // 
+            this.label5.AutoSize = true;
+            this.label5.Location = new System.Drawing.Point(155, 79);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(141, 13);
+            this.label5.TabIndex = 8;
+            this.label5.Text = "(optional but, recommended)";
             // 
             // frmAddChat
             // 
@@ -122,14 +133,15 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
             this.CancelButton = this.btnCancel;
-            this.ClientSize = new System.Drawing.Size(465, 125);
+            this.ClientSize = new System.Drawing.Size(465, 141);
+            this.Controls.Add(this.label5);
             this.Controls.Add(this.label4);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.btnCancel);
             this.Controls.Add(this.btnOK);
             this.Controls.Add(this.txtPassword);
             this.Controls.Add(this.label2);
-            this.Controls.Add(this.txtNetworkName);
+            this.Controls.Add(this.txtNetworkNameOrPeerEmailAddress);
             this.Controls.Add(this.label1);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -147,12 +159,13 @@
         #endregion
 
         private System.Windows.Forms.Label label1;
-        public System.Windows.Forms.TextBox txtNetworkName;
+        public System.Windows.Forms.TextBox txtNetworkNameOrPeerEmailAddress;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.Button btnOK;
         private System.Windows.Forms.Button btnCancel;
         public System.Windows.Forms.TextBox txtPassword;
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.Label label4;
+        private System.Windows.Forms.Label label5;
     }
 }

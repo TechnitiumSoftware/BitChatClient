@@ -24,13 +24,14 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.Mail;
 using System.Threading;
 using TechnitiumLibrary.Net.BitTorrent;
 using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatClient
 {
-    public delegate void PeerAdded(BitChat sender, BitChat.Peer peer);
+    public delegate void PeerNotification(BitChat sender, BitChat.Peer peer);
     public delegate void PeerHasRevokedCertificate(BitChat sender, InvalidCertificateException ex);
     public delegate void MessageReceived(BitChat.Peer sender, string message);
     public delegate void FileAdded(BitChat sender, SharedFile sharedFile);
@@ -47,7 +48,8 @@ namespace BitChatClient
     {
         #region events
 
-        public event PeerAdded PeerAdded;
+        public event PeerNotification PeerAdded;
+        public event PeerNotification PeerTyping;
         public event PeerHasRevokedCertificate PeerHasRevokedCertificate;
         public event PeerSecureChannelException PeerSecureChannelException;
         public event MessageReceived MessageReceived;
@@ -193,6 +195,20 @@ namespace BitChatClient
             catch { }
         }
 
+        private void RaiseEventPeerTyping(Peer peer)
+        {
+            _syncCxt.Send(PeerTypingCallback, peer);
+        }
+
+        private void PeerTypingCallback(object state)
+        {
+            try
+            {
+                PeerTyping(this, state as Peer);
+            }
+            catch { }
+        }
+
         private void RaiseEventPeerHasRevokedCertificate(InvalidCertificateException ex)
         {
             _syncCxt.Post(PeerHasRevokedCertificateCallback, ex);
@@ -297,7 +313,10 @@ namespace BitChatClient
                     trackerURIs.Add(tracker.TrackerUri);
             }
 
-            return new BitChatProfile.BitChatInfo(_network.NetworkName, _network.SharedSecret, peerCerts.ToArray(), sharedFileInfo.ToArray(), trackerURIs.ToArray());
+            if (_network.Type == BitChatNetworkType.PrivateChat)
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.PeerEmailAddress.Address, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), trackerURIs.ToArray());
+            else
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), trackerURIs.ToArray());
         }
 
         public BitChat.Peer[] GetPeerList()
@@ -316,6 +335,12 @@ namespace BitChatClient
                 _sharedFiles.Values.CopyTo(sharedFilesList, 0);
                 return sharedFilesList;
             }
+        }
+
+        public void SendTypingNotification()
+        {
+            byte[] packetData = BitChatMessage.CreateTypingNotification();
+            _network.WritePacketBroadcast(packetData, 0, packetData.Length);
         }
 
         public void SendTextMessage(string message)
@@ -673,6 +698,8 @@ namespace BitChatClient
 
         private void StartTracking(Uri[] trackerURIs)
         {
+            _manager.StartLocalAnnouncement(_network.NetworkID);
+
             lock (_trackers)
             {
                 _trackers.Clear();
@@ -689,6 +716,8 @@ namespace BitChatClient
         {
             if (_trackerUpdateTimer == null)
                 return;
+
+            _manager.StopLocalAnnouncement(_network.NetworkID);
 
             _trackerUpdateTimer.Dispose();
             _trackerUpdateTimer = null;
@@ -746,6 +775,12 @@ namespace BitChatClient
         #endregion
 
         #region properties
+
+        public BitChatNetworkType NetworkType
+        { get { return _network.Type; } }
+
+        public MailAddress PeerEmailAddress
+        { get { return _network.PeerEmailAddress; } }
 
         public string NetworkName
         { get { return _network.NetworkName; } }
@@ -877,6 +912,16 @@ namespace BitChatClient
             {
                 switch (BitChatMessage.ReadType(packetDataStream))
                 {
+                    case BitChatMessageType.TypingNotification:
+                        #region Typing Notification
+                        {
+                            if (_bitchat.PeerTyping != null)
+                                _bitchat.RaiseEventPeerTyping(this);
+
+                            break;
+                        }
+                        #endregion
+
                     case BitChatMessageType.Text:
                         #region Text
                         {
@@ -1224,6 +1269,9 @@ namespace BitChatClient
                         return _networkStatus;
                 }
             }
+
+            public SecureChannelCryptoOptionFlags CipherSuite
+            { get { return _virtualPeer.CipherSuite; } }
 
             public Certificate PeerCertificate
             {

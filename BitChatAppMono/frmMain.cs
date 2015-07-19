@@ -290,7 +290,7 @@ namespace BitChatAppMono
 
         private void btnCreateChat_Click(object sender, EventArgs e)
         {
-            mnuAddChat_Click(null, null);
+            mnuAddGroupChat_Click(null, null);
         }
 
         private void chatPanel_SettingsModified(object sender, EventArgs e)
@@ -321,13 +321,26 @@ namespace BitChatAppMono
 
         #region menus
 
-        private void mnuAddChat_Click(object sender, EventArgs e)
+        private void mnuAddPrivateChat_Click(object sender, EventArgs e)
+        {
+            using (frmAddChat frmCreateChat = new frmAddChat(BitChatClient.Network.BitChatNetworkType.PrivateChat))
+            {
+                if (frmCreateChat.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
+                {
+                    BitChat chat = _service.CreateBitChat(new System.Net.Mail.MailAddress(frmCreateChat.txtNetworkNameOrPeerEmailAddress.Text.ToLower()), frmCreateChat.txtPassword.Text);
+
+                    AddChatView(chat);
+                }
+            }
+        }
+
+        private void mnuAddGroupChat_Click(object sender, EventArgs e)
         {
             using (frmAddChat frmCreateChat = new frmAddChat())
             {
                 if (frmCreateChat.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
                 {
-                    BitChat chat = _service.CreateBitChat(frmCreateChat.txtNetworkName.Text, frmCreateChat.txtPassword.Text);
+                    BitChat chat = _service.CreateBitChat(frmCreateChat.txtNetworkNameOrPeerEmailAddress.Text, frmCreateChat.txtPassword.Text);
 
                     AddChatView(chat);
                 }
@@ -427,7 +440,21 @@ namespace BitChatAppMono
 
         private void AddChatView(BitChat chat)
         {
-            ChatListItem itm = new ChatListItem(chat.NetworkName);
+            string title;
+
+            if (chat.NetworkType == BitChatClient.Network.BitChatNetworkType.PrivateChat)
+            {
+                if (chat.NetworkName == null)
+                    title = chat.PeerEmailAddress.Address;
+                else
+                    title = chat.NetworkName;
+            }
+            else
+            {
+                title = chat.NetworkName;
+            }
+
+            ChatListItem itm = new ChatListItem(title);
 
             BitChatPanel chatPanel = new BitChatPanel(chat, itm);
             chatPanel.Dock = DockStyle.Fill;

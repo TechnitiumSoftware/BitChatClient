@@ -53,15 +53,15 @@ namespace BitChatClient.Network.SecureChannel
             try
             {
                 //send server protocol version
-                stream.WriteByte(3);
+                stream.WriteByte(4);
 
                 //read client protocol version
                 _version = stream.ReadByte();
 
                 switch (_version)
                 {
-                    case 3:
-                        ProtocolV3(stream, serverCredentials, trustedRootCertificates, manager, preSharedKey, supportedOptions);
+                    case 4:
+                        ProtocolV4(stream, serverCredentials, trustedRootCertificates, manager, preSharedKey, supportedOptions);
                         break;
 
                     default:
@@ -88,7 +88,7 @@ namespace BitChatClient.Network.SecureChannel
 
         #region private
 
-        private void ProtocolV3(Stream stream, CertificateStore serverCredentials, Certificate[] trustedRootCertificates, ISecureChannelSecurityManager manager, string preSharedKey, SecureChannelCryptoOptionFlags supportedOptions)
+        private void ProtocolV4(Stream stream, CertificateStore serverCredentials, Certificate[] trustedRootCertificates, ISecureChannelSecurityManager manager, string preSharedKey, SecureChannelCryptoOptionFlags supportedOptions)
         {
             #region 1. hello handshake
 
@@ -154,6 +154,16 @@ namespace BitChatClient.Network.SecureChannel
 
             //generate master key
             byte[] masterKey = GenerateMasterKey(clientHello, serverHello, _preSharedKey, keyAgreement, clientKeyExchange.PublicKeyXML);
+
+            //verify master key using HMAC authentication
+            {
+                SecureChannelPacket.Authentication clientAuthentication = (new SecureChannelPacket(stream)).GetAuthentication();
+                if (!clientAuthentication.IsValid(serverHello, masterKey))
+                    throw new SecureChannelException(SecureChannelCode.ProtocolAuthenticationFailed, _remotePeerEP, _remotePeerCert);
+
+                SecureChannelPacket.Authentication serverAuthentication = new SecureChannelPacket.Authentication(clientHello, masterKey);
+                SecureChannelPacket.WritePacket(stream, serverAuthentication);
+            }
 
             //enable channel encryption
             switch (encAlgo)
@@ -236,7 +246,7 @@ namespace BitChatClient.Network.SecureChannel
                 switch (_version)
                 {
                     case 3:
-                        ProtocolV3(_baseStream, _serverCredentials, _trustedRootCertificates, _manager, _preSharedKey, _supportedOptions);
+                        ProtocolV4(_baseStream, _serverCredentials, _trustedRootCertificates, _manager, _preSharedKey, _supportedOptions);
                         break;
 
                     default:

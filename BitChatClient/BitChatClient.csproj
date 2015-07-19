@@ -70,7 +70,7 @@
     <Compile Include="FileSharing\SharedFile.cs" />
     <Compile Include="IBitChatManager.cs" />
     <Compile Include="IDebug.cs" />
-    <Compile Include="Network\Connections\LocalPeerDiscovery.cs" />
+    <Compile Include="Network\PeerDiscovery\LocalPeerDiscovery.cs" />
     <Compile Include="Network\Connections\ConnectionManager.cs" />
     <Compile Include="Network\BitChatNetwork.cs" />
     <Compile Include="BitChatService.cs" />

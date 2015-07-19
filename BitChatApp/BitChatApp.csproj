@@ -122,6 +122,12 @@
     <Compile Include="frmAddTracker.Designer.cs">
       <DependentUpon>frmAddTracker.cs</DependentUpon>
     </Compile>
+    <Compile Include="frmImportPEM.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmImportPEM.Designer.cs">
+      <DependentUpon>frmImportPEM.cs</DependentUpon>
+    </Compile>
     <Compile Include="frmProfileManager.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -259,6 +265,9 @@
     <EmbeddedResource Include="frmAddTracker.resx">
       <DependentUpon>frmAddTracker.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="frmImportPEM.resx">
+      <DependentUpon>frmImportPEM.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="frmProfileManager.resx">
       <DependentUpon>frmProfileManager.cs</DependentUpon>
     </EmbeddedResource>
@@ -345,6 +354,8 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="logo2.ico" />
+    <None Include="Resources\send message.png" />
+    <None Include="Resources\Attachment.png" />
     <None Include="Resources\MessageNotification.wav" />
     <None Include="Resources\NoNetwork.png" />
     <None Include="Resources\FullNetwork.png" />
