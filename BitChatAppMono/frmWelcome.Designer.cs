@@ -96,7 +96,7 @@
             this.btnAlreadyRegistered.Name = "btnAlreadyRegistered";
             this.btnAlreadyRegistered.Size = new System.Drawing.Size(219, 39);
             this.btnAlreadyRegistered.TabIndex = 16;
-            this.btnAlreadyRegistered.Text = "Already Registered?";
+            this.btnAlreadyRegistered.Text = "Already Registered? Import Profile!";
             this.btnAlreadyRegistered.UseVisualStyleBackColor = true;
             this.btnAlreadyRegistered.Click += new System.EventHandler(this.btnAlreadyRegistered_Click);
             // 
@@ -109,7 +109,8 @@
             this.label3.Size = new System.Drawing.Size(531, 29);
             this.label3.TabIndex = 17;
             this.label3.Text = "Click the \"Register Now!\" button to create a new profile. If you already have a p" +
-    "rofile, click on \"Already Registered?\" button to import your existing profile.";
+    "rofile, click on \"Already Registered? Import Profile!\" button to import your exi" +
+    "sting profile.";
             // 
             // label4
             // 

@@ -95,6 +95,14 @@ namespace BitChatAppMono
 
         #region private
 
+        private void frmRegister_Load(object sender, EventArgs e)
+        {
+            if ((Environment.OSVersion.Platform == PlatformID.Win32NT) && (Environment.OSVersion.Version.Major < 6))
+            {
+                MessageBox.Show("Registration of profile certificate may fail on Windows XP with an SSL/TLS error. Registration process connects to a web server which uses SSL/TLS for secure HTTPS connections and Windows XP with older Service Pack may not support latest version of TLS, and also may not trust the root certificate installed on the web server. Due to this fact, registration process may fail with an certificate error. However, you can import an already registered profile certificate and use it on Windows XP.", "Windows XP SSL/TLS Issue", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
         private void rbImportRSA_CheckedChanged(object sender, EventArgs e)
         {
             if (rbImportRSA.Checked)
@@ -293,6 +301,8 @@ namespace BitChatAppMono
                 Certificate selfSignedCert = new Certificate(CertificateType.RootCA, "", profile, CertificateCapability.SignCACertificate, DateTime.UtcNow, DateTime.UtcNow, AsymmetricEncryptionAlgorithm.RSA, privateKey.GetPublicKey());
                 selfSignedCert.SelfSign("SHA256", privateKey, null);
 
+                Registration.Register(Program.SIGNUP_URI, selfSignedCert);
+
                 if (_profile == null)
                     _profile = new BitChatProfile(null, new IPEndPoint(IPAddress.Parse("0.0.0.0"), 0), Environment.GetFolderPath(Environment.SpecialFolder.Desktop), BitChatProfile.DefaultTrackerURIs);
 
@@ -305,8 +315,6 @@ namespace BitChatAppMono
                 {
                     _profile.WriteTo(fS);
                 }
-
-                Registration.Register(Program.SIGNUP_URI, selfSignedCert);
 
                 this.Invoke(new Action<object>(RegistrationSuccess), new object[] { null });
             }

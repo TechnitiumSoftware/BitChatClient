@@ -30,6 +30,8 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmRegister));
             this.pnlRegister = new System.Windows.Forms.Panel();
+            this.rbImportRSA = new System.Windows.Forms.RadioButton();
+            this.rbAutoGenRSA = new System.Windows.Forms.RadioButton();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.chkAccept = new System.Windows.Forms.CheckBox();
             this.label15 = new System.Windows.Forms.Label();
@@ -73,8 +75,6 @@
             this.label18 = new System.Windows.Forms.Label();
             this.panel1 = new System.Windows.Forms.Panel();
             this.pictureBox2 = new System.Windows.Forms.PictureBox();
-            this.rbAutoGenRSA = new System.Windows.Forms.RadioButton();
-            this.rbImportRSA = new System.Windows.Forms.RadioButton();
             this.pnlRegister.SuspendLayout();
             this.pnlMessages.SuspendLayout();
             this.pnlDownloadCert.SuspendLayout();
@@ -121,15 +121,38 @@
             this.pnlRegister.Size = new System.Drawing.Size(660, 387);
             this.pnlRegister.TabIndex = 6;
             // 
+            // rbImportRSA
+            // 
+            this.rbImportRSA.AutoSize = true;
+            this.rbImportRSA.Location = new System.Drawing.Point(30, 227);
+            this.rbImportRSA.Name = "rbImportRSA";
+            this.rbImportRSA.Size = new System.Drawing.Size(197, 17);
+            this.rbImportRSA.TabIndex = 35;
+            this.rbImportRSA.Text = "&Import custom RSA 4096-bit key pair";
+            this.rbImportRSA.UseVisualStyleBackColor = true;
+            this.rbImportRSA.CheckedChanged += new System.EventHandler(this.rbImportRSA_CheckedChanged);
+            // 
+            // rbAutoGenRSA
+            // 
+            this.rbAutoGenRSA.AutoSize = true;
+            this.rbAutoGenRSA.Checked = true;
+            this.rbAutoGenRSA.Location = new System.Drawing.Point(30, 204);
+            this.rbAutoGenRSA.Name = "rbAutoGenRSA";
+            this.rbAutoGenRSA.Size = new System.Drawing.Size(279, 17);
+            this.rbAutoGenRSA.TabIndex = 34;
+            this.rbAutoGenRSA.TabStop = true;
+            this.rbAutoGenRSA.Text = "&Automatically generate RSA 4096-bit key pair (default)";
+            this.rbAutoGenRSA.UseVisualStyleBackColor = true;
+            // 
             // linkLabel1
             // 
             this.linkLabel1.AutoSize = true;
             this.linkLabel1.Location = new System.Drawing.Point(356, 337);
             this.linkLabel1.Name = "linkLabel1";
-            this.linkLabel1.Size = new System.Drawing.Size(207, 13);
+            this.linkLabel1.Size = new System.Drawing.Size(224, 13);
             this.linkLabel1.TabIndex = 39;
             this.linkLabel1.TabStop = true;
-            this.linkLabel1.Text = "Read terms and condition &&  privacy policy";
+            this.linkLabel1.Text = "Read terms and conditions, and privacy policy";
             this.linkLabel1.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel1_LinkClicked);
             // 
             // chkAccept
@@ -138,9 +161,9 @@
             this.chkAccept.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
             this.chkAccept.Location = new System.Drawing.Point(359, 317);
             this.chkAccept.Name = "chkAccept";
-            this.chkAccept.Size = new System.Drawing.Size(181, 17);
+            this.chkAccept.Size = new System.Drawing.Size(178, 17);
             this.chkAccept.TabIndex = 38;
-            this.chkAccept.Text = "I accept all terms and conditions.";
+            this.chkAccept.Text = "I accept all terms and conditions";
             this.chkAccept.UseVisualStyleBackColor = true;
             this.chkAccept.CheckedChanged += new System.EventHandler(this.chkAccept_CheckedChanged);
             // 
@@ -736,29 +759,6 @@
             this.pictureBox2.TabIndex = 12;
             this.pictureBox2.TabStop = false;
             // 
-            // rbAutoGenRSA
-            // 
-            this.rbAutoGenRSA.AutoSize = true;
-            this.rbAutoGenRSA.Checked = true;
-            this.rbAutoGenRSA.Location = new System.Drawing.Point(79, 204);
-            this.rbAutoGenRSA.Name = "rbAutoGenRSA";
-            this.rbAutoGenRSA.Size = new System.Drawing.Size(241, 17);
-            this.rbAutoGenRSA.TabIndex = 34;
-            this.rbAutoGenRSA.TabStop = true;
-            this.rbAutoGenRSA.Text = "&Automatically generate RSA 4096-bit key pair.";
-            this.rbAutoGenRSA.UseVisualStyleBackColor = true;
-            // 
-            // rbImportRSA
-            // 
-            this.rbImportRSA.AutoSize = true;
-            this.rbImportRSA.Location = new System.Drawing.Point(79, 227);
-            this.rbImportRSA.Name = "rbImportRSA";
-            this.rbImportRSA.Size = new System.Drawing.Size(200, 17);
-            this.rbImportRSA.TabIndex = 35;
-            this.rbImportRSA.Text = "&Import custom RSA 4096-bit key pair.";
-            this.rbImportRSA.UseVisualStyleBackColor = true;
-            this.rbImportRSA.CheckedChanged += new System.EventHandler(this.rbImportRSA_CheckedChanged);
-            // 
             // frmRegister
             // 
             this.AcceptButton = this.btnRegister;
@@ -777,6 +777,7 @@
             this.Name = "frmRegister";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "Profile Registration - Technitium Bit Chat";
+            this.Load += new System.EventHandler(this.frmRegister_Load);
             this.pnlRegister.ResumeLayout(false);
             this.pnlRegister.PerformLayout();
             this.pnlMessages.ResumeLayout(false);

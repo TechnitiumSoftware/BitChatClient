@@ -63,6 +63,16 @@ namespace BitChatApp.Properties {
         /// <summary>
         ///   Looks up a localized resource of type System.Drawing.Bitmap.
         /// </summary>
+        internal static System.Drawing.Bitmap Attachment {
+            get {
+                object obj = ResourceManager.GetObject("Attachment", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
         internal static System.Drawing.Bitmap FullNetwork {
             get {
                 object obj = ResourceManager.GetObject("FullNetwork", resourceCulture);
@@ -105,6 +115,16 @@ namespace BitChatApp.Properties {
         internal static System.Drawing.Bitmap PartialNetwork {
             get {
                 object obj = ResourceManager.GetObject("PartialNetwork", resourceCulture);
+                return ((System.Drawing.Bitmap)(obj));
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized resource of type System.Drawing.Bitmap.
+        /// </summary>
+        internal static System.Drawing.Bitmap send_message {
+            get {
+                object obj = ResourceManager.GetObject("send message", resourceCulture);
                 return ((System.Drawing.Bitmap)(obj));
             }
         }

@@ -321,6 +321,8 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="logo2.ico" />
+    <None Include="Resources\send message.png" />
+    <None Include="Resources\Attachment.png" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\AutomaticUpdate.Client\AutomaticUpdate.Client.csproj">

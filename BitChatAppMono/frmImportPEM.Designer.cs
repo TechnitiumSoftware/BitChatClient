@@ -55,7 +55,7 @@
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(507, 23);
             this.label2.TabIndex = 1;
-            this.label2.Text = "openssl genrsa -out private_key.pem 4096";
+            this.label2.Text = "openssl genrsa 4096";
             this.label2.TextAlign = System.Drawing.ContentAlignment.TopCenter;
             // 
             // txtRSAKey
@@ -76,7 +76,7 @@
             this.btnOK.Name = "btnOK";
             this.btnOK.Size = new System.Drawing.Size(75, 23);
             this.btnOK.TabIndex = 3;
-            this.btnOK.Text = "&OK";
+            this.btnOK.Text = "&Import";
             this.btnOK.UseVisualStyleBackColor = true;
             this.btnOK.Click += new System.EventHandler(this.btnOK_Click);
             // 
@@ -98,8 +98,8 @@
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(507, 30);
             this.label3.TabIndex = 5;
-            this.label3.Text = "Note: Open the private_key.pem file in a text editor, like notepad, copy all the " +
-    "text and paste it below. The text looks like as example shown below:";
+            this.label3.Text = "Note: Select and copy the RSA private key text on the command terminal and paste " +
+    "it below. The text looks like this example shown below:";
             // 
             // label4
             // 
