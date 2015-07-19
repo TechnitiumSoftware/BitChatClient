@@ -21,6 +21,7 @@ using System;
 using System.IO;
 using System.Net;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Security.Cryptography;
@@ -37,34 +38,39 @@ FEATURES-
  - pre-shared key based auth to prevent direct certificate disclosure, preventing identity disclosure to active attacker.
  - encrypted digital certificate exchange to prevent certificate disclosure while exchange, preventing identity disclosure to passive attacker.
  - digital certificate based authentication for ensuring identity and prevent MiTM.
- - secure channel data packet authenticated by HMAC(cipher-text) to provide authenticated encryption.
+ - secure channel data packet authenticated by HMACSHA256(cipher-text) to provide authenticated encryption.
  - key re-negotation feature for allowing the secure channel to remain always on.
  
-<============================================================================>
-                            SERVER        CLIENT
-<============================================================================>
-                           version  --->
-                                    <---  version supported
-<----------------------------------------------------------------------------> version selection done
-                                          client nonce +
-                                    <---  crypto options  
-                    server nonce +  
-            selected crypto option  ---> 
-<----------------------------------------------------------------------------> hello handshake done
-            ephemeral public key +
-                         signature  --->
-                                    <---  ephemeral public key +
-                                          signature
-<----------------------------------------------------------------------------> key exchange done
-master key = HMAC(client hello + server hello + optional PBKDF2(psk, client hello + server hello, 10000), derived key)
-<----------------------------------------------------------------------------> master key generated on both sides with optional pre-shared key; encryption layer ON
-                                    <---  certificate
-                       certificate  --->
-<----------------------------------------------------------------------------> cert exchange done
-    verify certificate and ephemeral public key signature
-<----------------------------------------------------------------------------> final authentication done; data exchange ON
-                              data  <-->  data
-<============================================================================>
+<==============================================================================>
+                              SERVER        CLIENT
+<==============================================================================>
+                             version  --->
+                                      <---  version supported
+<------------------------------------------------------------------------------> version selection done
+                                            client nonce +
+                                      <---  crypto options  
+                      server nonce +  
+              selected crypto option  ---> 
+<------------------------------------------------------------------------------> hello handshake done
+              ephemeral public key +
+                           signature  --->
+                                      <---  ephemeral public key +
+                                            signature
+<------------------------------------------------------------------------------> key exchange done
+  master key = HMACSHA256(client hello + server hello, derived key)
+      OR
+  master key = HMACSHA256(HMACSHA256(client hello + server hello, psk), derived key)
+<------------------------------------------------------------------------------> master key generated on both sides with optional pre-shared key
+                                      <---  HMACSHA256(server hello, master key)
+HMACSHA256(client hello, master key)  --->
+<------------------------------------------------------------------------------> verify master key using HMAC authentication; encryption layer ON
+                                      <---  certificate
+                         certificate  --->
+<------------------------------------------------------------------------------> cert exchange done
+      verify certificate and ephemeral public key signature
+<------------------------------------------------------------------------------> final authentication done; data exchange ON
+                                data  <-->  data
+<==============================================================================>
  */
 
 namespace BitChatClient.Network.SecureChannel
@@ -79,6 +85,9 @@ namespace BitChatClient.Network.SecureChannel
     public abstract class SecureChannelStream : Stream
     {
         #region variables
+
+        const byte HEADER_FLAG_NONE = 0;
+        const byte HEADER_FLAG_RENEGOTIATE = 1;
 
         protected static RandomNumberGenerator _rnd = new RNGCryptoServiceProvider();
         static RandomNumberGenerator _rndPadding = new RNGCryptoServiceProvider();
@@ -279,9 +288,9 @@ namespace BitChatClient.Network.SecureChannel
                 _writeBufferData[1] = header[1];
 
                 if (_reNegotiating)
-                    _writeBufferData[2] = 1; //re-negotiate
+                    _writeBufferData[2] = HEADER_FLAG_RENEGOTIATE;
                 else
-                    _writeBufferData[2] = 0; //no flags
+                    _writeBufferData[2] = HEADER_FLAG_NONE;
 
                 //write padding
                 if (bytesPadding > 0)
@@ -335,7 +344,7 @@ namespace BitChatClient.Network.SecureChannel
                     bytesAvailableForRead = ReadSecureChannelFrame();
 
                     //check header flags
-                    if (_readBufferData[2] == 1)
+                    if (_readBufferData[2] == HEADER_FLAG_RENEGOTIATE)
                     {
                         //received re-negotiate flag
                         lock (_writeLock)
@@ -523,13 +532,10 @@ namespace BitChatClient.Network.SecureChannel
                 clientHello.WriteTo(mS);
                 serverHello.WriteTo(mS);
 
-                if (!string.IsNullOrEmpty(preSharedKey))
-                {
-                    byte[] psk = PBKDF2.CreateHMACSHA256(preSharedKey, mS.ToArray(), 10000).GetBytes(32);
-                    mS.Write(psk, 0, psk.Length);
-                }
-
-                keyAgreement.HmacMessage = mS.ToArray();
+                if (string.IsNullOrEmpty(preSharedKey))
+                    keyAgreement.HmacMessage = mS.ToArray();
+                else
+                    keyAgreement.HmacMessage = (new HMACSHA256(Encoding.UTF8.GetBytes(preSharedKey))).ComputeHash(mS.ToArray());
             }
 
             return keyAgreement.DeriveKeyMaterial(otherPartyPublicKeyXML);

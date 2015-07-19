@@ -121,6 +121,14 @@ namespace BitChatClient.Network.SecureChannel
             }
         }
 
+        public Authentication GetAuthentication()
+        {
+            using (MemoryStream mS = new MemoryStream(_data, false))
+            {
+                return new Authentication(mS);
+            }
+        }
+
         public Certificate GetCertificate()
         {
             using (MemoryStream mS = new MemoryStream(_data, false))
@@ -263,6 +271,53 @@ namespace BitChatClient.Network.SecureChannel
 
             public byte[] Signature
             { get { return _signature; } }
+
+            #endregion
+        }
+
+        public class Authentication : WriteStream
+        {
+            #region variables
+
+            BinaryID _hmac;
+
+            #endregion
+
+            #region constructor
+
+            public Authentication(Hello hello, byte[] masterKey)
+            {
+                _hmac = new BinaryID((new HMACSHA256(masterKey)).ComputeHash(hello.ToStream()));
+            }
+
+            public Authentication(Stream s)
+            {
+                _hmac = new BinaryID(s);
+            }
+
+            #endregion
+
+            #region public
+
+            public bool IsValid(Hello hello, byte[] masterKey)
+            {
+                BinaryID computedHmac = new BinaryID((new HMACSHA256(masterKey)).ComputeHash(hello.ToStream()));
+                return _hmac.Equals(computedHmac);
+            }
+
+            #endregion
+
+            #region override
+
+            public override void WriteTo(Stream s)
+            {
+                _hmac.WriteTo(s);
+            }
+
+            public override void WriteTo(BinaryWriter bW)
+            {
+                throw new NotImplementedException();
+            }
 
             #endregion
         }
