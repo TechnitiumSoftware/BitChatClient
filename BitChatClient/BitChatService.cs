@@ -340,14 +340,24 @@ namespace BitChatClient
                 }
             }
 
-            public void StartLocalAnnouncement(BinaryID networkID)
+            public void StartLocalTracking(BinaryID networkID)
             {
                 _localDiscovery.StartTracking(networkID);
             }
 
-            public void StopLocalAnnouncement(BinaryID networkID)
+            public void StopLocalTracking(BinaryID networkID)
             {
                 _localDiscovery.StopTracking(networkID);
+            }
+
+            public void PauseLocalAnnouncement(BinaryID networkID)
+            {
+                _localDiscovery.PauseAnnouncement(networkID);
+            }
+
+            public void ResumeLocalAnnouncement(BinaryID networkID)
+            {
+                _localDiscovery.ResumeAnnouncement(networkID);
             }
 
             #endregion

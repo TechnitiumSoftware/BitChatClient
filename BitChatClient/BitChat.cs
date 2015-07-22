@@ -125,6 +125,8 @@ namespace BitChatClient
                 { }
             }
 
+            //start tracking
+            _manager.StartLocalTracking(_network.NetworkID);
             StartTracking(trackerURIs);
 
             //start noop timer
@@ -164,6 +166,7 @@ namespace BitChatClient
                 }
 
                 //stop tracking
+                _manager.StopLocalTracking(_network.NetworkID);
                 StopTracking();
 
                 //stop network
@@ -585,9 +588,31 @@ namespace BitChatClient
 
                 lock (_connectedPeerList)
                 {
-                    _connectedPeerList = connectedPeerList;
+                    _connectedPeerList.Clear();
+                    _connectedPeerList.AddRange(connectedPeerList);
                     _disconnectedPeerList = disconnectedPeerList;
                     _networkStatus = networkStatus;
+                }
+
+                if (_network.Type == BitChatNetworkType.PrivateChat)
+                {
+                    if (connectedPeerList.Count > 0)
+                    {
+                        _manager.PauseLocalAnnouncement(_network.NetworkID);
+                        StopTracking();
+                    }
+                    else
+                    {
+                        _manager.ResumeLocalAnnouncement(_network.NetworkID);
+                        StartTracking();
+                    }
+                }
+                else
+                {
+                    if (connectedPeerList.Count > 0)
+                        _manager.PauseLocalAnnouncement(_network.NetworkID);
+                    else
+                        _manager.ResumeLocalAnnouncement(_network.NetworkID);
                 }
 
                 if (oldStatus != networkStatus)
@@ -696,16 +721,17 @@ namespace BitChatClient
             }
         }
 
-        private void StartTracking(Uri[] trackerURIs)
+        private void StartTracking(Uri[] trackerURIs = null)
         {
-            _manager.StartLocalAnnouncement(_network.NetworkID);
-
-            lock (_trackers)
+            if (trackerURIs != null)
             {
-                _trackers.Clear();
+                lock (_trackers)
+                {
+                    _trackers.Clear();
 
-                foreach (Uri trackerURI in trackerURIs)
-                    _trackers.Add(TrackerClient.Create(trackerURI, _network.NetworkID.ID, TrackerClientID.CreateDefaultID()));
+                    foreach (Uri trackerURI in trackerURIs)
+                        _trackers.Add(TrackerClient.Create(trackerURI, _network.NetworkID.ID, TrackerClientID.CreateDefaultID()));
+                }
             }
 
             if (_trackerUpdateTimer == null)
@@ -716,8 +742,6 @@ namespace BitChatClient
         {
             if (_trackerUpdateTimer == null)
                 return;
-
-            _manager.StopLocalAnnouncement(_network.NetworkID);
 
             _trackerUpdateTimer.Dispose();
             _trackerUpdateTimer = null;
@@ -793,6 +817,9 @@ namespace BitChatClient
 
         public Peer SelfPeer
         { get { return _selfPeer; } }
+
+        public bool IsTrackerRunning
+        { get { return (_trackerUpdateTimer != null); } }
 
         #endregion
 

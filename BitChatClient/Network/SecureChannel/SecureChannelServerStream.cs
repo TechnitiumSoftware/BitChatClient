@@ -245,7 +245,7 @@ namespace BitChatClient.Network.SecureChannel
             {
                 switch (_version)
                 {
-                    case 3:
+                    case 4:
                         ProtocolV4(_baseStream, _serverCredentials, _trustedRootCertificates, _manager, _preSharedKey, _supportedOptions);
                         break;
 

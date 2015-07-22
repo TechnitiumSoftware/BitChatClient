@@ -349,7 +349,11 @@ namespace BitChatClient
                         _sharedSecret = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
 
                         if (version > 3)
-                            _networkID = new BinaryID(bR.ReadBytes(bR.ReadByte()));
+                        {
+                            int networkIDLen = bR.ReadByte();
+                            if (networkIDLen > 0)
+                                _networkID = new BinaryID(bR.ReadBytes(networkIDLen));
+                        }
 
                         _peerCerts = new Certificate[bR.ReadByte()];
                         for (int i = 0; i < _peerCerts.Length; i++)
@@ -395,8 +399,15 @@ namespace BitChatClient
                 bW.Write(Convert.ToByte(buffer.Length));
                 bW.Write(buffer);
 
-                bW.Write(Convert.ToByte(_networkID.ID.Length));
-                bW.Write(_networkID.ID);
+                if (_networkID == null)
+                {
+                    bW.Write((byte)0);
+                }
+                else
+                {
+                    bW.Write(Convert.ToByte(_networkID.ID.Length));
+                    bW.Write(_networkID.ID);
+                }
 
                 bW.Write(Convert.ToByte(_peerCerts.Length));
                 foreach (Certificate peerCert in _peerCerts)

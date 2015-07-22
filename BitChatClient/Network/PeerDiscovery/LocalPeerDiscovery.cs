@@ -44,15 +44,19 @@ namespace BitChatClient.Network.PeerDiscovery
 
         #region variables
 
-        const int ANNOUNCEMENT_INTERVAL = 5000;
-        const int ANNOUNCEMENT_COUNT = 5;
-        const int NETWORK_WATCHER_INTERVAL = 30000;
+        const int ANNOUNCEMENT_INTERVAL = 30000;
+        const int ANNOUNCEMENT_RETRY_INTERVAL = 5000;
+        const int ANNOUNCEMENT_RETRY_COUNT = 3;
+        const int NETWORK_WATCHER_INTERVAL = 15000;
         const int BUFFER_MAX_SIZE = 128;
 
         static Listener _listener;
 
         ushort _announcePort;
+
+        Timer _announcementTimer;
         List<BinaryID> _trackedNetworkIDs = new List<BinaryID>(5);
+        List<BinaryID> _announceNetworkIDs = new List<BinaryID>(5);
         List<PeerInfo> _peerInfoCache = new List<PeerInfo>(5);
 
         #endregion
@@ -65,6 +69,8 @@ namespace BitChatClient.Network.PeerDiscovery
 
             _listener.ReceivedPeerInfo += _listener_ReceivedPeerInfo;
             _listener.BroadcastNetworkDiscovered += _listener_BroadcastNetworkDiscovered;
+
+            _announcementTimer = new Timer(AnnounceNetworks, null, ANNOUNCEMENT_INTERVAL, Timeout.Infinite);
         }
 
         #endregion
@@ -94,11 +100,13 @@ namespace BitChatClient.Network.PeerDiscovery
         {
             lock (_trackedNetworkIDs)
             {
-                int i = FindChatHashIndex(networkID);
-                if (i < 0)
+                if (!_trackedNetworkIDs.Contains(networkID))
+                {
                     _trackedNetworkIDs.Add(networkID);
+                    _announceNetworkIDs.Add(networkID);
 
-                ThreadPool.QueueUserWorkItem(AnnounceAsync, new object[] { networkID, null, ANNOUNCEMENT_COUNT, false });
+                    ThreadPool.QueueUserWorkItem(AnnounceAsync, new object[] { new BinaryID[] { networkID }, null, ANNOUNCEMENT_RETRY_COUNT, false });
+                }
             }
         }
 
@@ -106,9 +114,30 @@ namespace BitChatClient.Network.PeerDiscovery
         {
             lock (_trackedNetworkIDs)
             {
-                int i = FindChatHashIndex(networkID);
-                if (i > -1)
-                    _trackedNetworkIDs.RemoveAt(i);
+                if (_trackedNetworkIDs.Remove(networkID))
+                    _announceNetworkIDs.Remove(networkID);
+            }
+        }
+
+        public void PauseAnnouncement(BinaryID networkID)
+        {
+            lock (_trackedNetworkIDs)
+            {
+                if (_trackedNetworkIDs.Contains(networkID))
+                    _announceNetworkIDs.Remove(networkID);
+            }
+        }
+
+        public void ResumeAnnouncement(BinaryID networkID)
+        {
+            lock (_trackedNetworkIDs)
+            {
+                if (_trackedNetworkIDs.Contains(networkID) && !_announceNetworkIDs.Contains(networkID))
+                {
+                    _announceNetworkIDs.Add(networkID);
+
+                    ThreadPool.QueueUserWorkItem(AnnounceAsync, new object[] { new BinaryID[] { networkID }, null, ANNOUNCEMENT_RETRY_COUNT, false });
+                }
             }
         }
 
@@ -116,76 +145,96 @@ namespace BitChatClient.Network.PeerDiscovery
 
         #region private
 
-        private int FindChatHashIndex(BinaryID networkID)
-        {
-            for (int i = 0; i < _trackedNetworkIDs.Count; i++)
-            {
-                if (_trackedNetworkIDs[i].Equals(networkID))
-                    return i;
-            }
-
-            return -1;
-        }
-
         private void AnnounceAsync(object state)
         {
             try
             {
                 object[] parameters = state as object[];
 
-                BinaryID networkID = parameters[0] as BinaryID;
+                BinaryID[] networkIDs = parameters[0] as BinaryID[];
                 IPAddress[] remoteIPs = parameters[1] as IPAddress[];
                 int times = (int)parameters[2];
                 bool isReply = (bool)parameters[3];
 
-                Announce(networkID, remoteIPs, times, isReply);
+                Announce(networkIDs, remoteIPs, times, isReply);
             }
             catch
             { }
         }
 
-        private void Announce(BinaryID networkID, IPAddress[] remoteIPs, int times, bool isReply)
+        private void Announce(BinaryID[] networkIDs, IPAddress[] remoteIPs, int times, bool isReply)
         {
+            List<byte[]> packets = new List<byte[]>(networkIDs.Length);
+
             //CREATE ADVERTISEMENT
-            byte[] challenge = BinaryID.GenerateRandomID256().ID;
-            byte[] buffer = new byte[BUFFER_MAX_SIZE];
-
-            using (MemoryStream mS = new MemoryStream(buffer))
+            foreach (BinaryID networkID in networkIDs)
             {
-                //version 1 byte
-                if (isReply)
-                    mS.WriteByte(4);
-                else
-                    mS.WriteByte(3);
+                byte[] challenge = BinaryID.GenerateRandomID256().ID;
 
-                mS.Write(BitConverter.GetBytes(_announcePort), 0, 2); //service port
-                mS.Write(challenge, 0, 32); //challenge
-
-                using (HMACSHA256 hmacSHA256 = new HMACSHA256(networkID.ID))
+                using (MemoryStream mS = new MemoryStream(BUFFER_MAX_SIZE))
                 {
-                    byte[] hmac = hmacSHA256.ComputeHash(challenge);
-                    mS.Write(hmac, 0, 32);
+                    //version 1 byte
+                    if (isReply)
+                        mS.WriteByte(4);
+                    else
+                        mS.WriteByte(3);
+
+                    mS.Write(BitConverter.GetBytes(_announcePort), 0, 2); //service port
+                    mS.Write(challenge, 0, 32); //challenge
+
+                    using (HMACSHA256 hmacSHA256 = new HMACSHA256(networkID.ID))
+                    {
+                        byte[] hmac = hmacSHA256.ComputeHash(challenge);
+                        mS.Write(hmac, 0, 32);
+                    }
+
+                    packets.Add(mS.ToArray());
                 }
+            }
 
-                int length = Convert.ToInt32(mS.Position);
-
-                //SEND ADVERTISEMENT
-                for (int i = 0; i < times; i++)
+            //SEND ADVERTISEMENT
+            for (int i = 0; i < times; i++)
+            {
+                foreach (byte[] packet in packets)
                 {
                     if (remoteIPs == null)
                     {
-                        _listener.Broadcast(buffer, 0, length);
+                        _listener.Broadcast(packet, 0, packet.Length);
                     }
                     else
                     {
                         foreach (IPAddress remoteIP in remoteIPs)
                         {
-                            _listener.SendTo(buffer, 0, length, remoteIP);
+                            _listener.SendTo(packet, 0, packet.Length, remoteIP);
                         }
                     }
+                }
 
-                    if (i < times - 1)
-                        Thread.Sleep(ANNOUNCEMENT_INTERVAL);
+                if (i < times - 1)
+                    Thread.Sleep(ANNOUNCEMENT_RETRY_INTERVAL);
+            }
+        }
+
+        private void AnnounceNetworks(object state)
+        {
+            try
+            {
+                BinaryID[] networkIDs;
+
+                lock (_trackedNetworkIDs)
+                {
+                    networkIDs = _announceNetworkIDs.ToArray();
+                }
+
+                Announce(networkIDs, null, ANNOUNCEMENT_RETRY_COUNT, false);
+            }
+            catch
+            { }
+            finally
+            {
+                if (_announcementTimer != null)
+                {
+                    _announcementTimer.Change(ANNOUNCEMENT_INTERVAL, Timeout.Infinite);
                 }
             }
         }
@@ -194,13 +243,14 @@ namespace BitChatClient.Network.PeerDiscovery
         {
             try
             {
+                BinaryID[] networkIDs;
+
                 lock (_trackedNetworkIDs)
                 {
-                    foreach (BinaryID networkID in _trackedNetworkIDs)
-                    {
-                        ThreadPool.QueueUserWorkItem(AnnounceAsync, new object[] { networkID, broadcastIPs, ANNOUNCEMENT_COUNT, false });
-                    }
+                    networkIDs = _trackedNetworkIDs.ToArray();
                 }
+
+                ThreadPool.QueueUserWorkItem(AnnounceAsync, new object[] { networkIDs, broadcastIPs, ANNOUNCEMENT_RETRY_COUNT, false });
             }
             catch
             { }
@@ -262,7 +312,7 @@ namespace BitChatClient.Network.PeerDiscovery
                     }
 
                     if (!isReply)
-                        ThreadPool.QueueUserWorkItem(AnnounceAsync, new object[] { foundNetworkID, new IPAddress[] { peerEP.Address }, 1, true });
+                        ThreadPool.QueueUserWorkItem(AnnounceAsync, new object[] { new BinaryID[] { foundNetworkID }, new IPAddress[] { peerEP.Address }, 1, true });
                 }
             }
         }
@@ -364,7 +414,8 @@ namespace BitChatClient.Network.PeerDiscovery
                         _broadcastIPs.AddRange(currentBroadcastIPs);
                     }
 
-                    BroadcastNetworkDiscovered(newIPs.ToArray());
+                    if (newIPs.Count > 0)
+                        BroadcastNetworkDiscovered(newIPs.ToArray());
                 }
                 catch
                 { }
