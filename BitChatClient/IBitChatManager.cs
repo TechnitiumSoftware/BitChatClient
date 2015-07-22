@@ -27,8 +27,12 @@ namespace BitChatClient
 
         void RemoveBitChat(BitChat chat);
 
-        void StartLocalAnnouncement(BinaryID networkID);
+        void StartLocalTracking(BinaryID networkID);
 
-        void StopLocalAnnouncement(BinaryID networkID);
+        void StopLocalTracking(BinaryID networkID);
+
+        void PauseLocalAnnouncement(BinaryID networkID);
+
+        void ResumeLocalAnnouncement(BinaryID networkID);
     }
 }

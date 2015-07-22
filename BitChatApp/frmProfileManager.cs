@@ -274,6 +274,7 @@ namespace BitChatApp
                 sFD.Title = "Export Bit Chat Profile File As...";
                 sFD.Filter = "Bit Chat Profile File (*.profile)|*.profile";
                 sFD.DefaultExt = ".profile";
+                sFD.FileName = lstProfiles.SelectedItem + ".profile";
                 sFD.CheckPathExists = true;
                 sFD.OverwritePrompt = true;
 
