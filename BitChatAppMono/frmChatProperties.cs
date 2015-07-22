@@ -71,28 +71,39 @@ namespace BitChatAppMono
         {
             lock (lstTrackerInfo.Items)
             {
+                bool tracking = _chat.IsTrackerRunning;
+
                 foreach (ListViewItem item in lstTrackerInfo.Items)
                 {
                     TrackerClient tracker = item.Tag as TrackerClient;
 
-                    string strUpdateIn = "updating...";
-                    TimeSpan updateIn = tracker.NextUpdateIn();
-
-                    if (updateIn.TotalSeconds > 1)
+                    if (tracking)
                     {
-                        strUpdateIn = "";
-                        if (updateIn.Hours > 0)
-                            strUpdateIn = updateIn.Hours + "h ";
+                        string strUpdateIn = "updating...";
+                        TimeSpan updateIn = tracker.NextUpdateIn();
 
-                        if (updateIn.Minutes > 0)
-                            strUpdateIn += updateIn.Minutes + "m ";
+                        if (updateIn.TotalSeconds > 1)
+                        {
+                            strUpdateIn = "";
+                            if (updateIn.Hours > 0)
+                                strUpdateIn = updateIn.Hours + "h ";
 
-                        strUpdateIn += updateIn.Seconds + "s";
+                            if (updateIn.Minutes > 0)
+                                strUpdateIn += updateIn.Minutes + "m ";
+
+                            strUpdateIn += updateIn.Seconds + "s";
+                        }
+
+                        item.SubItems[1].Text = tracker.LastException == null ? "working" : tracker.LastException.Message;
+                        item.SubItems[2].Text = strUpdateIn;
+                        item.SubItems[3].Text = tracker.Peers.Count.ToString();
                     }
-
-                    item.SubItems[1].Text = tracker.LastException == null ? "working" : tracker.LastException.Message;
-                    item.SubItems[2].Text = strUpdateIn;
-                    item.SubItems[3].Text = tracker.Peers.Count.ToString();
+                    else
+                    {
+                        item.SubItems[1].Text = "not tracking";
+                        item.SubItems[2].Text = "";
+                        item.SubItems[3].Text = "";
+                    }
                 }
             }
         }

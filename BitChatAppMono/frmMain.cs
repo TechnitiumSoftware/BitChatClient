@@ -290,7 +290,7 @@ namespace BitChatAppMono
 
         private void btnCreateChat_Click(object sender, EventArgs e)
         {
-            mnuAddGroupChat_Click(null, null);
+            mnuAddPrivateChat_Click(null, null);
         }
 
         private void chatPanel_SettingsModified(object sender, EventArgs e)
@@ -431,7 +431,7 @@ namespace BitChatAppMono
 
         private void InvalidCertificateEvent(BitChatService sender, InvalidCertificateException e)
         {
-            MessageBox.Show(e.Message, "Invalid Certificate Detected", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(e.Message + "/r/n/r/nClick OK to logout from this Bit Chat profile.", "Invalid Certificate Detected", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
             this.Hide();
             this.DialogResult = System.Windows.Forms.DialogResult.Ignore;
