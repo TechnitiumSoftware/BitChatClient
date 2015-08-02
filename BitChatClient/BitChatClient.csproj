@@ -70,12 +70,14 @@
     <Compile Include="FileSharing\SharedFile.cs" />
     <Compile Include="IBitChatManager.cs" />
     <Compile Include="IDebug.cs" />
-    <Compile Include="Network\PeerDiscovery\LocalPeerDiscovery.cs" />
+    <Compile Include="Network\PeerDiscovery\LocalPeerDiscoveryIPv4.cs" />
     <Compile Include="Network\Connections\ConnectionManager.cs" />
     <Compile Include="Network\BitChatNetwork.cs" />
     <Compile Include="BitChatService.cs" />
     <Compile Include="Network\Connections\Connection.cs" />
     <Compile Include="Network\IBitChatNetworkManager.cs" />
+    <Compile Include="Network\UDP\UDPListener.cs" />
+    <Compile Include="Network\UDP\UDPStream.cs" />
     <Compile Include="PeerInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Registration.cs" />

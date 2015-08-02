@@ -605,14 +605,23 @@ namespace BitChatClient
                     {
                         _manager.ResumeLocalAnnouncement(_network.NetworkID);
                         StartTracking();
+                        TrackerUpdateTimerCallBack(null); //force update trackers
                     }
                 }
                 else
                 {
                     if (connectedPeerList.Count > 0)
+                    {
                         _manager.PauseLocalAnnouncement(_network.NetworkID);
+
+                        if (disconnectedPeerList.Count > 0)
+                            TrackerUpdateTimerCallBack(null); //force update trackers
+                    }
                     else
+                    {
                         _manager.ResumeLocalAnnouncement(_network.NetworkID);
+                        TrackerUpdateTimerCallBack(null); //force update trackers
+                    }
                 }
 
                 if (oldStatus != networkStatus)
@@ -735,28 +744,40 @@ namespace BitChatClient
             }
 
             if (_trackerUpdateTimer == null)
-                _trackerUpdateTimer = new Timer(UpdateTracker, TrackerClientEvent.Started, 1000, Timeout.Infinite);
+            {
+                lock (_trackers)
+                {
+                    if (_trackers.Count > 0)
+                        _trackerUpdateTimer = new Timer(TrackerUpdateTimerCallBack, TrackerClientEvent.Started, 1000, Timeout.Infinite);
+                }
+            }
         }
 
         private void StopTracking()
         {
-            if (_trackerUpdateTimer == null)
-                return;
-
-            _trackerUpdateTimer.Dispose();
-            _trackerUpdateTimer = null;
+            if (_trackerUpdateTimer != null)
+            {
+                _trackerUpdateTimer.Dispose();
+                _trackerUpdateTimer = null;
+            }
         }
 
-        private void UpdateTracker(object state)
+        private void TrackerUpdateTimerCallBack(object state)
         {
             try
             {
                 TrackerClientEvent @event;
+                bool forceUpdate = false;
 
                 if (state == null)
-                    @event = TrackerClientEvent.None;
+                {
+                    forceUpdate = true;
+                    @event = TrackerClientEvent.Started;
+                }
                 else
+                {
                     @event = (TrackerClientEvent)state;
+                }
 
                 IPEndPoint localEP = _manager.GetLocalEP();
 
@@ -764,7 +785,7 @@ namespace BitChatClient
                 {
                     foreach (TrackerClient tracker in _trackers)
                     {
-                        if (!tracker.IsUpdating && (tracker.NextUpdateIn().TotalSeconds < 1))
+                        if (!tracker.IsUpdating && (forceUpdate || (tracker.NextUpdateIn().TotalSeconds < 1)))
                             ThreadPool.QueueUserWorkItem(new WaitCallback(UpdateTrackerAsync), new object[] { tracker, @event, localEP });
                     }
                 }

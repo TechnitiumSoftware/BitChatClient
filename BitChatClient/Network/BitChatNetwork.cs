@@ -194,12 +194,14 @@ namespace BitChatClient.Network
                 //make connection
                 Connection connection = _networkManager.MakeConnection(peerEP);
 
+                BinaryID channelName = GetChannelName(connection.LocalPeerID.ID, connection.RemotePeerID.ID);
+
                 //check if channel exists
-                if (connection.BitChatNetworkChannelExists(_networkID))
+                if (connection.BitChatNetworkChannelExists(channelName))
                     return;
 
                 //request channel
-                Stream channel = connection.RequestBitChatNetworkChannel(_networkID);
+                Stream channel = connection.RequestBitChatNetworkChannel(channelName);
 
                 //secure channel
                 try
@@ -270,6 +272,22 @@ namespace BitChatClient.Network
         #endregion
 
         #region public
+
+        public BinaryID GetChannelName(byte[] localPeerID, byte[] remotePeerID)
+        {
+            // this is done to avoid disclosing networkID to passive network sniffing
+            // channelName = hmac( localPeerID XOR remotePeerID, networkID)
+
+            byte[] xoredID = new byte[20];
+
+            for (int i = 0; i < 20; i++)
+                xoredID[i] = (byte)(localPeerID[i] ^ remotePeerID[i]);
+
+            using (HMACSHA1 hmacSHA1 = new HMACSHA1(_networkID.ID))
+            {
+                return new BinaryID(hmacSHA1.ComputeHash(xoredID));
+            }
+        }
 
         public VirtualPeer[] GetVirtualPeerList()
         {

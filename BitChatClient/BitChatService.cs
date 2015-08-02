@@ -145,9 +145,14 @@ namespace BitChatClient
 
         #region public
 
-        public BitChat CreateBitChat(MailAddress peerEmailAddress, string sharedSecret)
+        public BitChat CreateBitChat(MailAddress peerEmailAddress, string sharedSecret, bool useTrackers)
         {
-            BitChat bitChat = _manager.CreateBitChat(peerEmailAddress, sharedSecret, null, new Certificate[] { }, new BitChatProfile.SharedFileInfo[] { }, null);
+            Uri[] trackerURIs = null;
+
+            if (!useTrackers)
+                trackerURIs = new Uri[] { };
+
+            BitChat bitChat = _manager.CreateBitChat(peerEmailAddress, sharedSecret, null, new Certificate[] { }, new BitChatProfile.SharedFileInfo[] { }, trackerURIs);
 
             lock (_bitChats)
             {
@@ -157,9 +162,14 @@ namespace BitChatClient
             return bitChat;
         }
 
-        public BitChat CreateBitChat(string networkName, string sharedSecret)
+        public BitChat CreateBitChat(string networkName, string sharedSecret, bool useTrackers)
         {
-            BitChat bitChat = _manager.CreateBitChat(networkName, sharedSecret, null, new Certificate[] { }, new BitChatProfile.SharedFileInfo[] { }, null);
+            Uri[] trackerURIs = null;
+
+            if (!useTrackers)
+                trackerURIs = new Uri[] { };
+
+            BitChat bitChat = _manager.CreateBitChat(networkName, sharedSecret, null, new Certificate[] { }, new BitChatProfile.SharedFileInfo[] { }, trackerURIs);
 
             lock (_bitChats)
             {
@@ -217,7 +227,7 @@ namespace BitChatClient
             SecureChannelCryptoOptionFlags _supportedCryptoOptions;
 
             ConnectionManager _connectionManager;
-            LocalPeerDiscovery _localDiscovery;
+            LocalPeerDiscoveryIPv4 _localDiscovery;
             Dictionary<BinaryID, BitChatNetwork> _networks = new Dictionary<BinaryID, BitChatNetwork>();
 
             int _reNegotiateOnBytesSent = 104857600; //100mb
@@ -236,8 +246,8 @@ namespace BitChatClient
 
                 _connectionManager = new ConnectionManager(_profile.LocalEP, ChannelRequest);
 
-                LocalPeerDiscovery.StartListener(41733);
-                _localDiscovery = new LocalPeerDiscovery(_connectionManager.LocalEP.Port);
+                LocalPeerDiscoveryIPv4.StartListener(41733);
+                _localDiscovery = new LocalPeerDiscoveryIPv4(_connectionManager.LocalEP.Port);
                 _localDiscovery.PeerDiscovered += _localDiscovery_PeerDiscovered;
 
                 _profile.LocalEP = _connectionManager.LocalEP;
@@ -266,6 +276,9 @@ namespace BitChatClient
                 {
                     if (_connectionManager != null)
                         _connectionManager.Dispose();
+
+                    if (_localDiscovery != null)
+                        _localDiscovery.Dispose();
 
                     _disposed = true;
                 }
@@ -314,7 +327,7 @@ namespace BitChatClient
 
             #region LocalDiscovery support
 
-            private void _localDiscovery_PeerDiscovered(LocalPeerDiscovery sender, IPEndPoint peerEP, BinaryID networkID)
+            private void _localDiscovery_PeerDiscovered(LocalPeerDiscoveryIPv4 sender, IPEndPoint peerEP, BinaryID networkID)
             {
                 lock (_networks)
                 {
@@ -418,12 +431,25 @@ namespace BitChatClient
                     switch (type)
                     {
                         case ChannelType.BitChatNetwork:
-                            BitChatNetwork network;
+                            BitChatNetwork network = null;
 
+                            //find network by channel name
                             lock (_networks)
                             {
-                                network = _networks[channelName];
+                                foreach (KeyValuePair<BinaryID, BitChatNetwork> item in _networks)
+                                {
+                                    BinaryID computedChannelName = item.Value.GetChannelName(connection.LocalPeerID.ID, connection.RemotePeerID.ID);
+
+                                    if (computedChannelName.Equals(channelName))
+                                    {
+                                        network = item.Value;
+                                        break;
+                                    }
+                                }
                             }
+
+                            if (network == null)
+                                throw new BitChatException("Network not found for given channel name.");
 
                             SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _profile.LocalCertificateStore, _trustedRootCertificates, this, _supportedCryptoOptions, _reNegotiateOnBytesSent, _reNegotiateAfterSeconds, network.SharedSecret);
 

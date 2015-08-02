@@ -439,7 +439,7 @@ namespace BitChatClient.Network.Connections
         {
             try
             {
-                DefaultNetworkInfo defaultNetworkInfo = NetUtilities.GetDefaultNetworkInfo();
+                NetworkInfo defaultNetworkInfo = NetUtilities.GetDefaultNetworkInfo();
                 if (defaultNetworkInfo == null)
                 {
                     //no internet available;
@@ -625,6 +625,9 @@ namespace BitChatClient.Network.Connections
         #endregion
 
         #region properties
+
+        public BinaryID LocalPeerID
+        { get { return _localPeerID; } }
 
         public IPEndPoint LocalEP
         { get { return _externalSelfEP; } }

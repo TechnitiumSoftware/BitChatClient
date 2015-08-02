@@ -719,6 +719,9 @@ namespace BitChatClient.Network.Connections
 
         #region properties
 
+        public BinaryID LocalPeerID
+        { get { return _connectionManager.LocalPeerID; } }
+
         public BinaryID RemotePeerID
         { get { return _remotePeerID; } }
 
