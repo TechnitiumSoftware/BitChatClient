@@ -31,9 +31,17 @@ namespace BitChatAppMono
     {
         List<Uri> _trackerUriList = new List<Uri>();
 
-        public frmAddTracker()
+        public frmAddTracker(Uri[] trackers = null)
         {
             InitializeComponent();
+
+            if (trackers != null)
+            {
+                foreach (Uri tracker in trackers)
+                {
+                    txtTrackerURL.Text += tracker.AbsoluteUri + "\r\n";
+                }
+            }
         }
 
         private void btnCancel_Click(object sender, EventArgs e)

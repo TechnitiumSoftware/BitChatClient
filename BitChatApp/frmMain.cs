@@ -352,11 +352,11 @@ namespace BitChatApp
 
         private void mnuAddPrivateChat_Click(object sender, EventArgs e)
         {
-            using (frmAddChat frmCreateChat = new frmAddChat(BitChatClient.Network.BitChatNetworkType.PrivateChat))
+            using (frmAddChat frm = new frmAddChat(BitChatClient.Network.BitChatNetworkType.PrivateChat))
             {
-                if (frmCreateChat.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
+                if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
                 {
-                    BitChat chat = _service.CreateBitChat(new System.Net.Mail.MailAddress(frmCreateChat.txtNetworkNameOrPeerEmailAddress.Text.ToLower()), frmCreateChat.txtPassword.Text);
+                    BitChat chat = _service.CreateBitChat(new System.Net.Mail.MailAddress(frm.txtNetworkNameOrPeerEmailAddress.Text.ToLower()), frm.txtPassword.Text, !frm.OnlyLanChat);
 
                     AddChatView(chat);
                 }
@@ -365,11 +365,11 @@ namespace BitChatApp
 
         private void mnuAddGroupChat_Click(object sender, EventArgs e)
         {
-            using (frmAddChat frmCreateChat = new frmAddChat())
+            using (frmAddChat frm = new frmAddChat())
             {
-                if (frmCreateChat.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
+                if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
                 {
-                    BitChat chat = _service.CreateBitChat(frmCreateChat.txtNetworkNameOrPeerEmailAddress.Text, frmCreateChat.txtPassword.Text);
+                    BitChat chat = _service.CreateBitChat(frm.txtNetworkNameOrPeerEmailAddress.Text, frm.txtPassword.Text, !frm.OnlyLanChat);
 
                     AddChatView(chat);
                 }
@@ -446,7 +446,7 @@ namespace BitChatApp
                 ChatListItem itm = lstChats.SelectedItem as ChatListItem;
                 BitChatPanel chatPanel = itm.Tag as BitChatPanel;
 
-                using (frmChatProperties frm = new frmChatProperties(chatPanel.BitChat))
+                using (frmChatProperties frm = new frmChatProperties(chatPanel.BitChat, _profile))
                 {
                     frm.Text = chatPanel.BitChat.NetworkName + " - Properties";
                     frm.ShowDialog(this);

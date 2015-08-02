@@ -96,6 +96,9 @@ namespace BitChatApp
             this.Close();
         }
 
+        public bool OnlyLanChat
+        { get { return chkLANChat.Enabled; } }
+
         #endregion
     }
 }

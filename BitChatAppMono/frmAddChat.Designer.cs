@@ -38,6 +38,7 @@
             this.label3 = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
             this.label5 = new System.Windows.Forms.Label();
+            this.chkLANChat = new System.Windows.Forms.CheckBox();
             this.SuspendLayout();
             // 
             // label1
@@ -79,11 +80,11 @@
             // btnOK
             // 
             this.btnOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnOK.Location = new System.Drawing.Point(297, 112);
+            this.btnOK.Location = new System.Drawing.Point(297, 132);
             this.btnOK.Name = "btnOK";
             this.btnOK.Size = new System.Drawing.Size(75, 23);
-            this.btnOK.TabIndex = 4;
-            this.btnOK.Text = "Add";
+            this.btnOK.TabIndex = 5;
+            this.btnOK.Text = "&Add";
             this.btnOK.UseVisualStyleBackColor = true;
             this.btnOK.Click += new System.EventHandler(this.btnOK_Click);
             // 
@@ -91,11 +92,11 @@
             // 
             this.btnCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnCancel.Location = new System.Drawing.Point(378, 112);
+            this.btnCancel.Location = new System.Drawing.Point(378, 132);
             this.btnCancel.Name = "btnCancel";
             this.btnCancel.Size = new System.Drawing.Size(75, 23);
-            this.btnCancel.TabIndex = 5;
-            this.btnCancel.Text = "Close";
+            this.btnCancel.TabIndex = 6;
+            this.btnCancel.Text = "&Close";
             this.btnCancel.UseVisualStyleBackColor = true;
             this.btnCancel.Click += new System.EventHandler(this.btnCancel_Click);
             // 
@@ -111,7 +112,7 @@
             // label4
             // 
             this.label4.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.label4.Location = new System.Drawing.Point(12, 106);
+            this.label4.Location = new System.Drawing.Point(12, 126);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(265, 26);
             this.label4.TabIndex = 7;
@@ -126,6 +127,16 @@
             this.label5.TabIndex = 9;
             this.label5.Text = "(optional but, recommended)";
             // 
+            // chkLANChat
+            // 
+            this.chkLANChat.AutoSize = true;
+            this.chkLANChat.Location = new System.Drawing.Point(158, 100);
+            this.chkLANChat.Name = "chkLANChat";
+            this.chkLANChat.Size = new System.Drawing.Size(237, 17);
+            this.chkLANChat.TabIndex = 4;
+            this.chkLANChat.Text = "Enable only local network (LAN or WiFi) chat";
+            this.chkLANChat.UseVisualStyleBackColor = true;
+            // 
             // frmAddChat
             // 
             this.AcceptButton = this.btnOK;
@@ -133,7 +144,8 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
             this.CancelButton = this.btnCancel;
-            this.ClientSize = new System.Drawing.Size(465, 141);
+            this.ClientSize = new System.Drawing.Size(465, 161);
+            this.Controls.Add(this.chkLANChat);
             this.Controls.Add(this.label5);
             this.Controls.Add(this.label4);
             this.Controls.Add(this.label3);
@@ -167,5 +179,6 @@
         private System.Windows.Forms.Label label3;
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.CheckBox chkLANChat;
     }
 }

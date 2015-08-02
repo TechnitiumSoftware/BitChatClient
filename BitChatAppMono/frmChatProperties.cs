@@ -32,14 +32,16 @@ namespace BitChatAppMono
     public partial class frmChatProperties : Form
     {
         BitChat _chat;
+        BitChatProfile _profile;
 
         Timer _timer;
 
-        public frmChatProperties(BitChat chat)
+        public frmChatProperties(BitChat chat, BitChatProfile profile)
         {
             InitializeComponent();
 
             _chat = chat;
+            _profile = profile;
 
             if (_chat.NetworkType == BitChatClient.Network.BitChatNetworkType.PrivateChat)
             {
@@ -175,6 +177,36 @@ namespace BitChatAppMono
         private void addTrackerToolStripMenuItem_Click(object sender, EventArgs e)
         {
             using (frmAddTracker frm = new frmAddTracker())
+            {
+                if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
+                {
+                    List<Uri> uriList = frm.TrackerUriList;
+
+                    foreach (Uri uri in uriList)
+                    {
+                        TrackerClient tracker = _chat.AddTracker(uri);
+                        if (tracker != null)
+                        {
+                            ListViewItem item = new ListViewItem(tracker.TrackerUri.AbsoluteUri);
+                            item.Tag = tracker;
+
+                            item.SubItems.Add("");
+                            item.SubItems.Add("updating...");
+                            item.SubItems.Add("0");
+
+                            lock (lstTrackerInfo.Items)
+                            {
+                                lstTrackerInfo.Items.Add(item);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private void addDefaultTrackersToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (frmAddTracker frm = new frmAddTracker(_profile.TrackerURIs))
             {
                 if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
                 {

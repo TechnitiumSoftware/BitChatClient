@@ -50,6 +50,7 @@
             this.txtSecret = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
             this.chkShowSecret = new System.Windows.Forms.CheckBox();
+            this.addDefaultTrackersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuTracker.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -116,55 +117,56 @@
             this.showPeersToolStripMenuItem,
             this.toolStripSeparator1,
             this.addTrackerToolStripMenuItem,
+            this.addDefaultTrackersToolStripMenuItem,
             this.copyAllTrackersToolStripMenuItem});
             this.mnuTracker.Name = "contextMenuStrip1";
-            this.mnuTracker.Size = new System.Drawing.Size(167, 142);
+            this.mnuTracker.Size = new System.Drawing.Size(185, 186);
             // 
             // updateTrackerToolStripMenuItem
             // 
             this.updateTrackerToolStripMenuItem.Name = "updateTrackerToolStripMenuItem";
-            this.updateTrackerToolStripMenuItem.Size = new System.Drawing.Size(166, 22);
-            this.updateTrackerToolStripMenuItem.Text = "Update Tracker";
+            this.updateTrackerToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
+            this.updateTrackerToolStripMenuItem.Text = "&Update Tracker";
             this.updateTrackerToolStripMenuItem.Click += new System.EventHandler(this.updateTrackerToolStripMenuItem_Click);
             // 
             // removeTrackerToolStripMenuItem
             // 
             this.removeTrackerToolStripMenuItem.Name = "removeTrackerToolStripMenuItem";
-            this.removeTrackerToolStripMenuItem.Size = new System.Drawing.Size(166, 22);
-            this.removeTrackerToolStripMenuItem.Text = "Remove Tracker";
+            this.removeTrackerToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
+            this.removeTrackerToolStripMenuItem.Text = "&Remove Tracker";
             this.removeTrackerToolStripMenuItem.Click += new System.EventHandler(this.removeTrackerToolStripMenuItem_Click);
             // 
             // copyTrackerToolStripMenuItem
             // 
             this.copyTrackerToolStripMenuItem.Name = "copyTrackerToolStripMenuItem";
-            this.copyTrackerToolStripMenuItem.Size = new System.Drawing.Size(166, 22);
-            this.copyTrackerToolStripMenuItem.Text = "Copy Tracker";
+            this.copyTrackerToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
+            this.copyTrackerToolStripMenuItem.Text = "&Copy Tracker";
             this.copyTrackerToolStripMenuItem.Click += new System.EventHandler(this.copyTrackerToolStripMenuItem_Click);
             // 
             // showPeersToolStripMenuItem
             // 
             this.showPeersToolStripMenuItem.Name = "showPeersToolStripMenuItem";
-            this.showPeersToolStripMenuItem.Size = new System.Drawing.Size(166, 22);
-            this.showPeersToolStripMenuItem.Text = "Show Peers";
+            this.showPeersToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
+            this.showPeersToolStripMenuItem.Text = "&Show Peers";
             this.showPeersToolStripMenuItem.Click += new System.EventHandler(this.showPeersToolStripMenuItem_Click);
             // 
             // toolStripSeparator1
             // 
             this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(163, 6);
+            this.toolStripSeparator1.Size = new System.Drawing.Size(181, 6);
             // 
             // addTrackerToolStripMenuItem
             // 
             this.addTrackerToolStripMenuItem.Name = "addTrackerToolStripMenuItem";
-            this.addTrackerToolStripMenuItem.Size = new System.Drawing.Size(166, 22);
-            this.addTrackerToolStripMenuItem.Text = "Add Tracker";
+            this.addTrackerToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
+            this.addTrackerToolStripMenuItem.Text = "&Add Tracker";
             this.addTrackerToolStripMenuItem.Click += new System.EventHandler(this.addTrackerToolStripMenuItem_Click);
             // 
             // copyAllTrackersToolStripMenuItem
             // 
             this.copyAllTrackersToolStripMenuItem.Name = "copyAllTrackersToolStripMenuItem";
-            this.copyAllTrackersToolStripMenuItem.Size = new System.Drawing.Size(166, 22);
-            this.copyAllTrackersToolStripMenuItem.Text = "Copy All Trackers";
+            this.copyAllTrackersToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
+            this.copyAllTrackersToolStripMenuItem.Text = "Copy All &Trackers";
             this.copyAllTrackersToolStripMenuItem.Click += new System.EventHandler(this.copyAllTrackersToolStripMenuItem_Click);
             // 
             // label2
@@ -228,6 +230,13 @@
             this.chkShowSecret.UseVisualStyleBackColor = true;
             this.chkShowSecret.CheckedChanged += new System.EventHandler(this.chkShowSecret_CheckedChanged);
             // 
+            // addDefaultTrackersToolStripMenuItem
+            // 
+            this.addDefaultTrackersToolStripMenuItem.Name = "addDefaultTrackersToolStripMenuItem";
+            this.addDefaultTrackersToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
+            this.addDefaultTrackersToolStripMenuItem.Text = "Add &Default Trackers";
+            this.addDefaultTrackersToolStripMenuItem.Click += new System.EventHandler(this.addDefaultTrackersToolStripMenuItem_Click);
+            // 
             // frmChatProperties
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -279,5 +288,6 @@
         private System.Windows.Forms.CheckBox chkShowSecret;
         private System.Windows.Forms.ToolStripMenuItem copyTrackerToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem copyAllTrackersToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem addDefaultTrackersToolStripMenuItem;
     }
 }
