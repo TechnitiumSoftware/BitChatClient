@@ -149,6 +149,30 @@ namespace BitChatAppMono
                 {
                     _profile = frm.Profile;
 
+                    //check for profile certificate expiry
+                    double daysToExpire = (_profile.LocalCertificateStore.Certificate.ExpiresOnUTC - DateTime.UtcNow).TotalDays;
+
+                    if (daysToExpire < 0.0)
+                    {
+                        //cert already expired
+
+                        if (MessageBox.Show("Your profile certificate '" + _profile.LocalCertificateStore.Certificate.SerialNumber + "' issued to '" + _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address + "' has expired on " + _profile.LocalCertificateStore.Certificate.ExpiresOnUTC.ToString() + ".\r\n\r\nDo you want to reissue the certificate now?", "Profile Certificate Expired! Reissue Now?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
+                        {
+                            btnReIssueProfile_Click(null, null);
+                        }
+
+                        return;
+                    }
+                    else if (daysToExpire < 30.0)
+                    {
+                        //cert to expire in 30 days
+                        if (MessageBox.Show("Your profile certificate '" + _profile.LocalCertificateStore.Certificate.SerialNumber + "' issued to '" + _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address + "' will expire in " + Convert.ToInt32(daysToExpire) + " days on " + _profile.LocalCertificateStore.Certificate.ExpiresOnUTC.ToString() + ".\r\n\r\nDo you want to reissue the certificate now?", "Profile Certificate About To Expire! Reissue Now?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
+                        {
+                            btnReIssueProfile_Click(null, null);
+                            return;
+                        }
+                    }
+
                     this.DialogResult = System.Windows.Forms.DialogResult.OK;
                     this.Close();
                 }

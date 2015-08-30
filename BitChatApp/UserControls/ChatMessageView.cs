@@ -237,19 +237,44 @@ namespace BitChatApp.UserControls
 
         private void txtMessage_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.Control && (e.KeyCode == Keys.V))
+            if (e.Control)
             {
-                if (Clipboard.ContainsFileDropList())
+                switch (e.KeyCode)
                 {
-                    List<string> fileNames = new List<string>();
+                    case Keys.V:
+                        if (Clipboard.ContainsFileDropList())
+                        {
+                            List<string> fileNames = new List<string>();
 
-                    foreach (string filePath in Clipboard.GetFileDropList())
-                    {
-                        if (File.Exists(filePath))
-                            fileNames.Add(filePath);
-                    }
+                            foreach (string filePath in Clipboard.GetFileDropList())
+                            {
+                                if (File.Exists(filePath))
+                                    fileNames.Add(filePath);
+                            }
 
-                    ShareFiles(fileNames.ToArray());
+                            ShareFiles(fileNames.ToArray());
+                            e.Handled = true;
+                            e.SuppressKeyPress = true;
+                        }
+                        break;
+
+                    case Keys.Back:
+                        int i = txtMessage.Text.LastIndexOf(' ');
+
+                        if (i > -1)
+                        {
+                            txtMessage.Text = txtMessage.Text.Substring(0, i);
+                            txtMessage.SelectionStart = i;
+                        }
+                        else
+                        {
+                            txtMessage.Text = "";
+                            txtMessage.SelectionStart = 0;
+                        }
+
+                        e.Handled = true;
+                        e.SuppressKeyPress = true;
+                        break;
                 }
             }
         }

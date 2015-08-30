@@ -47,7 +47,7 @@ namespace BitChatApp
 
         private void lnkWebsite_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            System.Diagnostics.Process.Start(@"http://bitchat.im/");
+            System.Diagnostics.Process.Start(@"https://bitchat.im/");
         }
     }
 }
