@@ -23,8 +23,6 @@ namespace BitChatClient
 {
     interface IBitChatManager
     {
-        IPEndPoint GetLocalEP();
-
         void RemoveBitChat(BitChat chat);
 
         void StartLocalTracking(BinaryID networkID);
