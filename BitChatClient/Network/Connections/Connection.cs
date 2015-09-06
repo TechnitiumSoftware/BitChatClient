@@ -22,33 +22,47 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
+using System.Text;
 using System.Threading;
 using TechnitiumLibrary.IO;
 
 namespace BitChatClient.Network.Connections
 {
-    delegate void ChannelRequest(Connection connection, BinaryID channelName, ChannelType type, Stream channel);
+    delegate void BitChatNetworkChannelRequest(Connection connection, BinaryID channelName, Stream channel);
+    delegate void ProxyNetworkPeersAvailable(Connection viaConnection, BinaryID channelName, List<IPEndPoint> peerEPs);
 
     enum ChannelType : byte
     {
+        NOOP = 0,
         BitChatNetwork = 1,
         ProxyTunnel = 2,
-        VirtualConnection = 3
+        VirtualConnection = 3,
+        ProxyNetworkStart = 4,
+        ProxyNetworkStop = 5,
+        ProxyNetworkPeerList = 6
     }
 
     class Connection : IDisposable
     {
+        #region events
+
+        public event EventHandler Disposed;
+
+        #endregion
+
         #region variables
 
-        public const byte SIGNAL_DATA = 0;
-        public const byte SIGNAL_PEER_STATUS = 1;
-        public const byte SIGNAL_PEER_STATUS_AVAILABLE = 2;
-        public const byte SIGNAL_CONNECT_BIT_CHAT_NETWORK = 3;
-        public const byte SIGNAL_DISCONNECT_BIT_CHAT_NETWORK = 4;
-        public const byte SIGNAL_CONNECT_PROXY_TUNNEL = 5;
-        public const byte SIGNAL_DISCONNECT_PROXY_TUNNEL = 6;
-        public const byte SIGNAL_CONNECT_VIRTUAL_CONNECTION = 7;
-        public const byte SIGNAL_DISCONNECT_VIRTUAL_CONNECTION = 8;
+        const byte SIGNAL_DATA = 0;
+        const byte SIGNAL_PEER_STATUS = 1;
+        const byte SIGNAL_PEER_STATUS_AVAILABLE = 2;
+        const byte SIGNAL_CONNECT_BIT_CHAT_NETWORK = 3;
+        const byte SIGNAL_DISCONNECT_BIT_CHAT_NETWORK = 4;
+        const byte SIGNAL_CONNECT_PROXY_TUNNEL = 5;
+        const byte SIGNAL_DISCONNECT_PROXY_TUNNEL = 6;
+        const byte SIGNAL_CONNECT_VIRTUAL_CONNECTION = 7;
+        const byte SIGNAL_DISCONNECT_VIRTUAL_CONNECTION = 8;
+        const byte SIGNAL_PROXY_NETWORK_SUCCESS = 9;
 
         const int BUFFER_SIZE = 65536;
 
@@ -57,7 +71,8 @@ namespace BitChatClient.Network.Connections
         IPEndPoint _remotePeerEP;
 
         ConnectionManager _connectionManager;
-        ChannelRequest _requestHandler;
+        BitChatNetworkChannelRequest _networkChannelRequestHandler;
+        ProxyNetworkPeersAvailable _proxyNetworkPeersHandler;
 
         Dictionary<BinaryID, ChannelStream> _bitChatNetworkChannels = new Dictionary<BinaryID, ChannelStream>();
         Dictionary<BinaryID, ChannelStream> _proxyTunnelChannels = new Dictionary<BinaryID, ChannelStream>();
@@ -66,7 +81,9 @@ namespace BitChatClient.Network.Connections
         Thread _readThread;
 
         Dictionary<BinaryID, object> _peerStatusLockList = new Dictionary<BinaryID, object>();
-        List<Joint> _tunnelJointList = new List<Joint>();
+        List<Joint> _proxyTunnelJointList = new List<Joint>();
+        Dictionary<BinaryID, object> _proxyNetworkRequestLockList = new Dictionary<BinaryID, object>();
+        Dictionary<BinaryID, ProxyNetwork> _proxyNetworks = new Dictionary<BinaryID, ProxyNetwork>();
 
         int _channelWriteTimeout = 30000;
 
@@ -76,13 +93,14 @@ namespace BitChatClient.Network.Connections
 
         #region constructor
 
-        public Connection(Stream baseStream, BinaryID remotePeerID, IPEndPoint remotePeerEP, ConnectionManager connectionManager, ChannelRequest requestHandler)
+        public Connection(Stream baseStream, BinaryID remotePeerID, IPEndPoint remotePeerEP, ConnectionManager connectionManager, BitChatNetworkChannelRequest networkChannelRequestHandler, ProxyNetworkPeersAvailable proxyNetworkPeersHandler)
         {
             _baseStream = baseStream;
             _remotePeerID = remotePeerID;
             _remotePeerEP = remotePeerEP;
             _connectionManager = connectionManager;
-            _requestHandler = requestHandler;
+            _networkChannelRequestHandler = networkChannelRequestHandler;
+            _proxyNetworkPeersHandler = proxyNetworkPeersHandler;
         }
 
         #endregion
@@ -149,6 +167,17 @@ namespace BitChatClient.Network.Connections
                         { }
                     }
 
+                    //remove this connection from proxy networks
+                    lock (_proxyNetworks)
+                    {
+                        foreach (ProxyNetwork proxyNetwork in _proxyNetworks.Values)
+                        {
+                            proxyNetwork.LeaveNetwork(this);
+                        }
+
+                        _proxyNetworks.Clear();
+                    }
+
                     //dispose base stream
                     lock (_baseStream)
                     {
@@ -164,6 +193,9 @@ namespace BitChatClient.Network.Connections
                     _connectionManager.RemoveConnection(this);
 
                     _disposed = true;
+
+                    if (Disposed != null)
+                        Disposed(this, EventArgs.Empty);
                 }
             }
         }
@@ -242,6 +274,7 @@ namespace BitChatClient.Network.Connections
                     switch (frameSignal)
                     {
                         case SIGNAL_DATA:
+                            #region SIGNAL_DATA
                             {
                                 //read channel type
                                 channelType = (ChannelType)_baseStream.ReadByte();
@@ -283,6 +316,131 @@ namespace BitChatClient.Network.Connections
 
                                             channel.WriteBuffer(buffer, 0, channelDataLength, _channelWriteTimeout);
                                             break;
+
+                                        case ChannelType.NOOP:
+                                            break;
+
+                                        case ChannelType.ProxyNetworkStart:
+                                            {
+                                                BinaryID[] networkIDs;
+                                                Uri[] trackerURIs;
+
+                                                using (MemoryStream mS = new MemoryStream(buffer, 0, channelDataLength, false))
+                                                {
+                                                    //read network id list
+                                                    networkIDs = new BinaryID[mS.ReadByte()];
+                                                    byte[] XORnetworkID = new byte[20];
+
+                                                    for (int i = 0; i < networkIDs.Length; i++)
+                                                    {
+                                                        mS.Read(XORnetworkID, 0, 20);
+
+                                                        byte[] networkID = new byte[20];
+
+                                                        for (int j = 0; j < 20; j++)
+                                                        {
+                                                            networkID[j] = (byte)(channelNameBuffer[j] ^ XORnetworkID[j]);
+                                                        }
+
+                                                        networkIDs[i] = new BinaryID(networkID);
+                                                    }
+
+                                                    //read tracker uri list
+                                                    trackerURIs = new Uri[mS.ReadByte()];
+                                                    byte[] data = new byte[255];
+
+                                                    for (int i = 0; i < trackerURIs.Length; i++)
+                                                    {
+                                                        int length = mS.ReadByte();
+                                                        mS.Read(data, 0, length);
+
+                                                        trackerURIs[i] = new Uri(Encoding.UTF8.GetString(data, 0, length));
+                                                    }
+                                                }
+
+                                                lock (_proxyNetworks)
+                                                {
+                                                    foreach (BinaryID networkID in networkIDs)
+                                                    {
+                                                        if (!_proxyNetworks.ContainsKey(networkID))
+                                                        {
+                                                            ProxyNetwork proxyNetwork = ProxyNetwork.JoinProxyNetwork(networkID, _connectionManager, this);
+                                                            _proxyNetworks.Add(networkID, proxyNetwork);
+
+                                                            proxyNetwork.AddTrackers(trackerURIs);
+                                                            proxyNetwork.StartTracking();
+                                                        }
+                                                    }
+                                                }
+
+                                                WriteSignalFrame(channelName, SIGNAL_PROXY_NETWORK_SUCCESS);
+
+                                                Debug.Write("Connection.ReadDataAsync", "SIGNAL_DATA ProxyNetworkStart; network: " + channelName.ToString());
+                                            }
+                                            break;
+
+                                        case ChannelType.ProxyNetworkStop:
+                                            {
+                                                BinaryID[] networkIDs;
+
+                                                using (MemoryStream mS = new MemoryStream(buffer, 0, channelDataLength, false))
+                                                {
+                                                    //read network id list
+                                                    networkIDs = new BinaryID[mS.ReadByte()];
+                                                    byte[] XORnetworkID = new byte[20];
+
+                                                    for (int i = 0; i < networkIDs.Length; i++)
+                                                    {
+                                                        mS.Read(XORnetworkID, 0, 20);
+
+                                                        byte[] networkID = new byte[20];
+
+                                                        for (int j = 0; j < 20; j++)
+                                                        {
+                                                            networkID[j] = (byte)(channelNameBuffer[j] ^ XORnetworkID[j]);
+                                                        }
+
+                                                        networkIDs[i] = new BinaryID(networkID);
+                                                    }
+                                                }
+
+                                                lock (_proxyNetworks)
+                                                {
+                                                    foreach (BinaryID networkID in networkIDs)
+                                                    {
+                                                        if (_proxyNetworks.ContainsKey(networkID))
+                                                        {
+                                                            _proxyNetworks[networkID].LeaveNetwork(this);
+                                                            _proxyNetworks.Remove(networkID);
+                                                        }
+                                                    }
+                                                }
+
+                                                WriteSignalFrame(channelName, SIGNAL_PROXY_NETWORK_SUCCESS);
+
+                                                Debug.Write("Connection.ReadDataAsync", "SIGNAL_DATA ProxyNetworkStop; network: " + channelName.ToString());
+                                            }
+                                            break;
+
+                                        case ChannelType.ProxyNetworkPeerList:
+                                            using (MemoryStream mS = new MemoryStream(buffer, 0, channelDataLength, false))
+                                            {
+                                                int count = mS.ReadByte();
+                                                List<IPEndPoint> peerEPs = new List<IPEndPoint>(count);
+                                                byte[] data = new byte[20];
+
+                                                for (int i = 0; i < count; i++)
+                                                {
+                                                    mS.Read(data, 0, 20);
+                                                    peerEPs.Add(ConvertToIP(data));
+                                                }
+
+                                                _proxyNetworkPeersHandler.BeginInvoke(this, channelName.Clone(), peerEPs, null, null);
+                                            }
+                                            break;
+
+                                        default:
+                                            throw new IOException("Invalid channel type.");
                                     }
                                 }
                                 catch
@@ -293,7 +451,10 @@ namespace BitChatClient.Network.Connections
                             }
                             break;
 
+                            #endregion
+
                         case SIGNAL_CONNECT_BIT_CHAT_NETWORK:
+                            #region SIGNAL_CONNECT_BIT_CHAT_NETWORK
                             {
                                 ChannelStream channel = null;
 
@@ -308,17 +469,46 @@ namespace BitChatClient.Network.Connections
 
                                     Debug.Write("Connection.ReadDataAsync", "SIGNAL_CONNECT_BIT_CHAT_NETWORK; channel: " + channelName.ToString());
 
-                                    _requestHandler.BeginInvoke(this, channelName, ChannelType.BitChatNetwork, channel, null, null);
+                                    _networkChannelRequestHandler.BeginInvoke(this, channelName.Clone(), channel, null, null);
                                 }
                                 catch
                                 {
                                     if (channel != null)
                                         channel.Dispose();
                                 }
+
+                                //check for proxy network
+                                try
+                                {
+                                    List<IPEndPoint> peerEPs = ProxyNetwork.GetProxyNetworkPeers(channelName, this);
+
+                                    if (peerEPs != null)
+                                    {
+                                        using (MemoryStream mS = new MemoryStream(128))
+                                        {
+                                            mS.WriteByte(Convert.ToByte(peerEPs.Count));
+
+                                            foreach (IPEndPoint peerEP in peerEPs)
+                                            {
+                                                mS.Write(ConvertToBinary(peerEP), 0, 20);
+                                            }
+
+                                            byte[] data = mS.ToArray();
+
+                                            WriteDataFrame(data, 0, data.Length, channelName, ChannelType.ProxyNetworkPeerList);
+                                        }
+                                    }
+                                }
+                                catch
+                                { }
                             }
                             break;
 
+                            #endregion
+
                         case SIGNAL_DISCONNECT_BIT_CHAT_NETWORK:
+                            #region SIGNAL_DISCONNECT_BIT_CHAT_NETWORK
+
                             try
                             {
                                 lock (_bitChatNetworkChannels)
@@ -332,7 +522,11 @@ namespace BitChatClient.Network.Connections
                             { }
                             break;
 
+                            #endregion
+
                         case SIGNAL_PEER_STATUS:
+                            #region SIGNAL_PEER_STATUS
+
                             try
                             {
                                 if (_connectionManager.IsPeerConnectionAvailable(ConvertToIP(channelName.ID)))
@@ -344,7 +538,11 @@ namespace BitChatClient.Network.Connections
                             { }
                             break;
 
+                            #endregion
+
                         case SIGNAL_PEER_STATUS_AVAILABLE:
+                            #region SIGNAL_PEER_STATUS_AVAILABLE
+
                             try
                             {
                                 lock (_peerStatusLockList)
@@ -363,7 +561,33 @@ namespace BitChatClient.Network.Connections
                             { }
                             break;
 
+                            #endregion
+
+                        case SIGNAL_PROXY_NETWORK_SUCCESS:
+                            #region SIGNAL_PROXY_NETWORK_SUCCESS
+
+                            try
+                            {
+                                lock (_proxyNetworkRequestLockList)
+                                {
+                                    object lockObject = _proxyNetworkRequestLockList[channelName];
+
+                                    lock (lockObject)
+                                    {
+                                        Monitor.Pulse(lockObject);
+                                    }
+                                }
+
+                                Debug.Write("Connection.ReadDataAsync", "SIGNAL_PROXY_NETWORK_SUCCESS; network: " + channelName.ToString());
+                            }
+                            catch
+                            { }
+                            break;
+
+                            #endregion
+
                         case SIGNAL_CONNECT_PROXY_TUNNEL:
+                            #region SIGNAL_CONNECT_PROXY_TUNNEL
                             {
                                 ChannelStream remoteChannel1 = null;
                                 Stream remoteChannel2 = null;
@@ -391,9 +615,9 @@ namespace BitChatClient.Network.Connections
                                     Joint joint = new Joint(remoteChannel1, remoteChannel2);
                                     joint.Disposed += joint_Disposed;
 
-                                    lock (_tunnelJointList)
+                                    lock (_proxyTunnelJointList)
                                     {
-                                        _tunnelJointList.Add(joint);
+                                        _proxyTunnelJointList.Add(joint);
                                     }
 
                                     joint.Start();
@@ -411,7 +635,11 @@ namespace BitChatClient.Network.Connections
                             }
                             break;
 
+                            #endregion
+
                         case SIGNAL_DISCONNECT_PROXY_TUNNEL:
+                            #region SIGNAL_DISCONNECT_PROXY_TUNNEL
+
                             try
                             {
                                 lock (_proxyTunnelChannels)
@@ -425,7 +653,10 @@ namespace BitChatClient.Network.Connections
                             { }
                             break;
 
+                            #endregion
+
                         case SIGNAL_CONNECT_VIRTUAL_CONNECTION:
+                            #region SIGNAL_CONNECT_VIRTUAL_CONNECTION
                             {
                                 ChannelStream channel = null;
 
@@ -454,7 +685,11 @@ namespace BitChatClient.Network.Connections
                             }
                             break;
 
+                            #endregion
+
                         case SIGNAL_DISCONNECT_VIRTUAL_CONNECTION:
+                            #region SIGNAL_DISCONNECT_VIRTUAL_CONNECTION
+
                             try
                             {
                                 lock (_virtualConnectionChannels)
@@ -467,6 +702,8 @@ namespace BitChatClient.Network.Connections
                             catch
                             { }
                             break;
+
+                            #endregion
 
                         default:
                             throw new IOException("Invalid ChannelManager frame type.");
@@ -506,9 +743,9 @@ namespace BitChatClient.Network.Connections
 
         private void joint_Disposed(object sender, EventArgs e)
         {
-            lock (_tunnelJointList)
+            lock (_proxyTunnelJointList)
             {
-                _tunnelJointList.Remove(sender as Joint);
+                _proxyTunnelJointList.Remove(sender as Joint);
             }
         }
 
@@ -636,6 +873,26 @@ namespace BitChatClient.Network.Connections
 
         #endregion
 
+        #region static
+
+        public static BinaryID GetChannelName(byte[] localPeerID, byte[] remotePeerID, byte[] networkID)
+        {
+            // this is done to avoid disclosing networkID to passive network sniffing
+            // channelName = hmac( localPeerID XOR remotePeerID, networkID)
+
+            byte[] xoredID = new byte[20];
+
+            for (int i = 0; i < 20; i++)
+                xoredID[i] = (byte)(localPeerID[i] ^ remotePeerID[i]);
+
+            using (HMACSHA1 hmacSHA1 = new HMACSHA1(networkID))
+            {
+                return new BinaryID(hmacSHA1.ComputeHash(xoredID));
+            }
+        }
+
+        #endregion
+
         #region public
 
         public void Start()
@@ -681,21 +938,21 @@ namespace BitChatClient.Network.Connections
                 _peerStatusLockList.Add(channelName, lockObject);
             }
 
-            lock (lockObject)
+            try
             {
-                WriteSignalFrame(channelName, SIGNAL_PEER_STATUS);
-
-                if (!Monitor.Wait(lockObject, 10000))
+                lock (lockObject)
                 {
-                    lock (_peerStatusLockList)
-                    {
-                        _peerStatusLockList.Remove(channelName);
-                    }
+                    WriteSignalFrame(channelName, SIGNAL_PEER_STATUS);
 
-                    return false;
+                    return Monitor.Wait(lockObject, 10000);
                 }
-
-                return true;
+            }
+            finally
+            {
+                lock (_peerStatusLockList)
+                {
+                    _peerStatusLockList.Remove(channelName);
+                }
             }
         }
 
@@ -713,6 +970,133 @@ namespace BitChatClient.Network.Connections
             WriteSignalFrame(channelName, SIGNAL_CONNECT_PROXY_TUNNEL);
 
             return channel;
+        }
+
+        public bool RequestStartProxyNetwork(BinaryID[] networkIDs, Uri[] trackerURIs)
+        {
+            BinaryID channelName = BinaryID.GenerateRandomID160();
+            object lockObject = new object();
+
+            lock (_proxyNetworkRequestLockList)
+            {
+                _proxyNetworkRequestLockList.Add(channelName, lockObject);
+            }
+
+            try
+            {
+                lock (lockObject)
+                {
+                    using (MemoryStream mS = new MemoryStream(1024))
+                    {
+                        byte[] XORnetworkID = new byte[20];
+                        byte[] randomChannelID = channelName.ID;
+
+                        //write networkid list
+                        mS.WriteByte(Convert.ToByte(networkIDs.Length));
+
+                        foreach (BinaryID networkID in networkIDs)
+                        {
+                            byte[] network = networkID.ID;
+
+                            for (int i = 0; i < 20; i++)
+                            {
+                                XORnetworkID[i] = (byte)(randomChannelID[i] ^ network[i]);
+                            }
+
+                            mS.Write(XORnetworkID, 0, 20);
+                        }
+
+                        //write tracker uri list
+                        mS.WriteByte(Convert.ToByte(trackerURIs.Length));
+
+                        foreach (Uri trackerURI in trackerURIs)
+                        {
+                            byte[] buffer = Encoding.UTF8.GetBytes(trackerURI.AbsoluteUri);
+                            mS.WriteByte(Convert.ToByte(buffer.Length));
+                            mS.Write(buffer, 0, buffer.Length);
+                        }
+
+                        byte[] data = mS.ToArray();
+
+                        WriteDataFrame(data, 0, data.Length, channelName, ChannelType.ProxyNetworkStart);
+                    }
+
+                    return Monitor.Wait(lockObject, 10000);
+                }
+            }
+            finally
+            {
+                lock (_proxyNetworkRequestLockList)
+                {
+                    _proxyNetworkRequestLockList.Remove(channelName);
+                }
+            }
+        }
+
+        public bool RequestStopProxyNetwork(BinaryID[] networkIDs)
+        {
+            BinaryID channelName = BinaryID.GenerateRandomID160();
+            object lockObject = new object();
+
+            lock (_proxyNetworkRequestLockList)
+            {
+                _proxyNetworkRequestLockList.Add(channelName, lockObject);
+            }
+
+            try
+            {
+                lock (lockObject)
+                {
+                    using (MemoryStream mS = new MemoryStream(1024))
+                    {
+                        byte[] XORnetworkID = new byte[20];
+                        byte[] randomChannelID = channelName.ID;
+
+                        //write networkid list
+                        mS.WriteByte(Convert.ToByte(networkIDs.Length));
+
+                        foreach (BinaryID networkID in networkIDs)
+                        {
+                            byte[] network = networkID.ID;
+
+                            for (int i = 0; i < 20; i++)
+                            {
+                                XORnetworkID[i] = (byte)(randomChannelID[i] ^ network[i]);
+                            }
+
+                            mS.Write(XORnetworkID, 0, 20);
+                        }
+
+                        byte[] data = mS.ToArray();
+
+                        WriteDataFrame(data, 0, data.Length, channelName, ChannelType.ProxyNetworkStop);
+                    }
+
+                    return Monitor.Wait(lockObject, 10000);
+                }
+            }
+            finally
+            {
+                lock (_proxyNetworkRequestLockList)
+                {
+                    _proxyNetworkRequestLockList.Remove(channelName);
+                }
+            }
+        }
+
+        public void SendNOOP()
+        {
+            byte[] data = new byte[1];
+            WriteDataFrame(data, 0, 1, BinaryID.GenerateRandomID160(), ChannelType.NOOP);
+        }
+
+        #endregion
+
+        #region static
+
+        public static bool IsVirtualConnection(Stream stream)
+        {
+            return (stream.GetType() == typeof(ChannelStream));
         }
 
         #endregion
@@ -733,6 +1117,9 @@ namespace BitChatClient.Network.Connections
             get { return _channelWriteTimeout; }
             set { _channelWriteTimeout = value; }
         }
+
+        public bool IsVirtual
+        { get { return (_baseStream.GetType() == typeof(ChannelStream)); } }
 
         #endregion
 
