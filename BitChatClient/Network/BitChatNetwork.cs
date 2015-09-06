@@ -194,36 +194,59 @@ namespace BitChatClient.Network
                 //make connection
                 Connection connection = _networkManager.MakeConnection(peerEP);
 
-                BinaryID channelName = GetChannelName(connection.LocalPeerID.ID, connection.RemotePeerID.ID);
-
-                //check if channel exists
-                if (connection.BitChatNetworkChannelExists(channelName))
-                    return;
-
-                //request channel
-                Stream channel = connection.RequestBitChatNetworkChannel(channelName);
-
-                //secure channel
-                try
-                {
-                    SecureChannelStream secureChannel = new SecureChannelClientStream(channel, connection.RemotePeerEP, _networkManager.GetLocalCredentials(), _networkManager.GetTrustedRootCertificates(), _securityManager, _networkManager.GetSupportedCryptoOptions(), _networkManager.GetReNegotiateOnBytesSent(), _networkManager.GetReNegotiateAfterSeconds(), _sharedSecret);
-
-                    JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel, _networkManager.CheckCertificateRevocationList());
-                }
-                catch (SecureChannelException ex)
-                {
-                    if (VirtualPeerSecureChannelException != null)
-                        VirtualPeerSecureChannelException(this, ex);
-
-                    channel.Dispose();
-                }
-                catch
-                {
-                    channel.Dispose();
-                }
+                EstablishSecureChannelAndJoinNetwork(connection);
             }
             catch
             { }
+        }
+
+        private void MakeVirtualConnection(object state)
+        {
+            try
+            {
+                object[] parameters = state as object[];
+                Connection viaConnection = parameters[0] as Connection;
+                IPEndPoint peerEP = parameters[1] as IPEndPoint;
+
+                //make virtual connection
+                Connection virtualConnection = _networkManager.MakeVirtualConnection(viaConnection, peerEP);
+
+                EstablishSecureChannelAndJoinNetwork(virtualConnection);
+            }
+            catch
+            { }
+        }
+
+        private void EstablishSecureChannelAndJoinNetwork(Connection connection)
+        {
+            BinaryID channelName = GetChannelName(connection.LocalPeerID.ID, connection.RemotePeerID.ID);
+
+            //check if channel exists
+            if (connection.BitChatNetworkChannelExists(channelName))
+                return;
+
+            //request channel
+            Stream channel = connection.RequestBitChatNetworkChannel(channelName);
+
+            try
+            {
+                //get secure channel
+                SecureChannelStream secureChannel = new SecureChannelClientStream(channel, connection.RemotePeerEP, _networkManager.GetLocalCredentials(), _networkManager.GetTrustedRootCertificates(), _securityManager, _networkManager.GetSupportedCryptoOptions(), _networkManager.GetReNegotiateOnBytesSent(), _networkManager.GetReNegotiateAfterSeconds(), _sharedSecret);
+
+                //join network
+                JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel, _networkManager.CheckCertificateRevocationList());
+            }
+            catch (SecureChannelException ex)
+            {
+                if (VirtualPeerSecureChannelException != null)
+                    VirtualPeerSecureChannelException(this, ex);
+
+                channel.Dispose();
+            }
+            catch
+            {
+                channel.Dispose();
+            }
         }
 
         private bool IsPeerConnected(IPEndPoint peerEP)
@@ -275,18 +298,7 @@ namespace BitChatClient.Network
 
         public BinaryID GetChannelName(byte[] localPeerID, byte[] remotePeerID)
         {
-            // this is done to avoid disclosing networkID to passive network sniffing
-            // channelName = hmac( localPeerID XOR remotePeerID, networkID)
-
-            byte[] xoredID = new byte[20];
-
-            for (int i = 0; i < 20; i++)
-                xoredID[i] = (byte)(localPeerID[i] ^ remotePeerID[i]);
-
-            using (HMACSHA1 hmacSHA1 = new HMACSHA1(_networkID.ID))
-            {
-                return new BinaryID(hmacSHA1.ComputeHash(xoredID));
-            }
+            return Connection.GetChannelName(localPeerID, remotePeerID, _networkID.ID);
         }
 
         public VirtualPeer[] GetVirtualPeerList()
@@ -326,6 +338,15 @@ namespace BitChatClient.Network
                     if (!IsPeerConnected(peerEP))
                         ThreadPool.QueueUserWorkItem(new WaitCallback(MakeConnectionAsync), peerEP);
                 }
+            }
+        }
+
+        public void MakeConnection(Connection viaConnection, List<IPEndPoint> peerEPs)
+        {
+            foreach (IPEndPoint peerEP in peerEPs)
+            {
+                if (!IsPeerConnected(peerEP))
+                    ThreadPool.QueueUserWorkItem(new WaitCallback(MakeVirtualConnection), new object[] { viaConnection, peerEP });
             }
         }
 

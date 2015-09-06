@@ -28,6 +28,8 @@ namespace BitChatClient.Network
     {
         Connection MakeConnection(IPEndPoint peerEP);
 
+        Connection MakeVirtualConnection(Connection viaConnection, IPEndPoint remotePeerEP);
+
         CertificateStore GetLocalCredentials();
 
         Certificate[] GetTrustedRootCertificates();
