@@ -67,7 +67,7 @@ namespace BitChatClient
             };
 
         CertificateStore _localCertStore;
-        IPEndPoint _localEP;
+        int _localPort;
         string _downloadFolder;
         BitChatInfo[] _bitChatInfoList;
         Uri[] _trackerURIs;
@@ -79,21 +79,21 @@ namespace BitChatClient
 
         #region constructor
 
-        public BitChatProfile(CertificateStore localCertStore, IPEndPoint localEP, string downloadFolder, Uri[] trackerURIs)
+        public BitChatProfile(CertificateStore localCertStore, int localPort, string downloadFolder, Uri[] trackerURIs)
         {
             _localCertStore = localCertStore;
-            _localEP = localEP;
+            _localPort = localPort;
             _downloadFolder = downloadFolder;
             _bitChatInfoList = new BitChatInfo[] { };
             _trackerURIs = trackerURIs;
             _checkCertificateRevocationList = true;
         }
 
-        public BitChatProfile(CertificateStore localCertStore, IPEndPoint localEP, string downloadFolder, Uri[] trackerURIs, string password)
+        public BitChatProfile(CertificateStore localCertStore, int localPort, string downloadFolder, Uri[] trackerURIs, string password)
             : base(SymmetricEncryptionAlgorithm.Rijndael, 256, password)
         {
             _localCertStore = localCertStore;
-            _localEP = localEP;
+            _localPort = localPort;
             _downloadFolder = downloadFolder;
             _bitChatInfoList = new BitChatInfo[] { };
             _trackerURIs = trackerURIs;
@@ -128,67 +128,69 @@ namespace BitChatClient
             {
                 case 1:
                     #region version 1
+                    {
+                        //tracker client id
+                        TrackerClientID localClientID = new TrackerClientID(bR);
 
-                    //tracker client id
-                    TrackerClientID localClientID = new TrackerClientID(bR);
+                        //local cert store
+                        if (bR.ReadByte() == 1)
+                            _localCertStore = new CertificateStore(bR);
 
-                    //local cert store
-                    if (bR.ReadByte() == 1)
-                        _localCertStore = new CertificateStore(bR);
+                        //bitchat local service end point
+                        IPEndPoint localEP = new IPEndPoint(new IPAddress(bR.ReadBytes(bR.ReadByte())), bR.ReadInt32());
+                        _localPort = localEP.Port;
 
-                    //bitchat local service end point
-                    _localEP = new IPEndPoint(new IPAddress(bR.ReadBytes(bR.ReadByte())), bR.ReadInt32());
+                        //default tracker urls
+                        _trackerURIs = DefaultTrackerURIs;
 
-                    //default tracker urls
-                    _trackerURIs = DefaultTrackerURIs;
-
-                    break;
-
+                        break;
+                    }
                     #endregion
 
                 case 2:
                 case 3:
                     #region version 2 & 3
-
-                    //local cert store
-                    if (bR.ReadByte() == 1)
-                        _localCertStore = new CertificateStore(bR);
-
-                    //bitchat local service end point
-                    _localEP = new IPEndPoint(new IPAddress(bR.ReadBytes(bR.ReadByte())), bR.ReadInt32());
-
-                    //download folder
-                    _downloadFolder = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadUInt16()));
-                    if (_downloadFolder == null)
-                        _downloadFolder = @"C:\";
-
-                    //load tracker urls
-                    _trackerURIs = new Uri[bR.ReadByte()];
-                    for (int i = 0; i < _trackerURIs.Length; i++)
-                        _trackerURIs[i] = new Uri(Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte())));
-
-                    //load bitchat info
-                    _bitChatInfoList = new BitChatInfo[bR.ReadByte()];
-                    for (int i = 0; i < _bitChatInfoList.Length; i++)
-                        _bitChatInfoList[i] = new BitChatInfo(bR);
-
-                    if (version > 2)
                     {
-                        //check CertificateRevocationList
-                        _checkCertificateRevocationList = bR.ReadBoolean();
+                        //local cert store
+                        if (bR.ReadByte() == 1)
+                            _localCertStore = new CertificateStore(bR);
+
+                        //bitchat local service end point
+                        IPEndPoint localEP = new IPEndPoint(new IPAddress(bR.ReadBytes(bR.ReadByte())), bR.ReadInt32());
+                        _localPort = localEP.Port;
+
+                        //download folder
+                        _downloadFolder = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadUInt16()));
+                        if (_downloadFolder == null)
+                            _downloadFolder = @"C:\";
+
+                        //load tracker urls
+                        _trackerURIs = new Uri[bR.ReadByte()];
+                        for (int i = 0; i < _trackerURIs.Length; i++)
+                            _trackerURIs[i] = new Uri(Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte())));
+
+                        //load bitchat info
+                        _bitChatInfoList = new BitChatInfo[bR.ReadByte()];
+                        for (int i = 0; i < _bitChatInfoList.Length; i++)
+                            _bitChatInfoList[i] = new BitChatInfo(bR);
+
+                        if (version > 2)
+                        {
+                            //check CertificateRevocationList
+                            _checkCertificateRevocationList = bR.ReadBoolean();
+                        }
+                        else
+                        {
+                            _checkCertificateRevocationList = true;
+                        }
+
+                        //generic client data
+                        int dataCount = bR.ReadInt32();
+                        if (dataCount > 0)
+                            _clientData = bR.ReadBytes(dataCount);
+
+                        break;
                     }
-                    else
-                    {
-                        _checkCertificateRevocationList = true;
-                    }
-
-                    //generic client data
-                    int dataCount = bR.ReadInt32();
-                    if (dataCount > 0)
-                        _clientData = bR.ReadBytes(dataCount);
-
-                    break;
-
                     #endregion
 
                 default:
@@ -211,10 +213,10 @@ namespace BitChatClient
             }
 
             //bitchat local service end point
-            byte[] localIP = _localEP.Address.GetAddressBytes();
+            byte[] localIP = new byte[4];
             bW.Write(Convert.ToByte(localIP.Length));
             bW.Write(localIP);
-            bW.Write(_localEP.Port);
+            bW.Write(_localPort);
 
             //download folder
             if (_downloadFolder == null)
@@ -265,10 +267,10 @@ namespace BitChatClient
             set { _localCertStore = value; }
         }
 
-        public IPEndPoint LocalEP
+        public int LocalPort
         {
-            get { return _localEP; }
-            set { _localEP = value; }
+            get { return _localPort; }
+            set { _localPort = value; }
         }
 
         public string DownloadFolder
