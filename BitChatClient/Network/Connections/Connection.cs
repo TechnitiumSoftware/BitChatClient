@@ -822,7 +822,7 @@ namespace BitChatClient.Network.Connections
             }
 
             Buffer.BlockCopy(address, 0, buffer, 1, address.Length);
-            Buffer.BlockCopy(port, 0, buffer, 1 + address.Length, port.Length);
+            Buffer.BlockCopy(port, 0, buffer, 1 + address.Length, 2);
 
             return buffer;
         }
@@ -875,20 +875,20 @@ namespace BitChatClient.Network.Connections
 
         #region static
 
-        public static BinaryID GetChannelName(byte[] localPeerID, byte[] remotePeerID, byte[] networkID)
+        public static BinaryID GetChannelName(BinaryID localPeerID, BinaryID remotePeerID, BinaryID networkID)
         {
             // this is done to avoid disclosing networkID to passive network sniffing
             // channelName = hmac( localPeerID XOR remotePeerID, networkID)
 
-            byte[] xoredID = new byte[20];
-
-            for (int i = 0; i < 20; i++)
-                xoredID[i] = (byte)(localPeerID[i] ^ remotePeerID[i]);
-
-            using (HMACSHA1 hmacSHA1 = new HMACSHA1(networkID))
+            using (HMACSHA1 hmacSHA1 = new HMACSHA1(networkID.ID))
             {
-                return new BinaryID(hmacSHA1.ComputeHash(xoredID));
+                return new BinaryID(hmacSHA1.ComputeHash((localPeerID ^ remotePeerID).ID));
             }
+        }
+
+        public static bool IsVirtualConnection(Stream stream)
+        {
+            return (stream.GetType() == typeof(ChannelStream));
         }
 
         #endregion
@@ -1088,15 +1088,6 @@ namespace BitChatClient.Network.Connections
         {
             byte[] data = new byte[1];
             WriteDataFrame(data, 0, 1, BinaryID.GenerateRandomID160(), ChannelType.NOOP);
-        }
-
-        #endregion
-
-        #region static
-
-        public static bool IsVirtualConnection(Stream stream)
-        {
-            return (stream.GetType() == typeof(ChannelStream));
         }
 
         #endregion
