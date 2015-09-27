@@ -21,10 +21,11 @@ using System;
 using System.IO;
 using System.Security.Cryptography;
 using System.Threading;
+using TechnitiumLibrary.IO;
 
 namespace BitChatClient
 {
-    public class BinaryID : IEquatable<BinaryID>
+    public class BinaryID : WriteStream, IEquatable<BinaryID>
     {
         #region variables
 
@@ -108,6 +109,14 @@ namespace BitChatClient
             }
         }
 
+        public static BinaryID Clone(byte[] buffer, int offset, int count)
+        {
+            byte[] id = new byte[count];
+            Buffer.BlockCopy(buffer, offset, id, 0, count);
+
+            return new BinaryID(id);
+        }
+
         #endregion
 
         #region public
@@ -159,16 +168,125 @@ namespace BitChatClient
             return BitConverter.ToString(_id).Replace("-", "").ToLower();
         }
 
-        public void WriteTo(Stream s)
+        public override void WriteTo(Stream s)
         {
             s.WriteByte(Convert.ToByte(_id.Length));
             s.Write(_id, 0, _id.Length);
         }
 
-        public void WriteTo(BinaryWriter bW)
+        public override void WriteTo(BinaryWriter bW)
         {
             bW.Write(Convert.ToByte(_id.Length));
             bW.Write(_id, 0, _id.Length);
+        }
+
+        #endregion
+
+        #region operators
+
+        public static bool operator ==(BinaryID b1, BinaryID b2)
+        {
+            if (ReferenceEquals(b1, b2))
+                return true;
+
+            return b1.Equals(b2);
+        }
+
+        public static bool operator !=(BinaryID b1, BinaryID b2)
+        {
+            if (ReferenceEquals(b1, b2))
+                return false;
+
+            return !b1.Equals(b2);
+        }
+
+        public static BinaryID operator |(BinaryID b1, BinaryID b2)
+        {
+            if (b1._id.Length != b2._id.Length)
+                throw new ArgumentException("Operand id length not equal.");
+
+            byte[] id = new byte[b1._id.Length];
+
+            for (int i = 0; i < id.Length; i++)
+                id[i] = (byte)(b1._id[i] | b2._id[i]);
+
+            return new BinaryID(id);
+        }
+
+        public static BinaryID operator &(BinaryID b1, BinaryID b2)
+        {
+            if (b1._id.Length != b2._id.Length)
+                throw new ArgumentException("Operand id length not equal.");
+
+            byte[] id = new byte[b1._id.Length];
+
+            for (int i = 0; i < id.Length; i++)
+                id[i] = (byte)(b1._id[i] & b2._id[i]);
+
+            return new BinaryID(id);
+        }
+
+        public static BinaryID operator ^(BinaryID b1, BinaryID b2)
+        {
+            if (b1._id.Length != b2._id.Length)
+                throw new ArgumentException("Operand id length not equal.");
+
+            byte[] id = new byte[b1._id.Length];
+
+            for (int i = 0; i < id.Length; i++)
+                id[i] = (byte)(b1._id[i] ^ b2._id[i]);
+
+            return new BinaryID(id);
+        }
+
+        public static BinaryID operator >>(BinaryID b1, int bitcount)
+        {
+            byte[] id = new byte[b1._id.Length];
+
+            if (bitcount >= 8)
+                Buffer.BlockCopy(b1._id, 0, id, bitcount / 8, id.Length - (bitcount / 8));
+            else
+                Buffer.BlockCopy(b1._id, 0, id, 0, id.Length);
+
+            bitcount = bitcount % 8;
+
+            if (bitcount > 0)
+            {
+                for (int i = id.Length - 1; i >= 0; i--)
+                {
+                    id[i] >>= bitcount;
+
+                    if (i > 0)
+                        id[i] |= (byte)(id[i - 1] << (8 - bitcount));
+                }
+            }
+
+            return new BinaryID(id);
+        }
+
+        public static BinaryID operator <<(BinaryID b1, int bitcount)
+        {
+            byte[] id = new byte[b1._id.Length];
+
+            if (bitcount >= 8)
+                Buffer.BlockCopy(b1._id, bitcount / 8, id, 0, id.Length - (bitcount / 8));
+            else
+                Buffer.BlockCopy(b1._id, 0, id, 0, id.Length);
+
+            bitcount = bitcount % 8;
+
+            if (bitcount > 0)
+            {
+                for (int i = 0; i < id.Length; i++)
+                {
+                    id[i] <<= bitcount;
+
+                    if (i < (id.Length - 1))
+                        id[i] |= (byte)(id[i + 1] >> (8 - bitcount));
+                }
+            }
+
+            return new BinaryID(id);
         }
 
         #endregion
