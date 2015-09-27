@@ -304,7 +304,7 @@ namespace BitChatAppMono
                 Registration.Register(Program.SIGNUP_URI, selfSignedCert);
 
                 if (_profile == null)
-                    _profile = new BitChatProfile(null, new IPEndPoint(IPAddress.Parse("0.0.0.0"), 0), Environment.GetFolderPath(Environment.SpecialFolder.Desktop), BitChatProfile.DefaultTrackerURIs);
+                    _profile = new BitChatProfile(null, 0, Environment.GetFolderPath(Environment.SpecialFolder.Desktop), BitChatProfile.DefaultTrackerURIs);
 
                 _profile.LocalCertificateStore = new CertificateStore(selfSignedCert, privateKey);
                 _profile.SetPassword(SymmetricEncryptionAlgorithm.Rijndael, 256, txtProfilePassword.Text);

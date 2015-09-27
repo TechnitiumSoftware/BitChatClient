@@ -385,8 +385,8 @@ namespace BitChatApp
                     if (frm.PasswordChangeRequest)
                         _profile.ChangePassword(frm.Password);
 
-                    if (frm.Port != _profile.LocalEP.Port)
-                        _profile.LocalEP = new IPEndPoint(0, frm.Port);
+                    if (frm.Port != _profile.LocalPort)
+                        _profile.LocalPort = frm.Port;
 
                     _profile.DownloadFolder = frm.DownloadFolder;
                     _profile.CheckCertificateRevocationList = frm.CheckCertificateRevocationList;
@@ -473,8 +473,8 @@ namespace BitChatApp
                 //below vista
                 try
                 {
-                    if (!WindowsFirewall.PortExists(Protocol.TCP, _service.ExternalSelfEP.Port))
-                        WindowsFirewall.AddPort("Bit Chat - TCP", Protocol.TCP, _service.ExternalSelfEP.Port, true);
+                    if (!WindowsFirewall.PortExists(Protocol.TCP, _service.LocalPort))
+                        WindowsFirewall.AddPort("Bit Chat - TCP", Protocol.TCP, _service.LocalPort, true);
 
                     if (!WindowsFirewall.PortExists(Protocol.UDP, 41733))
                         WindowsFirewall.AddPort("Bit Chat - Local Discovery", Protocol.UDP, 41733, true);

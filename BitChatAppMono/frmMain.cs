@@ -356,8 +356,8 @@ namespace BitChatAppMono
                     if (frm.PasswordChangeRequest)
                         _profile.ChangePassword(frm.Password);
 
-                    if (frm.Port != _profile.LocalEP.Port)
-                        _profile.LocalEP = new IPEndPoint(0, frm.Port);
+                    if (frm.Port != _profile.LocalPort)
+                        _profile.LocalPort = frm.Port;
 
                     _profile.DownloadFolder = frm.DownloadFolder;
                     _profile.CheckCertificateRevocationList = frm.CheckCertificateRevocationList;

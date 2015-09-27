@@ -53,7 +53,7 @@ namespace BitChatAppMono
 
             BitChatProfile profile = service.Profile;
 
-            txtPort.Text = profile.LocalEP.Port.ToString();
+            txtPort.Text = profile.LocalPort.ToString();
             txtDownloadFolder.Text = profile.DownloadFolder;
             chkUseCRL.Checked = profile.CheckCertificateRevocationList;
 
@@ -141,19 +141,23 @@ namespace BitChatAppMono
         {
             switch (_service.UPnPStatus)
             {
-                case UPnPStatus.NoInternetConnection:
-                    lblUPnPStatus.Text = "No Internet connection available";
+                case UPnPDeviceStatus.PortForwarded:
+                    lblUPnPStatus.Text = "Port forwarded [" + _service.UPnPExternalEP.ToString() + "]";
                     break;
 
-                case UPnPStatus.PortForwarded:
-                    lblUPnPStatus.Text = "Port forwarded [" + _service.ExternalSelfEP.ToString() + "]";
+                case UPnPDeviceStatus.PortForwardedNotAccessible:
+                    lblUPnPStatus.Text = "Port forwarded not accessible [" + _service.UPnPExternalEP.ToString() + "]";
                     break;
 
-                case UPnPStatus.PortForwardingNotRequired:
-                    lblUPnPStatus.Text = "Port forwarding not needed";
+                case UPnPDeviceStatus.ExternalIpPrivate:
+                    lblUPnPStatus.Text = "Device WAN IP is private [" + _service.UPnPExternalEP.ToString() + "]";
                     break;
 
-                case UPnPStatus.UPnPDeviceNotFound:
+                case UPnPDeviceStatus.PortForwardingFailed:
+                    lblUPnPStatus.Text = "Port forwarding failed";
+                    break;
+
+                case UPnPDeviceStatus.DeviceNotFound:
                     lblUPnPStatus.Text = "UPnP device not found";
                     break;
 

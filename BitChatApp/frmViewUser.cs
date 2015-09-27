@@ -150,7 +150,10 @@ namespace BitChatApp
             }
 
             //cipher suite
-            labCipherSuite.Text = _peer.CipherSuite.ToString();
+            if (_peer.CipherSuite == BitChatClient.Network.SecureChannel.SecureChannelCryptoOptionFlags.None)
+                labCipherSuite.Text = "Not applicable";
+            else
+                labCipherSuite.Text = _peer.CipherSuite.ToString();
 
             //connected with
             PeerInfo[] connectedWith = _peer.ConnectedWith;
