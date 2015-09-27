@@ -219,7 +219,7 @@ namespace BitChatClient.Network
 
         private void EstablishSecureChannelAndJoinNetwork(Connection connection)
         {
-            BinaryID channelName = GetChannelName(connection.LocalPeerID.ID, connection.RemotePeerID.ID);
+            BinaryID channelName = GetChannelName(connection.LocalPeerID, connection.RemotePeerID);
 
             //check if channel exists
             if (connection.BitChatNetworkChannelExists(channelName))
@@ -296,9 +296,9 @@ namespace BitChatClient.Network
 
         #region public
 
-        public BinaryID GetChannelName(byte[] localPeerID, byte[] remotePeerID)
+        public BinaryID GetChannelName(BinaryID localPeerID, BinaryID remotePeerID)
         {
-            return Connection.GetChannelName(localPeerID, remotePeerID, _networkID.ID);
+            return Connection.GetChannelName(localPeerID, remotePeerID, _networkID);
         }
 
         public VirtualPeer[] GetVirtualPeerList()

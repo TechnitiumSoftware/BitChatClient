@@ -40,6 +40,7 @@ namespace BitChatClient.Network
 
         BinaryID _networkID;
         IConnectionInfo _info;
+        bool _lookupOnly;
 
         const int _TRACKER_TIMER_CHECK_INTERVAL = 10000;
         List<TrackerClient> _trackers = new List<TrackerClient>();
@@ -49,10 +50,11 @@ namespace BitChatClient.Network
 
         #region constructor
 
-        public TrackerManager(BinaryID networkID, IConnectionInfo info)
+        public TrackerManager(BinaryID networkID, IConnectionInfo info, bool lookupOnly = false)
         {
             _networkID = networkID;
             _info = info;
+            _lookupOnly = lookupOnly;
         }
 
         #endregion
@@ -108,8 +110,22 @@ namespace BitChatClient.Network
             {
                 tracker.Update(@event, localEP);
 
-                if (DiscoveredPeers != null)
-                    DiscoveredPeers(this, tracker.Peers);
+                switch (@event)
+                {
+                    case TrackerClientEvent.Started:
+                    case TrackerClientEvent.Completed:
+                    case TrackerClientEvent.None:
+                        if (_lookupOnly)
+                            tracker.Update(TrackerClientEvent.Stopped, localEP);
+
+                        if (tracker.Peers.Count > 0)
+                        {
+                            if (DiscoveredPeers != null)
+                                DiscoveredPeers(this, tracker.Peers);
+                        }
+
+                        break;
+                }
             }
             catch
             { }
@@ -148,6 +164,17 @@ namespace BitChatClient.Network
             {
                 _trackerUpdateTimer.Dispose();
                 _trackerUpdateTimer = null;
+
+                //update trackers
+                IPEndPoint localEP = new IPEndPoint(IPAddress.Any, _info.GetExternalPort());
+
+                lock (_trackers)
+                {
+                    foreach (TrackerClient tracker in _trackers)
+                    {
+                        ThreadPool.QueueUserWorkItem(new WaitCallback(UpdateTrackerAsync), new object[] { tracker, TrackerClientEvent.Stopped, localEP });
+                    }
+                }
             }
         }
 
@@ -238,6 +265,12 @@ namespace BitChatClient.Network
 
         public bool IsTrackerRunning
         { get { return (_trackerUpdateTimer != null); } }
+
+        public bool LookupOnly
+        {
+            get { return _lookupOnly; }
+            set { _lookupOnly = value; }
+        }
 
         #endregion
     }

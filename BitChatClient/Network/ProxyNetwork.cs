@@ -73,14 +73,14 @@ namespace BitChatClient.Network
 
         public static List<IPEndPoint> GetProxyNetworkPeers(BinaryID channelName, Connection requestingConnection)
         {
-            byte[] localPeerID = requestingConnection.LocalPeerID.ID;
-            byte[] remotePeerID = requestingConnection.RemotePeerID.ID;
+            BinaryID localPeerID = requestingConnection.LocalPeerID;
+            BinaryID remotePeerID = requestingConnection.RemotePeerID;
 
             lock (_proxyNetworks)
             {
                 foreach (KeyValuePair<BinaryID, ProxyNetwork> itemProxyNetwork in _proxyNetworks)
                 {
-                    BinaryID computedChannelName = Connection.GetChannelName(localPeerID, remotePeerID, itemProxyNetwork.Key.ID);
+                    BinaryID computedChannelName = Connection.GetChannelName(localPeerID, remotePeerID, itemProxyNetwork.Key);
 
                     if (computedChannelName.Equals(channelName))
                     {

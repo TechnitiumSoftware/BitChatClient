@@ -74,7 +74,7 @@ namespace BitChatClient
         TrackerManager _trackerManager;
 
         //noop timer
-        const int NOOP_PACKET_TIME_SECONDS = 15000;
+        const int NOOP_PACKET_TIMER_INTERVAL = 15000;
         Timer _NOOPTimer;
 
         //network status
@@ -131,7 +131,7 @@ namespace BitChatClient
             _trackerManager.StartTracking(trackerURIs);
 
             //start noop timer
-            _NOOPTimer = new Timer(NOOPTimerCallback, null, NOOP_PACKET_TIME_SECONDS, Timeout.Infinite);
+            _NOOPTimer = new Timer(NOOPTimerCallback, null, NOOP_PACKET_TIMER_INTERVAL, Timeout.Infinite);
 
             //start network update timer
             _updateNetworkStatusTimer = new Timer(UpdateNetworkStatusCallback, null, NETWORK_STATUS_TIMER_INTERVAL, Timeout.Infinite);
@@ -686,7 +686,7 @@ namespace BitChatClient
             finally
             {
                 if (_NOOPTimer != null)
-                    _NOOPTimer.Change(NOOP_PACKET_TIME_SECONDS, Timeout.Infinite);
+                    _NOOPTimer.Change(NOOP_PACKET_TIMER_INTERVAL, Timeout.Infinite);
             }
         }
 
