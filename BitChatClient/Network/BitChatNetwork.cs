@@ -580,8 +580,8 @@ namespace BitChatClient.Network
 
                 try
                 {
-                    byte[] buffer = new byte[MAX_BUFFER_SIZE];
-                    MemoryStream mS = new MemoryStream(buffer);
+                    FixMemoryStream mS = new FixMemoryStream(MAX_BUFFER_SIZE);
+                    byte[] buffer = mS.Buffer;
                     int dataLength;
 
                     while (true)

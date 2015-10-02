@@ -24,6 +24,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Threading;
+using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Net;
 
 /*
@@ -553,8 +554,7 @@ namespace BitChatClient.Network.PeerDiscovery
             private void RecvDataAsync()
             {
                 EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
-                byte[] bufferRecv = new byte[BUFFER_MAX_SIZE];
-                MemoryStream dataRecv = new MemoryStream(bufferRecv);
+                FixMemoryStream dataRecv = new FixMemoryStream(BUFFER_MAX_SIZE);
                 int bytesRecv;
 
                 while (true)
@@ -562,29 +562,29 @@ namespace BitChatClient.Network.PeerDiscovery
                     try
                     {
                         //receive message from remote
-                        bytesRecv = _udpListener.ReceiveFrom(bufferRecv, ref remoteEP);
+                        bytesRecv = _udpListener.ReceiveFrom(dataRecv.Buffer, ref remoteEP);
 
-                        IPEndPoint peerEP = remoteEP as IPEndPoint;
-
-                        bool isSelf = false;
-
-                        lock (_networks)
+                        if ((bytesRecv > 0) && (bytesRecv <= BUFFER_MAX_SIZE))
                         {
-                            foreach (NetworkInfo network in _networks)
+                            IPEndPoint peerEP = remoteEP as IPEndPoint;
+
+                            bool isSelf = false;
+
+                            lock (_networks)
                             {
-                                if (network.LocalIP.Equals(peerEP.Address))
+                                foreach (NetworkInfo network in _networks)
                                 {
-                                    isSelf = true;
-                                    break;
+                                    if (network.LocalIP.Equals(peerEP.Address))
+                                    {
+                                        isSelf = true;
+                                        break;
+                                    }
                                 }
                             }
-                        }
 
-                        if (isSelf)
-                            continue;
+                            if (isSelf)
+                                continue;
 
-                        if (bytesRecv > 0)
-                        {
                             dataRecv.Position = 0;
                             dataRecv.SetLength(bytesRecv);
 
