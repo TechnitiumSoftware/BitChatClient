@@ -289,6 +289,34 @@ namespace BitChatClient
             return new BinaryID(id);
         }
 
+        public static bool operator <(BinaryID b1, BinaryID b2)
+        {
+            if (b1._id.Length != b2._id.Length)
+                throw new ArgumentException("Operand id length not equal.");
+
+            for (int i = 0; i < b1._id.Length; i++)
+            {
+                if (b1._id[i] > b2._id[i])
+                    return false;
+            }
+
+            return true;
+        }
+
+        public static bool operator >(BinaryID b1, BinaryID b2)
+        {
+            if (b1._id.Length != b2._id.Length)
+                throw new ArgumentException("Operand id length not equal.");
+
+            for (int i = 0; i < b1._id.Length; i++)
+            {
+                if (b1._id[i] < b2._id[i])
+                    return false;
+            }
+
+            return true;
+        }
+
         #endregion
 
         #region properties
