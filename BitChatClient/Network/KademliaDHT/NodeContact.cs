@@ -25,13 +25,7 @@ using TechnitiumLibrary.IO;
 
 namespace BitChatClient.Network.KademliaDHT
 {
-    enum NodeContactStatus
-    {
-        Fresh = 0,
-        Stale = 1
-    }
-
-    class NodeContact : WriteStream
+    public class NodeContact : WriteStream
     {
         #region variables
 
@@ -41,17 +35,15 @@ namespace BitChatClient.Network.KademliaDHT
         BinaryID _nodeID;
         IPEndPoint _nodeEP;
 
-        DhtRpcQueryManager _queryManager;
-
         bool _currentNode;
-        DateTime _lastSeen;
+        DateTime _lastSeen = DateTime.UtcNow;
         int _failRpcCount = 0;
 
         #endregion
 
         #region constructor
 
-        public NodeContact(Stream s, DhtRpcQueryManager queryManager)
+        public NodeContact(Stream s)
         {
             byte[] nodeID = new byte[20];
 
@@ -84,18 +76,18 @@ namespace BitChatClient.Network.KademliaDHT
             }
 
             _nodeEP = new IPEndPoint(new IPAddress(address), BitConverter.ToUInt16(port, 0));
-            _queryManager = queryManager;
         }
 
-        public NodeContact(IPEndPoint nodeEP, DhtRpcQueryManager queryManager)
+        public NodeContact(BinaryID nodeID, IPEndPoint nodeEP)
         {
+            _nodeID = nodeID;
             _nodeEP = nodeEP;
-            _queryManager = queryManager;
         }
 
-        protected NodeContact()
+        protected NodeContact(int udpDhtPort)
         {
             _nodeID = BinaryID.GenerateRandomID160();
+            _nodeEP = new IPEndPoint(IPAddress.Any, udpDhtPort);
             _currentNode = true;
         }
 
@@ -103,81 +95,23 @@ namespace BitChatClient.Network.KademliaDHT
 
         #region public
 
-        public virtual NodeContactStatus GetStatus()
+        public bool IsStale()
         {
-            if ((_failRpcCount > NODE_RPC_FAIL_LIMIT) || ((DateTime.UtcNow - _lastSeen).TotalSeconds > NODE_STALE_TIMEOUT_SECONDS))
-                return NodeContactStatus.Stale;
-            else
-                return NodeContactStatus.Fresh;
-        }
-
-        public virtual bool Ping()
-        {
-            DhtRpcPacket response = _queryManager.Query(DhtRpcPacket.CreatePingPacketQuery(_queryManager.CurrentNodeID), _nodeEP);
-
-            if (response == null)
-            {
-                _failRpcCount++;
-
+            if (_currentNode)
                 return false;
-            }
             else
-            {
-                if (_nodeID == null)
-                {
-                    _nodeID = response.SourceNodeID;
-                }
-                else if (!response.SourceNodeID.Equals(_nodeID))
-                {
-                    _failRpcCount++;
-
-                    return false;
-                }
-
-                _lastSeen = DateTime.UtcNow;
-                _failRpcCount = 0;
-
-                return true;
-            }
+                return ((_failRpcCount > NODE_RPC_FAIL_LIMIT) || ((DateTime.UtcNow - _lastSeen).TotalSeconds > NODE_STALE_TIMEOUT_SECONDS));
         }
 
-        public virtual void AnnouncePeer(BinaryID networkID, ushort servicePort, BinaryID token)
+        public void UpdateLastSeenTime()
         {
-            DhtRpcPacket response = _queryManager.Query(DhtRpcPacket.CreateAnnouncePeerPacketQuery(_queryManager.CurrentNodeID, networkID, servicePort, token), _nodeEP);
-
-            if (response == null)
-            {
-                _failRpcCount++;
-            }
-            else
-            {
-                _lastSeen = DateTime.UtcNow;
-                _failRpcCount = 0;
-            }
+            _lastSeen = DateTime.UtcNow;
+            _failRpcCount = 0;
         }
 
-        public virtual NodeContact[] FindNode(BinaryID networkID)
+        public void IncrementRpcFailCount()
         {
-            DhtRpcPacket response = _queryManager.Query(DhtRpcPacket.CreateFindNodePacketQuery(_queryManager.CurrentNodeID, networkID), _nodeEP);
-
-            if (response == null)
-            {
-                _failRpcCount++;
-
-                return null;
-            }
-            else
-            {
-                _lastSeen = DateTime.UtcNow;
-                _failRpcCount = 0;
-
-                return response.Contacts;
-            }
-        }
-
-        public virtual PeerEndPoint[] GetPeers(BinaryID key)
-        {
-            return null;
+            _failRpcCount++;
         }
 
         public override void WriteTo(Stream s)
@@ -210,6 +144,26 @@ namespace BitChatClient.Network.KademliaDHT
             throw new NotImplementedException();
         }
 
+        public override bool Equals(object obj)
+        {
+            NodeContact contact = obj as NodeContact;
+
+            if (contact == null)
+                return false;
+
+            return _nodeID.Equals(contact._nodeID) && _nodeEP.Equals(contact._nodeEP);
+        }
+
+        public override int GetHashCode()
+        {
+            return _nodeID.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return _nodeID.ToString();
+        }
+
         #endregion
 
         #region properties
@@ -217,8 +171,14 @@ namespace BitChatClient.Network.KademliaDHT
         public BinaryID NodeID
         { get { return _nodeID; } }
 
+        public IPEndPoint NodeEP
+        { get { return _nodeEP; } }
+
         public bool IsCurrentNode
         { get { return _currentNode; } }
+
+        public DateTime LastSeen
+        { get { return _lastSeen; } }
 
         #endregion
     }

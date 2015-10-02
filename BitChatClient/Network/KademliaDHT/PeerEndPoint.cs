@@ -25,9 +25,11 @@ using TechnitiumLibrary.IO;
 
 namespace BitChatClient.Network.KademliaDHT
 {
-    class PeerEndPoint : WriteStream
+    public class PeerEndPoint : WriteStream
     {
         #region variables
+
+        const int PEER_EXPIRY_TIME_SECONDS = 900; //15 min expiry
 
         DateTime _dateAdded;
         IPEndPoint _peerEP;
@@ -76,6 +78,11 @@ namespace BitChatClient.Network.KademliaDHT
 
         #region public
 
+        public bool HasExpired()
+        {
+            return (DateTime.UtcNow - _dateAdded).TotalSeconds > PEER_EXPIRY_TIME_SECONDS;
+        }
+
         public void UpdateDateAdded()
         {
             _dateAdded = DateTime.UtcNow;
@@ -107,6 +114,26 @@ namespace BitChatClient.Network.KademliaDHT
         public override void WriteTo(BinaryWriter bW)
         {
             throw new NotImplementedException();
+        }
+
+        public override bool Equals(object obj)
+        {
+            PeerEndPoint peer = obj as PeerEndPoint;
+
+            if (peer == null)
+                return false;
+
+            return _peerEP.Equals(peer._peerEP);
+        }
+
+        public override int GetHashCode()
+        {
+            return _peerEP.GetHashCode();
+        }
+
+        public override string ToString()
+        {
+            return _peerEP.ToString();
         }
 
         #endregion

@@ -19,30 +19,32 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Threading;
+using TechnitiumLibrary.IO;
 
 namespace BitChatClient.Network.KademliaDHT
 {
-    class DhtClient
+    public class DhtClient
     {
         #region variables
 
         const int BUFFER_MAX_SIZE = 1024;
-        const int SECRET_EXPIRY_SECONDS = 300;
+        const int SECRET_EXPIRY_SECONDS = 300; //5min
+        const int KADEMLIA_K = 8;
+        const int KADEMLIA_HEALTH_CHECK_TIMER_INTERVAL = 5 * 60 * 1000; //5min
 
         Socket _udpListener;
         Thread _readThread;
 
+        CurrentNode _currentNode;
         DhtRpcQueryManager _queryManager;
 
-        CurrentNode _currentNode;
+        Timer _healthTimer;
 
         //routing table
-        int _maxDhtNodes;
         KBucket _routingTable;
 
         //secret
@@ -54,24 +56,33 @@ namespace BitChatClient.Network.KademliaDHT
 
         #region constructor
 
-        public DhtClient(int udpDhtPort, int maxDhtNodes = 300, int k = 8)
+        public DhtClient(int udpDhtPort, IPEndPoint[] bootstrapNodeEPs)
             : base()
         {
             //bind udp dht port
             _udpListener = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             _udpListener.Bind(new IPEndPoint(IPAddress.Any, udpDhtPort));
 
+            //init rpc query manager
+            _currentNode = new CurrentNode((_udpListener.LocalEndPoint as IPEndPoint).Port);
+            _queryManager = new DhtRpcQueryManager(KADEMLIA_K, _currentNode);
+
             //setup routing table
-            _currentNode = new CurrentNode();
-            _routingTable = new KBucket(k, _currentNode);
-            _maxDhtNodes = maxDhtNodes;
+            _routingTable = new KBucket(KADEMLIA_K, _currentNode, _queryManager);
 
             //start reading udp packets
-            _readThread = new Thread(ReadPackets);
+            _readThread = new Thread(ReadPacketsAsync);
+            _readThread.IsBackground = true;
             _readThread.Start();
 
-            //init rpc query manager
-            _queryManager = new DhtRpcQueryManager(_currentNode.NodeID);
+            if ((bootstrapNodeEPs != null) && (bootstrapNodeEPs.Length > 0))
+            {
+                foreach (IPEndPoint nodeEP in bootstrapNodeEPs)
+                    ThreadPool.QueueUserWorkItem(AddNodeAfterPingAsync, nodeEP);
+            }
+
+            //start health timer
+            _healthTimer = new Timer(HealthTimerCallback, null, DhtRpcQueryManager.QUERY_TIMEOUT, Timeout.Infinite);
         }
 
         #endregion
@@ -109,90 +120,99 @@ namespace BitChatClient.Network.KademliaDHT
                 return token.Equals(GetOldToken(nodeIP));
         }
 
-        private void ReadPackets(object state)
+        private void ReadPacketsAsync(object state)
         {
-            EndPoint remoteNodeEP = new IPEndPoint(IPAddress.Any, 0);
-            byte[] recvBuffer = new byte[BUFFER_MAX_SIZE];
-            MemoryStream recvBufferStream = new MemoryStream(recvBuffer, false);
+            EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
+            FixMemoryStream recvBufferStream = new FixMemoryStream(BUFFER_MAX_SIZE);
+            FixMemoryStream sendBufferStream = new FixMemoryStream(BUFFER_MAX_SIZE);
             int bytesRecv;
-            byte[] sendBuffer = new byte[BUFFER_MAX_SIZE];
-            MemoryStream sendBufferStream = new MemoryStream(sendBuffer);
 
             try
             {
                 while (true)
                 {
-                    bytesRecv = _udpListener.ReceiveFrom(recvBuffer, ref remoteNodeEP);
+                    bytesRecv = _udpListener.ReceiveFrom(recvBufferStream.Buffer, ref remoteEP);
 
-                    if (bytesRecv > 0)
+                    if ((bytesRecv > 0) && (bytesRecv <= BUFFER_MAX_SIZE))
                     {
                         recvBufferStream.Position = 0;
                         recvBufferStream.SetLength(bytesRecv);
 
-                        DhtRpcPacket packet = new DhtRpcPacket(recvBufferStream, _queryManager);
+                        IPEndPoint remoteNodeEP = remoteEP as IPEndPoint;
+
+                        DhtRpcPacket request = new DhtRpcPacket(recvBufferStream, remoteNodeEP.Address);
+                        DhtRpcPacket response = null;
 
                         //only incoming query packets handled on this port
-                        switch (packet.PacketType)
+                        switch (request.PacketType)
                         {
                             case RpcPacketType.Query:
-                                switch (packet.QueryType)
+                                switch (request.QueryType)
                                 {
                                     case RpcQueryType.PING:
                                         #region PING
-
-                                        sendBufferStream.Position = 0;
-                                        DhtRpcPacket.CreatePingPacketResponse(packet.TransactionID, _currentNode.NodeID).WriteTo(sendBufferStream);
-                                        _udpListener.SendTo(sendBuffer, 0, (int)sendBufferStream.Position, SocketFlags.None, remoteNodeEP);
-
-                                        break;
-
+                                        {
+                                            response = DhtRpcPacket.CreatePingPacketResponse(request.TransactionID, _currentNode);
+                                            break;
+                                        }
                                         #endregion
 
                                     case RpcQueryType.FIND_NODE:
                                         #region FIND_NODE
-
-                                        KBucket closestBucket;
-
-                                        lock (_routingTable)
                                         {
-                                            closestBucket = _routingTable.FindClosestBucket(packet.NetworkID);
+                                            NodeContact[] contacts = _routingTable.GetKClosestContacts(request.NetworkID);
+
+                                            response = DhtRpcPacket.CreateFindNodePacketResponse(request.TransactionID, _currentNode, request.NetworkID, contacts);
+                                            break;
                                         }
-
-                                        NodeContact[] contacts = closestBucket.GetContacts();
-
-                                        sendBufferStream.Position = 0;
-                                        DhtRpcPacket.CreateFindNodePacketResponse(packet.TransactionID, _currentNode.NodeID, packet.NetworkID, contacts).WriteTo(sendBufferStream);
-                                        _udpListener.SendTo(sendBuffer, 0, (int)sendBufferStream.Position, SocketFlags.None, remoteNodeEP);
-
-                                        break;
-
                                         #endregion
 
-                                    case RpcQueryType.GET_PEERS:
+                                    case RpcQueryType.FIND_PEERS:
                                         #region GET_PEERS
+                                        {
+                                            PeerEndPoint[] peers = _currentNode.GetPeers(request.NetworkID);
+                                            NodeContact[] contacts;
 
-                                        PeerEndPoint[] peers = _currentNode.GetPeers(packet.NetworkID);
+                                            if (peers.Length < 1)
+                                                contacts = _routingTable.GetKClosestContacts(request.NetworkID);
+                                            else
+                                                contacts = new NodeContact[] { };
 
-                                        sendBufferStream.Position = 0;
-                                        DhtRpcPacket.CreateGetPeersPacketResponse(packet.TransactionID, _currentNode.NodeID, packet.NetworkID, peers, GetToken((remoteNodeEP as IPEndPoint).Address)).WriteTo(sendBufferStream);
-                                        _udpListener.SendTo(sendBuffer, 0, (int)sendBufferStream.Position, SocketFlags.None, remoteNodeEP);
-
-                                        break;
-
+                                            response = DhtRpcPacket.CreateFindPeersPacketResponse(request.TransactionID, _currentNode, request.NetworkID, contacts, peers, GetToken(remoteNodeEP.Address));
+                                            break;
+                                        }
                                         #endregion
 
                                     case RpcQueryType.ANNOUNCE_PEER:
                                         #region ANNOUNCE_PEER
+                                        {
+                                            IPAddress remoteNodeIP = (remoteEP as IPEndPoint).Address;
 
-                                        IPAddress remoteNodeIP = (remoteNodeEP as IPEndPoint).Address;
+                                            if (IsTokenValid(request.Token, remoteNodeIP))
+                                                _currentNode.StorePeer(request.NetworkID, new IPEndPoint(remoteNodeIP, request.ServicePort));
 
-                                        if (IsTokenValid(packet.Token, remoteNodeIP))
-                                            _currentNode.StorePeer(packet.NetworkID, new IPEndPoint(remoteNodeIP, packet.ServicePort));
-
-                                        break;
-
+                                            response = DhtRpcPacket.CreateAnnouncePeerPacketResponse(request.TransactionID, _currentNode, request.NetworkID);
+                                            break;
+                                        }
                                         #endregion
                                 }
+
+                                //send response
+                                if (response != null)
+                                {
+                                    sendBufferStream.Position = 0;
+                                    response.WriteTo(sendBufferStream);
+                                    _udpListener.SendTo(sendBufferStream.Buffer, 0, (int)sendBufferStream.Position, SocketFlags.None, remoteEP);
+                                }
+
+                                //if contact doesnt exists then add contact else update last seen time
+                                NodeContact contact = _routingTable.FindContact(request.SourceNode.NodeID);
+
+                                if (contact == null)
+                                    ThreadPool.QueueUserWorkItem(AddNodeAfterPingAsync, request.SourceNode.NodeEP);
+                                else
+                                    contact.UpdateLastSeenTime();
+
                                 break;
                         }
                     }
@@ -202,56 +222,112 @@ namespace BitChatClient.Network.KademliaDHT
             { }
         }
 
-        private void AddContactAsync(object state)
+        private void AddNodeAfterPingAsync(object state)
         {
             try
             {
-                IPEndPoint contactEP = state as IPEndPoint;
-                NodeContact contact = new NodeContact(contactEP, _queryManager);
+                IPEndPoint nodeEP = state as IPEndPoint;
+                NodeContact contact = _queryManager.Ping(nodeEP);
 
-                if (contact.Ping())
+                if (contact != null)
                 {
                     //ping success; add contact to routing table
-                    lock (_routingTable)
-                    {
-                        _routingTable.AddContact(contact);
-                    }
+                    if (_routingTable.AddContact(contact))
+                        Console.WriteLine(_currentNode.NodeEP.ToString() + " added " + contact.NodeEP.ToString());
+                    else
+                        Console.WriteLine(_currentNode.NodeEP.ToString() + " failed to added " + contact.NodeEP.ToString());
                 }
             }
             catch
             { }
         }
 
+        private void HealthTimerCallback(object state)
+        {
+            try
+            {
+                //remove expired data
+                _currentNode.RemoveExpiredPeers();
+
+                //find closest contacts for current node id
+                NodeContact[] initialContacts = _routingTable.GetKClosestContacts(_currentNode.NodeID);
+
+                if (initialContacts.Length < 1)
+                    return;
+
+                NodeContact[] closestContacts = _queryManager.QueryFindNode(initialContacts, _currentNode.NodeID);
+
+                if (closestContacts != null)
+                {
+                    foreach (NodeContact contact in closestContacts)
+                    {
+                        if (_routingTable.FindContact(contact.NodeID) == null)
+                        {
+                            if (_routingTable.AddContact(contact))
+                                Console.WriteLine(_currentNode.NodeEP.ToString() + " added " + contact.NodeEP.ToString());
+                            else
+                                Console.WriteLine(_currentNode.NodeEP.ToString() + " failed to added " + contact.NodeEP.ToString());
+                        }
+                    }
+                }
+
+                //check contact health
+                _routingTable.CheckContactHealth();
+
+                //refresh buckets
+                _routingTable.RefreshBucket();
+            }
+            catch
+            { }
+            finally
+            {
+                if (_healthTimer != null)
+                    _healthTimer.Change(KADEMLIA_HEALTH_CHECK_TIMER_INTERVAL, Timeout.Infinite);
+            }
+        }
+
         #endregion
 
         #region public
 
-        public void AddContact(List<IPEndPoint> contactEPs)
+        public void AddNode(IPEndPoint[] nodeEPs)
         {
-            foreach (IPEndPoint contactEP in contactEPs)
+            foreach (IPEndPoint nodeEP in nodeEPs)
             {
-                AddContact(contactEP);
+                if (!_routingTable.ContactExists(nodeEP))
+                    ThreadPool.QueueUserWorkItem(AddNodeAfterPingAsync, nodeEP);
             }
         }
 
-        public void AddContact(IPEndPoint contactEP)
+        public void AddNode(IPEndPoint nodeEP)
         {
-            ThreadPool.QueueUserWorkItem(AddContactAsync, contactEP);
-        }
-
-        public void AnnouncePeer(BinaryID networkID, ushort servicePort)
-        {
-
+            if (!_routingTable.ContactExists(nodeEP))
+                ThreadPool.QueueUserWorkItem(AddNodeAfterPingAsync, nodeEP);
         }
 
         public PeerEndPoint[] GetPeers(BinaryID networkID)
         {
-            return null;
+            NodeContact[] initialContacts = _routingTable.GetKClosestContacts(networkID);
+
+            if (initialContacts.Length < 1)
+                return null;
+
+            return _queryManager.QueryFindPeers(initialContacts, networkID);
+        }
+
+        public PeerEndPoint[] Announce(BinaryID networkID, ushort servicePort)
+        {
+            NodeContact[] initialContacts = _routingTable.GetKClosestContacts(networkID);
+
+            if (initialContacts.Length < 1)
+                return null;
+
+            return _queryManager.QueryAnnounce(initialContacts, networkID, servicePort);
         }
 
         #endregion
 
-        class CurrentNode : NodeContact
+        public class CurrentNode : NodeContact
         {
             #region variables
 
@@ -259,27 +335,32 @@ namespace BitChatClient.Network.KademliaDHT
 
             #endregion
 
+            #region constructor
+
+            public CurrentNode(int udpDhtPort)
+                : base(udpDhtPort)
+            { }
+
+            #endregion
+
             #region public
 
             public void StorePeer(BinaryID networkID, IPEndPoint peerEP)
             {
-                List<PeerEndPoint> peerList;
-
                 lock (_data)
                 {
-                    try
+                    List<PeerEndPoint> peerList;
+
+                    if (_data.ContainsKey(networkID))
                     {
                         peerList = _data[networkID];
                     }
-                    catch (KeyNotFoundException)
+                    else
                     {
                         peerList = new List<PeerEndPoint>();
                         _data.Add(networkID, peerList);
                     }
-                }
 
-                lock (peerList)
-                {
                     foreach (PeerEndPoint peer in peerList)
                     {
                         if (peer.PeerEP.Equals(peerEP))
@@ -293,37 +374,37 @@ namespace BitChatClient.Network.KademliaDHT
                 }
             }
 
-            public override NodeContactStatus GetStatus()
-            {
-                return NodeContactStatus.Fresh;
-            }
-
-            public override bool Ping()
-            {
-                return true;
-            }
-
-            public override void AnnouncePeer(BinaryID networkID, ushort servicePort, BinaryID token)
-            {
-                return;
-            }
-
-            public override NodeContact[] FindNode(BinaryID networkID)
-            {
-                return new NodeContact[] { };
-            }
-
-            public override PeerEndPoint[] GetPeers(BinaryID networkID)
+            public PeerEndPoint[] GetPeers(BinaryID networkID)
             {
                 lock (_data)
                 {
-                    try
-                    {
+                    if (_data.ContainsKey(networkID))
                         return _data[networkID].ToArray();
-                    }
-                    catch (KeyNotFoundException)
-                    {
+                    else
                         return new PeerEndPoint[] { };
+                }
+            }
+
+            public void RemoveExpiredPeers()
+            {
+                lock (_data)
+                {
+                    List<PeerEndPoint> expiredPeers = new List<PeerEndPoint>();
+
+                    foreach (List<PeerEndPoint> peerList in _data.Values)
+                    {
+                        foreach (PeerEndPoint peer in peerList)
+                        {
+                            if (peer.HasExpired())
+                                expiredPeers.Add(peer);
+                        }
+
+                        foreach (PeerEndPoint expiredPeer in expiredPeers)
+                        {
+                            peerList.Remove(expiredPeer);
+                        }
+
+                        expiredPeers.Clear();
                     }
                 }
             }

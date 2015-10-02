@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
 using System.IO;
+using System.Net;
 using System.Security.Cryptography;
 using TechnitiumLibrary.IO;
 
@@ -27,15 +28,14 @@ namespace BitChatClient.Network.KademliaDHT
     enum RpcPacketType : byte
     {
         Query = 0,
-        Response = 1,
-        Error = 2
+        Response = 1
     }
 
     enum RpcQueryType : byte
     {
         PING = 0,
         FIND_NODE = 1,
-        GET_PEERS = 2,
+        FIND_PEERS = 2,
         ANNOUNCE_PEER = 3
     }
 
@@ -43,26 +43,24 @@ namespace BitChatClient.Network.KademliaDHT
     {
         #region variables
 
-        const int RPC_MESSAGE_HEADER_SIZE = 1 + 4 + 20 + 1 + 1;
-
         static RandomNumberGenerator _rnd = new RNGCryptoServiceProvider();
 
         int _transactionID;
-        BinaryID _sourceNodeID;
+        NodeContact _sourceNode;
         RpcPacketType _type;
         RpcQueryType _queryType;
 
         BinaryID _networkID;
-        ushort _servicePort;
-        BinaryID _token;
         NodeContact[] _contacts;
         PeerEndPoint[] _peers;
+        BinaryID _token;
+        ushort _servicePort;
 
         #endregion
 
         #region constructor
 
-        public DhtRpcPacket(Stream s, DhtRpcQueryManager queryManager)
+        public DhtRpcPacket(Stream s, IPAddress nodeIP)
         {
             int version = s.ReadByte();
 
@@ -75,7 +73,10 @@ namespace BitChatClient.Network.KademliaDHT
                     _transactionID = BitConverter.ToInt32(buffer, 0);
 
                     OffsetStream.StreamRead(s, buffer, 0, 20);
-                    _sourceNodeID = BinaryID.Clone(buffer, 0, 20);
+                    BinaryID nodeID = BinaryID.Clone(buffer, 0, 20);
+
+                    OffsetStream.StreamRead(s, buffer, 0, 2);
+                    _sourceNode = new NodeContact(nodeID, new IPEndPoint(nodeIP, BitConverter.ToUInt16(buffer, 0)));
 
                     _type = (RpcPacketType)s.ReadByte();
                     _queryType = (RpcQueryType)s.ReadByte();
@@ -93,18 +94,26 @@ namespace BitChatClient.Network.KademliaDHT
 
                                 for (int i = 0; i < count; i++)
                                 {
-                                    _contacts[i] = new NodeContact(s, queryManager);
+                                    _contacts[i] = new NodeContact(s);
                                 }
                             }
                             break;
 
-                        case RpcQueryType.GET_PEERS:
+                        case RpcQueryType.FIND_PEERS:
                             OffsetStream.StreamRead(s, buffer, 0, 20);
                             _networkID = BinaryID.Clone(buffer, 0, 20);
 
                             if (_type == RpcPacketType.Response)
                             {
                                 int count = s.ReadByte();
+                                _contacts = new NodeContact[count];
+
+                                for (int i = 0; i < count; i++)
+                                {
+                                    _contacts[i] = new NodeContact(s);
+                                }
+
+                                count = s.ReadByte();
                                 _peers = new PeerEndPoint[count];
 
                                 for (int i = 0; i < count; i++)
@@ -121,11 +130,14 @@ namespace BitChatClient.Network.KademliaDHT
                             OffsetStream.StreamRead(s, buffer, 0, 20);
                             _networkID = BinaryID.Clone(buffer, 0, 20);
 
-                            OffsetStream.StreamRead(s, buffer, 0, 2);
-                            _servicePort = BitConverter.ToUInt16(buffer, 0);
+                            if (_type == RpcPacketType.Query)
+                            {
+                                OffsetStream.StreamRead(s, buffer, 0, 2);
+                                _servicePort = BitConverter.ToUInt16(buffer, 0);
 
-                            OffsetStream.StreamRead(s, buffer, 0, 20);
-                            _token = new BinaryID(buffer);
+                                OffsetStream.StreamRead(s, buffer, 0, 20);
+                                _token = new BinaryID(buffer);
+                            }
                             break;
                     }
 
@@ -136,10 +148,10 @@ namespace BitChatClient.Network.KademliaDHT
             }
         }
 
-        private DhtRpcPacket(int transactionID, BinaryID sourceNodeID, RpcPacketType type, RpcQueryType queryType)
+        private DhtRpcPacket(int transactionID, NodeContact sourceNode, RpcPacketType type, RpcQueryType queryType)
         {
             _transactionID = transactionID;
-            _sourceNodeID = sourceNodeID;
+            _sourceNode = sourceNode;
             _type = type;
             _queryType = queryType;
         }
@@ -159,57 +171,69 @@ namespace BitChatClient.Network.KademliaDHT
 
         #region static create
 
-        public static DhtRpcPacket CreatePingPacketQuery(BinaryID sourceNodeID)
+        public static DhtRpcPacket CreatePingPacketQuery(NodeContact sourceNode)
         {
-            return new DhtRpcPacket(GetRandomTransactionID(), sourceNodeID, RpcPacketType.Query, RpcQueryType.PING);
+            DhtRpcPacket packet = new DhtRpcPacket(GetRandomTransactionID(), sourceNode, RpcPacketType.Query, RpcQueryType.PING);
+            packet._servicePort = Convert.ToUInt16(sourceNode.NodeEP.Port);
+
+            return packet;
         }
 
-        public static DhtRpcPacket CreatePingPacketResponse(int transactionID, BinaryID sourceNodeID)
+        public static DhtRpcPacket CreatePingPacketResponse(int transactionID, NodeContact sourceNode)
         {
-            return new DhtRpcPacket(transactionID, sourceNodeID, RpcPacketType.Response, RpcQueryType.PING);
+            return new DhtRpcPacket(transactionID, sourceNode, RpcPacketType.Response, RpcQueryType.PING);
         }
 
-        public static DhtRpcPacket CreateFindNodePacketQuery(BinaryID sourceNodeID, BinaryID networkID)
+        public static DhtRpcPacket CreateFindNodePacketQuery(NodeContact sourceNode, BinaryID networkID)
         {
-            DhtRpcPacket packet = new DhtRpcPacket(GetRandomTransactionID(), sourceNodeID, RpcPacketType.Query, RpcQueryType.FIND_NODE);
+            DhtRpcPacket packet = new DhtRpcPacket(GetRandomTransactionID(), sourceNode, RpcPacketType.Query, RpcQueryType.FIND_NODE);
             packet._networkID = networkID;
 
             return packet;
         }
 
-        public static DhtRpcPacket CreateFindNodePacketResponse(int transactionID, BinaryID sourceNodeID, BinaryID networkID, NodeContact[] contacts)
+        public static DhtRpcPacket CreateFindNodePacketResponse(int transactionID, NodeContact sourceNode, BinaryID networkID, NodeContact[] contacts)
         {
-            DhtRpcPacket packet = new DhtRpcPacket(transactionID, sourceNodeID, RpcPacketType.Response, RpcQueryType.FIND_NODE);
+            DhtRpcPacket packet = new DhtRpcPacket(transactionID, sourceNode, RpcPacketType.Response, RpcQueryType.FIND_NODE);
             packet._networkID = networkID;
             packet._contacts = contacts;
 
             return packet;
         }
 
-        public static DhtRpcPacket CreateGetPeersPacketQuery(BinaryID sourceNodeID, BinaryID networkID)
+        public static DhtRpcPacket CreateFindPeersPacketQuery(NodeContact sourceNode, BinaryID networkID)
         {
-            DhtRpcPacket packet = new DhtRpcPacket(GetRandomTransactionID(), sourceNodeID, RpcPacketType.Query, RpcQueryType.GET_PEERS);
+            DhtRpcPacket packet = new DhtRpcPacket(GetRandomTransactionID(), sourceNode, RpcPacketType.Query, RpcQueryType.FIND_PEERS);
             packet._networkID = networkID;
 
             return packet;
         }
 
-        public static DhtRpcPacket CreateGetPeersPacketResponse(int transactionID, BinaryID sourceNodeID, BinaryID networkID, PeerEndPoint[] peers, BinaryID token)
+        public static DhtRpcPacket CreateFindPeersPacketResponse(int transactionID, NodeContact sourceNode, BinaryID networkID, NodeContact[] contacts, PeerEndPoint[] peers, BinaryID token)
         {
-            DhtRpcPacket packet = new DhtRpcPacket(transactionID, sourceNodeID, RpcPacketType.Query, RpcQueryType.GET_PEERS);
+            DhtRpcPacket packet = new DhtRpcPacket(transactionID, sourceNode, RpcPacketType.Response, RpcQueryType.FIND_PEERS);
             packet._networkID = networkID;
+            packet._contacts = contacts;
             packet._peers = peers;
             packet._token = token;
 
             return packet;
         }
 
-        public static DhtRpcPacket CreateAnnouncePeerPacketQuery(BinaryID sourceNodeID, BinaryID networkID, ushort servicePort, BinaryID token)
+        public static DhtRpcPacket CreateAnnouncePeerPacketQuery(NodeContact sourceNode, BinaryID networkID, ushort servicePort, BinaryID token)
         {
-            DhtRpcPacket packet = new DhtRpcPacket(GetRandomTransactionID(), sourceNodeID, RpcPacketType.Query, RpcQueryType.ANNOUNCE_PEER);
+            DhtRpcPacket packet = new DhtRpcPacket(GetRandomTransactionID(), sourceNode, RpcPacketType.Query, RpcQueryType.ANNOUNCE_PEER);
             packet._networkID = networkID;
             packet._servicePort = servicePort;
             packet._token = token;
+
+            return packet;
+        }
+
+        public static DhtRpcPacket CreateAnnouncePeerPacketResponse(int transactionID, NodeContact sourceNode, BinaryID networkID)
+        {
+            DhtRpcPacket packet = new DhtRpcPacket(transactionID, sourceNode, RpcPacketType.Response, RpcQueryType.ANNOUNCE_PEER);
+            packet._networkID = networkID;
 
             return packet;
         }
@@ -222,7 +246,8 @@ namespace BitChatClient.Network.KademliaDHT
         {
             s.WriteByte((byte)1); //version
             s.Write(BitConverter.GetBytes(_transactionID), 0, 4); //transaction id
-            s.Write(_sourceNodeID.ID, 0, 20); //source node id
+            s.Write(_sourceNode.NodeID.ID, 0, 20); //source node id
+            s.Write(BitConverter.GetBytes(Convert.ToUInt16(_sourceNode.NodeEP.Port)), 0, 2); //source node port
             s.WriteByte((byte)_type); //message type
             s.WriteByte((byte)_queryType); //query type
 
@@ -243,11 +268,18 @@ namespace BitChatClient.Network.KademliaDHT
 
                     break;
 
-                case RpcQueryType.GET_PEERS:
+                case RpcQueryType.FIND_PEERS:
                     s.Write(_networkID.ID, 0, 20);
 
                     if (_type == RpcPacketType.Response)
                     {
+                        s.WriteByte(Convert.ToByte(_contacts.Length));
+
+                        foreach (NodeContact contact in _contacts)
+                        {
+                            contact.WriteTo(s);
+                        }
+
                         s.WriteByte(Convert.ToByte(_peers.Length));
 
                         foreach (PeerEndPoint peer in _peers)
@@ -262,8 +294,12 @@ namespace BitChatClient.Network.KademliaDHT
 
                 case RpcQueryType.ANNOUNCE_PEER:
                     s.Write(_networkID.ID, 0, 20);
-                    s.Write(BitConverter.GetBytes(_servicePort), 0, 2);
-                    s.Write(_token.ID, 0, 20);
+
+                    if (_type == RpcPacketType.Query)
+                    {
+                        s.Write(BitConverter.GetBytes(_servicePort), 0, 2);
+                        s.Write(_token.ID, 0, 20);
+                    }
                     break;
             }
         }
@@ -280,8 +316,8 @@ namespace BitChatClient.Network.KademliaDHT
         public int TransactionID
         { get { return _transactionID; } }
 
-        public BinaryID SourceNodeID
-        { get { return _sourceNodeID; } }
+        public NodeContact SourceNode
+        { get { return _sourceNode; } }
 
         public RpcPacketType PacketType
         { get { return _type; } }
@@ -292,17 +328,17 @@ namespace BitChatClient.Network.KademliaDHT
         public BinaryID NetworkID
         { get { return _networkID; } }
 
-        public ushort ServicePort
-        { get { return _servicePort; } }
-
-        public BinaryID Token
-        { get { return _token; } }
-
         public NodeContact[] Contacts
         { get { return _contacts; } }
 
         public PeerEndPoint[] Peers
         { get { return _peers; } }
+
+        public BinaryID Token
+        { get { return _token; } }
+
+        public ushort ServicePort
+        { get { return _servicePort; } }
 
         #endregion
     }
