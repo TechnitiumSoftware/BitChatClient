@@ -350,11 +350,11 @@ namespace BitChatClient.Network.KademliaDHT
 
                                 if (finalRound)
                                 {
+                                    if (queryType == RpcQueryType.FIND_PEERS)
+                                        return null;
+
                                     lock (respondedContacts)
                                     {
-                                        if (queryType == RpcQueryType.FIND_PEERS)
-                                            return null;
-
                                         if (respondedContacts.Count > _k)
                                             return KBucket.GetClosestContacts(respondedContacts, nodeID, _k);
                                         else
