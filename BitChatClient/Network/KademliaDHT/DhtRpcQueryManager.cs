@@ -25,7 +25,7 @@ using TechnitiumLibrary.IO;
 
 namespace BitChatClient.Network.KademliaDHT
 {
-    public class DhtRpcQueryManager
+    class DhtRpcQueryManager
     {
         #region variables
 
@@ -197,7 +197,8 @@ namespace BitChatClient.Network.KademliaDHT
                     //add contact to failed contacts
                     lock (failedContacts)
                     {
-                        failedContacts.Add(contact);
+                        if (!failedContacts.Contains(contact))
+                            failedContacts.Add(contact);
                     }
                 }
                 else
@@ -212,7 +213,8 @@ namespace BitChatClient.Network.KademliaDHT
                             lock (respondedContacts)
                             {
                                 //add contact to responded contacts list
-                                respondedContacts.Add(contact);
+                                if (!respondedContacts.Contains(contact))
+                                    respondedContacts.Add(contact);
 
                                 lock (failedContacts)
                                 {
@@ -244,7 +246,8 @@ namespace BitChatClient.Network.KademliaDHT
                         //add contact to failed contacts
                         lock (failedContacts)
                         {
-                            failedContacts.Add(contact);
+                            if (!failedContacts.Contains(contact))
+                                failedContacts.Add(contact);
                         }
                     }
                 }
@@ -282,6 +285,8 @@ namespace BitChatClient.Network.KademliaDHT
                                 if (!peers.Contains(peer))
                                     peers.Add(peer);
                             }
+
+                            Monitor.Pulse(peers);
                         }
                     }
                 }
@@ -313,40 +318,26 @@ namespace BitChatClient.Network.KademliaDHT
 
                     if (responsePacket1.QueryType == RpcQueryType.FIND_PEERS)
                     {
+                        if (responsePacket1.Peers.Length > 0)
+                        {
+                            lock (peers)
+                            {
+                                foreach (PeerEndPoint peer in responsePacket1.Peers)
+                                {
+                                    if (!peers.Contains(peer))
+                                        peers.Add(peer);
+                                }
+
+                                Monitor.Pulse(peers);
+                            }
+                        }
+
                         DhtRpcPacket responsePacket2 = Query(DhtRpcPacket.CreateAnnouncePeerPacketQuery(_currentNode, networkID, servicePort, responsePacket1.Token), contact.NodeEP);
 
                         if (responsePacket2 == null)
-                        {
                             contact.IncrementRpcFailCount();
-
-                            if (responsePacket1.Peers.Length > 0)
-                            {
-                                lock (peers)
-                                {
-                                    foreach (PeerEndPoint peer in responsePacket1.Peers)
-                                    {
-                                        if (!peers.Contains(peer))
-                                            peers.Add(peer);
-                                    }
-                                }
-                            }
-                        }
                         else
-                        {
                             contact.UpdateLastSeenTime();
-
-                            if (responsePacket2.QueryType == RpcQueryType.ANNOUNCE_PEER)
-                            {
-                                lock (peers)
-                                {
-                                    foreach (PeerEndPoint peer in responsePacket1.Peers)
-                                    {
-                                        if (!peers.Contains(peer))
-                                            peers.Add(peer);
-                                    }
-                                }
-                            }
-                        }
                     }
                 }
             }
@@ -394,15 +385,12 @@ namespace BitChatClient.Network.KademliaDHT
 
         public NodeContact[] QueryFindNode(NodeContact[] initialContacts, BinaryID nodeID)
         {
-            List<NodeContact> availableContacts = new List<NodeContact>(initialContacts.Length);
+            List<NodeContact> availableContacts = new List<NodeContact>(initialContacts);
             List<NodeContact> respondedContacts = new List<NodeContact>();
             List<NodeContact> failedContacts = new List<NodeContact>();
             NodeContact[] alphaContacts;
             int alpha = KADEMLIA_ALPHA;
             bool finalRound = false;
-
-            //add initial contacts to available contacts list
-            availableContacts.AddRange(initialContacts);
 
             while (true)
             {
@@ -480,10 +468,8 @@ namespace BitChatClient.Network.KademliaDHT
             if (contacts == null)
                 return new PeerEndPoint[] { };
 
-            List<NodeContact> finalContacts = new List<NodeContact>(contacts.Length);
+            List<NodeContact> finalContacts = new List<NodeContact>(contacts);
             NodeContact[] alphaContacts;
-
-            finalContacts.AddRange(contacts);
 
             while (true)
             {
