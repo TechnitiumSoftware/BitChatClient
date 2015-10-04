@@ -24,7 +24,7 @@ using System.Threading;
 
 namespace BitChatClient.Network.KademliaDHT
 {
-    public class KBucket
+    class KBucket
     {
         #region variables
 
@@ -32,7 +32,7 @@ namespace BitChatClient.Network.KademliaDHT
         const int BUCKET_STALE_TIMEOUT_SECONDS = 900; //15mins timeout before declaring node stale
 
         int _k;
-        BinaryID _bucketPrefixID;
+        BinaryID _bucketID;
         int _bucketDepth;
         bool _bucketContainsCurrentNode;
         DateTime _lastChanged;
@@ -79,25 +79,25 @@ namespace BitChatClient.Network.KademliaDHT
             _contacts = new Dictionary<BinaryID, NodeContact>();
             _replacementContacts = new Dictionary<BinaryID, NodeContact>();
 
-            if (parentBucket._bucketPrefixID == null)
+            if (parentBucket._bucketID == null)
             {
-                _bucketPrefixID = new BinaryID(new byte[20]);
+                _bucketID = new BinaryID(new byte[20]);
 
                 if (left)
-                    _bucketPrefixID.ID[0] = 0x80;
+                    _bucketID.ID[0] = 0x80;
             }
             else
             {
                 if (left)
                 {
-                    _bucketPrefixID = new BinaryID(new byte[20]);
-                    _bucketPrefixID.ID[0] |= 0x80;
+                    _bucketID = new BinaryID(new byte[20]);
+                    _bucketID.ID[0] |= 0x80;
 
-                    _bucketPrefixID = parentBucket._bucketPrefixID | (_bucketPrefixID >> (_bucketDepth - 1));
+                    _bucketID = parentBucket._bucketID | (_bucketID >> (_bucketDepth - 1));
                 }
                 else
                 {
-                    _bucketPrefixID = parentBucket._bucketPrefixID;
+                    _bucketID = parentBucket._bucketID;
                 }
             }
 
@@ -188,7 +188,7 @@ namespace BitChatClient.Network.KademliaDHT
             try
             {
                 //get random node ID in the bucket range
-                BinaryID randomNodeID = (BinaryID.GenerateRandomID160() << _bucketDepth) | _bucketPrefixID;
+                BinaryID randomNodeID = (BinaryID.GenerateRandomID160() << _bucketDepth) | _bucketID;
 
                 //find closest contacts for current node id
                 NodeContact[] initialContacts = GetKClosestContacts(randomNodeID);
@@ -212,7 +212,7 @@ namespace BitChatClient.Network.KademliaDHT
             { }
         }
 
-        public NodeContact[] GetAllContacts()
+        private NodeContact[] GetAllContacts()
         {
             lock (_lockObj)
             {
@@ -265,7 +265,7 @@ namespace BitChatClient.Network.KademliaDHT
             {
                 if (_contacts == null)
                 {
-                    if ((_leftBucket._bucketPrefixID & contact.NodeID) == _leftBucket._bucketPrefixID)
+                    if ((_leftBucket._bucketID & contact.NodeID) == _leftBucket._bucketID)
                         return _leftBucket.AddContact(contact);
                     else
                         return _rightBucket.AddContact(contact);
@@ -320,7 +320,7 @@ namespace BitChatClient.Network.KademliaDHT
 
                                 foreach (KeyValuePair<BinaryID, NodeContact> nodeItem in _contacts)
                                 {
-                                    if ((_leftBucket._bucketPrefixID & nodeItem.Key) == _leftBucket._bucketPrefixID)
+                                    if ((_leftBucket._bucketID & nodeItem.Key) == _leftBucket._bucketID)
                                         _leftBucket.AddContact(nodeItem.Value);
                                     else
                                         _rightBucket.AddContact(nodeItem.Value);
@@ -398,7 +398,7 @@ namespace BitChatClient.Network.KademliaDHT
                 {
                     bool contactWasRemoved;
 
-                    if ((_leftBucket._bucketPrefixID & contact.NodeID) == _leftBucket._bucketPrefixID)
+                    if ((_leftBucket._bucketID & contact.NodeID) == _leftBucket._bucketID)
                         contactWasRemoved = _leftBucket.RemoveContact(contact);
                     else
                         contactWasRemoved = _rightBucket.RemoveContact(contact);
@@ -477,7 +477,7 @@ namespace BitChatClient.Network.KademliaDHT
             {
                 if (_contacts == null)
                 {
-                    if ((_leftBucket._bucketPrefixID & nodeID) == _leftBucket._bucketPrefixID)
+                    if ((_leftBucket._bucketID & nodeID) == _leftBucket._bucketID)
                     {
                         KBucket bucket = _leftBucket.FindClosestBucket(nodeID);
 

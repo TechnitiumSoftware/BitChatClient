@@ -25,7 +25,7 @@ using TechnitiumLibrary.IO;
 
 namespace BitChatClient.Network.KademliaDHT
 {
-    public class NodeContact : WriteStream
+    class NodeContact : WriteStream
     {
         #region variables
 
@@ -151,7 +151,7 @@ namespace BitChatClient.Network.KademliaDHT
             if (contact == null)
                 return false;
 
-            return _nodeID.Equals(contact._nodeID) && _nodeEP.Equals(contact._nodeEP);
+            return _nodeID.Equals(contact._nodeID);
         }
 
         public override int GetHashCode()

@@ -564,7 +564,7 @@ namespace BitChatClient.Network.PeerDiscovery
                         //receive message from remote
                         bytesRecv = _udpListener.ReceiveFrom(dataRecv.Buffer, ref remoteEP);
 
-                        if ((bytesRecv > 0) && (bytesRecv <= BUFFER_MAX_SIZE))
+                        if (bytesRecv > 0)
                         {
                             IPEndPoint peerEP = remoteEP as IPEndPoint;
 
