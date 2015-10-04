@@ -185,22 +185,29 @@ namespace BitChatClient.Network.KademliaDHT
             return closestContacts;
         }
 
-        private void QueryFindNodeAsync(object state)
+        private void QueryFindAsync(object state)
         {
             try
             {
                 object[] parameters = state as object[];
 
-                NodeContact contact = parameters[0] as NodeContact;
-                BinaryID nodeID = parameters[1] as BinaryID;
-                List<NodeContact> availableContacts = parameters[2] as List<NodeContact>;
-                List<NodeContact> respondedContacts = parameters[3] as List<NodeContact>;
-                List<NodeContact> failedContacts = parameters[4] as List<NodeContact>;
-                List<NodeContact> receivedContacts = parameters[5] as List<NodeContact>;
+                object lockObj = parameters[0] as object;
+                RpcQueryType queryType = (RpcQueryType)parameters[1];
+                NodeContact contact = parameters[2] as NodeContact;
+                BinaryID nodeID = parameters[3] as BinaryID;
+                List<NodeContact> availableContacts = parameters[4] as List<NodeContact>;
+                List<NodeContact> respondedContacts = parameters[5] as List<NodeContact>;
+                List<NodeContact> failedContacts = parameters[6] as List<NodeContact>;
+                List<NodeContact> receivedContacts = parameters[7] as List<NodeContact>;
 
-                DhtRpcPacket responsePacket = Query(DhtRpcPacket.CreateFindNodePacketQuery(_currentNode, nodeID), contact.NodeEP, contact);
+                DhtRpcPacket responsePacket;
 
-                if (responsePacket == null)
+                if (queryType == RpcQueryType.FIND_NODE)
+                    responsePacket = Query(DhtRpcPacket.CreateFindNodePacketQuery(_currentNode, nodeID), contact.NodeEP, contact);
+                else
+                    responsePacket = Query(DhtRpcPacket.CreateFindPeersPacketQuery(_currentNode, nodeID), contact.NodeEP, contact);
+
+                if ((responsePacket == null) || (responsePacket.QueryType != queryType))
                 {
                     //time out
                     //add contact to failed contacts
@@ -209,53 +216,64 @@ namespace BitChatClient.Network.KademliaDHT
                         if (!failedContacts.Contains(contact))
                             failedContacts.Add(contact);
                     }
+
+                    return;
                 }
-                else
+
+                //got reply!
+                if (responsePacket.Contacts.Length > 0)
                 {
-                    //got reply!
-                    if ((responsePacket.QueryType == RpcQueryType.FIND_NODE) && (responsePacket.Contacts.Length > 0))
+                    lock (receivedContacts)
                     {
-                        lock (receivedContacts)
+                        lock (respondedContacts)
                         {
-                            lock (respondedContacts)
-                            {
-                                //add contact to responded contacts list
-                                if (!respondedContacts.Contains(contact))
-                                    respondedContacts.Add(contact);
+                            //add contact to responded contacts list
+                            if (!respondedContacts.Contains(contact))
+                                respondedContacts.Add(contact);
 
-                                lock (failedContacts)
+                            lock (failedContacts)
+                            {
+                                //add received contacts to received contacts list
+                                foreach (NodeContact receivedContact in responsePacket.Contacts)
                                 {
-                                    //add received contacts to received contacts list
-                                    foreach (NodeContact receivedContact in responsePacket.Contacts)
-                                    {
-                                        if (!respondedContacts.Contains(receivedContact) && !failedContacts.Contains(receivedContact))
-                                            receivedContacts.Add(receivedContact);
-                                    }
+                                    if (!respondedContacts.Contains(receivedContact) && !failedContacts.Contains(receivedContact))
+                                        receivedContacts.Add(receivedContact);
                                 }
                             }
+                        }
 
-                            //add received contacts to available contacts list
-                            lock (availableContacts)
+                        //add received contacts to available contacts list
+                        lock (availableContacts)
+                        {
+                            foreach (NodeContact receivedContact in receivedContacts)
                             {
-                                foreach (NodeContact receivedContact in receivedContacts)
-                                {
-                                    if (!availableContacts.Contains(receivedContact))
-                                        availableContacts.Add(receivedContact);
-                                }
+                                if (!availableContacts.Contains(receivedContact))
+                                    availableContacts.Add(receivedContact);
                             }
-
-                            Monitor.Pulse(receivedContacts);
                         }
                     }
-                    else
+
+                    lock (lockObj)
                     {
-                        //invalid response received
-                        //add contact to failed contacts
-                        lock (failedContacts)
+                        Monitor.Pulse(lockObj);
+                    }
+                }
+                else if ((queryType == RpcQueryType.FIND_PEERS) && (responsePacket.Peers.Length > 0))
+                {
+                    List<PeerEndPoint> receivedPeers = parameters[8] as List<PeerEndPoint>;
+
+                    lock (receivedPeers)
+                    {
+                        foreach (PeerEndPoint peer in responsePacket.Peers)
                         {
-                            if (!failedContacts.Contains(contact))
-                                failedContacts.Add(contact);
+                            if (!receivedPeers.Contains(peer))
+                                receivedPeers.Add(peer);
                         }
+                    }
+
+                    lock (lockObj)
+                    {
+                        Monitor.Pulse(lockObj);
                     }
                 }
             }
@@ -263,34 +281,102 @@ namespace BitChatClient.Network.KademliaDHT
             { }
         }
 
-        private void QueryFindPeersAsync(object state)
+        private object QueryFind(NodeContact[] initialContacts, BinaryID nodeID, RpcQueryType queryType)
         {
-            try
+            List<NodeContact> availableContacts = new List<NodeContact>(initialContacts);
+            List<NodeContact> respondedContacts = new List<NodeContact>();
+            List<NodeContact> failedContacts = new List<NodeContact>();
+            NodeContact[] alphaContacts;
+            int alpha = KADEMLIA_ALPHA;
+            bool finalRound = false;
+
+            while (true)
             {
-                object[] parameters = state as object[];
-
-                NodeContact contact = parameters[0] as NodeContact;
-                BinaryID networkID = parameters[1] as BinaryID;
-                List<PeerEndPoint> peers = parameters[2] as List<PeerEndPoint>;
-
-                DhtRpcPacket responsePacket = Query(DhtRpcPacket.CreateFindPeersPacketQuery(_currentNode, networkID), contact.NodeEP, contact);
-
-                if ((responsePacket != null) && (responsePacket.QueryType == RpcQueryType.FIND_PEERS) && (responsePacket.Peers.Length > 0))
+                //pick alpha contacts to query from available contacts
+                lock (availableContacts)
                 {
-                    lock (peers)
+                    alphaContacts = PickClosestContacts(availableContacts, alpha);
+                }
+
+                if (alphaContacts.Length < 1)
+                {
+                    //no contacts available to query further
+
+                    lock (respondedContacts)
                     {
-                        foreach (PeerEndPoint peer in responsePacket.Peers)
+                        if (respondedContacts.Count > _k)
+                            return KBucket.GetClosestContacts(respondedContacts, nodeID, _k);
+                        else if (respondedContacts.Count > 0)
+                            return respondedContacts.ToArray();
+                    }
+
+                    return null;
+                }
+
+                object lockObj = new object();
+                List<NodeContact> receivedContacts = new List<NodeContact>();
+                List<PeerEndPoint> receivedPeers = null;
+
+                if (queryType == RpcQueryType.FIND_PEERS)
+                    receivedPeers = new List<PeerEndPoint>();
+
+                lock (lockObj)
+                {
+                    //query each alpha contact async
+                    foreach (NodeContact alphaContact in alphaContacts)
+                    {
+                        ThreadPool.QueueUserWorkItem(QueryFindAsync, new object[] { lockObj, queryType, alphaContact, nodeID, availableContacts, respondedContacts, failedContacts, receivedContacts, receivedPeers });
+                    }
+
+                    //wait for any of the contact to return new contacts
+                    if (Monitor.Wait(lockObj, QUERY_TIMEOUT))
+                    {
+                        //got reply!
+
+                        if (queryType == RpcQueryType.FIND_PEERS)
                         {
-                            if (!peers.Contains(peer))
-                                peers.Add(peer);
+                            lock (receivedPeers)
+                            {
+                                if (receivedPeers.Count > 0)
+                                    return receivedPeers.ToArray();
+                            }
                         }
 
-                        Monitor.Pulse(peers);
+                        lock (receivedContacts)
+                        {
+                            if (receivedContacts.Count < 1)
+                            {
+                                //current round failed to return any new closer nodes
+
+                                if (finalRound)
+                                {
+                                    lock (respondedContacts)
+                                    {
+                                        if (queryType == RpcQueryType.FIND_PEERS)
+                                            return null;
+
+                                        if (respondedContacts.Count > _k)
+                                            return KBucket.GetClosestContacts(respondedContacts, nodeID, _k);
+                                        else
+                                            return respondedContacts.ToArray();
+                                    }
+                                }
+                                else
+                                {
+                                    //resend query to k closest node not already queried
+                                    finalRound = true;
+                                    alpha = _k;
+                                }
+                            }
+                            else
+                            {
+                                finalRound = false;
+                                alpha = KADEMLIA_ALPHA;
+                            }
+                        }
                     }
                 }
             }
-            catch
-            { }
         }
 
         private void QueryAnnounceAsync(object state)
@@ -367,117 +453,22 @@ namespace BitChatClient.Network.KademliaDHT
 
         public NodeContact[] QueryFindNode(NodeContact[] initialContacts, BinaryID nodeID)
         {
-            List<NodeContact> availableContacts = new List<NodeContact>(initialContacts);
-            List<NodeContact> respondedContacts = new List<NodeContact>();
-            List<NodeContact> failedContacts = new List<NodeContact>();
-            NodeContact[] alphaContacts;
-            int alpha = KADEMLIA_ALPHA;
-            bool finalRound = false;
+            object contacts = QueryFind(initialContacts, nodeID, RpcQueryType.FIND_NODE);
 
-            while (true)
-            {
-                //pick alpha contacts to query from available contacts
-                lock (availableContacts)
-                {
-                    alphaContacts = PickClosestContacts(availableContacts, alpha);
-                }
+            if (contacts == null)
+                return null;
 
-                if (alphaContacts.Length < 1)
-                {
-                    //no contacts available to query further
-
-                    lock (respondedContacts)
-                    {
-                        if (respondedContacts.Count > _k)
-                            return KBucket.GetClosestContacts(respondedContacts, nodeID, _k);
-                        else if (respondedContacts.Count > 0)
-                            return respondedContacts.ToArray();
-                    }
-
-                    return null;
-                }
-
-                List<NodeContact> receivedContacts = new List<NodeContact>();
-
-                lock (receivedContacts)
-                {
-                    //query each alpha contact async
-                    foreach (NodeContact alphaContact in alphaContacts)
-                    {
-                        ThreadPool.QueueUserWorkItem(QueryFindNodeAsync, new object[] { alphaContact, nodeID, availableContacts, respondedContacts, failedContacts, receivedContacts });
-                    }
-
-                    //wait for any of the contact to return new contacts
-                    if (Monitor.Wait(receivedContacts, QUERY_TIMEOUT))
-                    {
-                        //got reply!
-
-                        if (receivedContacts.Count < 1)
-                        {
-                            //current round failed to return any new closer nodes
-
-                            if (finalRound)
-                            {
-                                lock (respondedContacts)
-                                {
-                                    if (respondedContacts.Count > _k)
-                                        return KBucket.GetClosestContacts(respondedContacts, nodeID, _k);
-                                    else
-                                        return respondedContacts.ToArray();
-                                }
-                            }
-                            else
-                            {
-                                //resend query to k closest node not already queried
-                                finalRound = true;
-                                alpha = _k;
-                            }
-                        }
-                        else
-                        {
-                            finalRound = false;
-                            alpha = KADEMLIA_ALPHA;
-                        }
-                    }
-                }
-            }
+            return contacts as NodeContact[];
         }
 
         public PeerEndPoint[] QueryFindPeers(NodeContact[] initialContacts, BinaryID networkID)
         {
-            NodeContact[] contacts = QueryFindNode(initialContacts, networkID);
+            object peers = QueryFind(initialContacts, networkID, RpcQueryType.FIND_PEERS);
 
-            if (contacts == null)
-                return new PeerEndPoint[] { };
+            if (peers == null)
+                return null;
 
-            List<NodeContact> finalContacts = new List<NodeContact>(contacts);
-            NodeContact[] alphaContacts;
-
-            while (true)
-            {
-                alphaContacts = PickClosestContacts(finalContacts, KADEMLIA_ALPHA);
-
-                if (alphaContacts.Length < 1)
-                {
-                    //no contacts available to query
-                    return null;
-                }
-
-                List<PeerEndPoint> peers = new List<PeerEndPoint>();
-
-                lock (peers)
-                {
-                    foreach (NodeContact contact in alphaContacts)
-                    {
-                        ThreadPool.QueueUserWorkItem(QueryFindPeersAsync, new object[] { contact, networkID, peers });
-                    }
-
-                    Monitor.Wait(peers, QUERY_TIMEOUT);
-
-                    if (peers.Count > 0)
-                        return peers.ToArray();
-                }
-            }
+            return peers as PeerEndPoint[];
         }
 
         public PeerEndPoint[] QueryAnnounce(NodeContact[] initialContacts, BinaryID networkID, ushort servicePort)
