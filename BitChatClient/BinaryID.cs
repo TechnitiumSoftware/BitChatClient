@@ -78,7 +78,11 @@ namespace BitChatClient
                 bW.Flush();
 
                 mS.Position = 0;
-                return new BinaryID(_hashSHA1.ComputeHash(mS.ToArray()));
+
+                lock (_hashSHA1)
+                {
+                    return new BinaryID(_hashSHA1.ComputeHash(mS.ToArray()));
+                }
             }
         }
 
@@ -105,8 +109,17 @@ namespace BitChatClient
                 bW.Flush();
 
                 mS.Position = 0;
-                return new BinaryID(_hashSHA256.ComputeHash(mS.ToArray()));
+
+                lock (_hashSHA256)
+                {
+                    return new BinaryID(_hashSHA256.ComputeHash(mS.ToArray()));
+                }
             }
+        }
+
+        public static BinaryID MaxValueID160()
+        {
+            return new BinaryID(new byte[] { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF });
         }
 
         public static BinaryID Clone(byte[] buffer, int offset, int count)
@@ -315,6 +328,18 @@ namespace BitChatClient
             }
 
             return true;
+        }
+
+        public static BinaryID operator ~(BinaryID b1)
+        {
+            BinaryID obj = b1.Clone();
+
+            for (int i = 0; i < obj._id.Length; i++)
+            {
+                obj._id[i] = (byte)~obj._id[i];
+            }
+
+            return obj;
         }
 
         #endregion
