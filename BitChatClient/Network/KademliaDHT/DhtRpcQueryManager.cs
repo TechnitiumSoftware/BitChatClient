@@ -35,6 +35,7 @@ namespace BitChatClient.Network.KademliaDHT
 
         int _k;
         NodeContact _currentNode;
+        KBucket _routingTable;
 
         Socket _udpClient;
         Thread _readThread;
@@ -47,10 +48,11 @@ namespace BitChatClient.Network.KademliaDHT
 
         #region constructor
 
-        public DhtRpcQueryManager(int k, NodeContact currentNode)
+        public DhtRpcQueryManager(int k, NodeContact currentNode, KBucket routingTable)
         {
             _k = k;
             _currentNode = currentNode;
+            _routingTable = routingTable;
 
             //bind udp socket to random port
             _udpClient = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
@@ -95,12 +97,10 @@ namespace BitChatClient.Network.KademliaDHT
 
                                 lock (_transactions)
                                 {
-                                    try
+                                    if (_transactions.ContainsKey(response.TransactionID))
                                     {
                                         transaction = _transactions[response.TransactionID];
                                     }
-                                    catch (KeyNotFoundException)
-                                    { }
                                 }
 
                                 if ((transaction != null) && transaction.RemoteNodeEP.Equals(remoteNodeEP))
@@ -123,7 +123,7 @@ namespace BitChatClient.Network.KademliaDHT
             { }
         }
 
-        private DhtRpcPacket Query(DhtRpcPacket packet, IPEndPoint remoteNodeEP)
+        private DhtRpcPacket Query(DhtRpcPacket packet, IPEndPoint remoteNodeEP, NodeContact contact)
         {
             Transaction transaction = new Transaction(remoteNodeEP);
 
@@ -144,7 +144,18 @@ namespace BitChatClient.Network.KademliaDHT
                     }
 
                     if (!Monitor.Wait(transaction, QUERY_TIMEOUT))
+                    {
+                        if (contact != null)
+                            contact.IncrementRpcFailCount();
+
                         return null;
+                    }
+
+                    //auto add contact or update last seen time
+                    if (contact != null)
+                        _routingTable.AddContact(contact);
+                    else
+                        _routingTable.AddContact(transaction.ResponsePacket.SourceNode);
 
                     return transaction.ResponsePacket;
                 }
@@ -187,13 +198,11 @@ namespace BitChatClient.Network.KademliaDHT
                 List<NodeContact> failedContacts = parameters[4] as List<NodeContact>;
                 List<NodeContact> receivedContacts = parameters[5] as List<NodeContact>;
 
-                DhtRpcPacket responsePacket = Query(DhtRpcPacket.CreateFindNodePacketQuery(_currentNode, nodeID), contact.NodeEP);
+                DhtRpcPacket responsePacket = Query(DhtRpcPacket.CreateFindNodePacketQuery(_currentNode, nodeID), contact.NodeEP, contact);
 
                 if (responsePacket == null)
                 {
                     //time out
-                    contact.IncrementRpcFailCount();
-
                     //add contact to failed contacts
                     lock (failedContacts)
                     {
@@ -204,8 +213,6 @@ namespace BitChatClient.Network.KademliaDHT
                 else
                 {
                     //got reply!
-                    contact.UpdateLastSeenTime();
-
                     if ((responsePacket.QueryType == RpcQueryType.FIND_NODE) && (responsePacket.Contacts.Length > 0))
                     {
                         lock (receivedContacts)
@@ -266,28 +273,19 @@ namespace BitChatClient.Network.KademliaDHT
                 BinaryID networkID = parameters[1] as BinaryID;
                 List<PeerEndPoint> peers = parameters[2] as List<PeerEndPoint>;
 
-                DhtRpcPacket responsePacket = Query(DhtRpcPacket.CreateFindPeersPacketQuery(_currentNode, networkID), contact.NodeEP);
+                DhtRpcPacket responsePacket = Query(DhtRpcPacket.CreateFindPeersPacketQuery(_currentNode, networkID), contact.NodeEP, contact);
 
-                if (responsePacket == null)
+                if ((responsePacket != null) && (responsePacket.QueryType == RpcQueryType.FIND_PEERS) && (responsePacket.Peers.Length > 0))
                 {
-                    contact.IncrementRpcFailCount();
-                }
-                else
-                {
-                    contact.UpdateLastSeenTime();
-
-                    if ((responsePacket.QueryType == RpcQueryType.FIND_PEERS) && (responsePacket.Peers.Length > 0))
+                    lock (peers)
                     {
-                        lock (peers)
+                        foreach (PeerEndPoint peer in responsePacket.Peers)
                         {
-                            foreach (PeerEndPoint peer in responsePacket.Peers)
-                            {
-                                if (!peers.Contains(peer))
-                                    peers.Add(peer);
-                            }
-
-                            Monitor.Pulse(peers);
+                            if (!peers.Contains(peer))
+                                peers.Add(peer);
                         }
+
+                        Monitor.Pulse(peers);
                     }
                 }
             }
@@ -306,39 +304,25 @@ namespace BitChatClient.Network.KademliaDHT
                 List<PeerEndPoint> peers = parameters[2] as List<PeerEndPoint>;
                 ushort servicePort = (ushort)parameters[3];
 
-                DhtRpcPacket responsePacket1 = Query(DhtRpcPacket.CreateFindPeersPacketQuery(_currentNode, networkID), contact.NodeEP);
+                DhtRpcPacket responsePacket1 = Query(DhtRpcPacket.CreateFindPeersPacketQuery(_currentNode, networkID), contact.NodeEP, contact);
 
-                if (responsePacket1 == null)
+                if ((responsePacket1 != null) && (responsePacket1.QueryType == RpcQueryType.FIND_PEERS))
                 {
-                    contact.IncrementRpcFailCount();
-                }
-                else
-                {
-                    contact.UpdateLastSeenTime();
-
-                    if (responsePacket1.QueryType == RpcQueryType.FIND_PEERS)
+                    if (responsePacket1.Peers.Length > 0)
                     {
-                        if (responsePacket1.Peers.Length > 0)
+                        lock (peers)
                         {
-                            lock (peers)
+                            foreach (PeerEndPoint peer in responsePacket1.Peers)
                             {
-                                foreach (PeerEndPoint peer in responsePacket1.Peers)
-                                {
-                                    if (!peers.Contains(peer))
-                                        peers.Add(peer);
-                                }
-
-                                Monitor.Pulse(peers);
+                                if (!peers.Contains(peer))
+                                    peers.Add(peer);
                             }
+
+                            Monitor.Pulse(peers);
                         }
-
-                        DhtRpcPacket responsePacket2 = Query(DhtRpcPacket.CreateAnnouncePeerPacketQuery(_currentNode, networkID, servicePort, responsePacket1.Token), contact.NodeEP);
-
-                        if (responsePacket2 == null)
-                            contact.IncrementRpcFailCount();
-                        else
-                            contact.UpdateLastSeenTime();
                     }
+
+                    Query(DhtRpcPacket.CreateAnnouncePeerPacketQuery(_currentNode, networkID, servicePort, responsePacket1.Token), contact.NodeEP, contact);
                 }
             }
             catch
@@ -351,18 +335,16 @@ namespace BitChatClient.Network.KademliaDHT
 
         public bool Ping(NodeContact contact)
         {
-            NodeContact recvContact = Ping(contact.NodeEP);
+            DhtRpcPacket response = Query(DhtRpcPacket.CreatePingPacketQuery(_currentNode), contact.NodeEP, contact);
 
-            if (recvContact == null)
+            if (response == null)
             {
-                contact.IncrementRpcFailCount();
                 return false;
             }
             else
             {
-                if (contact.Equals(recvContact))
+                if (contact.Equals(response.SourceNode))
                 {
-                    contact.UpdateLastSeenTime();
                     return true;
                 }
                 else
@@ -375,7 +357,7 @@ namespace BitChatClient.Network.KademliaDHT
 
         public NodeContact Ping(IPEndPoint nodeEP)
         {
-            DhtRpcPacket response = Query(DhtRpcPacket.CreatePingPacketQuery(_currentNode), nodeEP);
+            DhtRpcPacket response = Query(DhtRpcPacket.CreatePingPacketQuery(_currentNode), nodeEP, null);
 
             if (response == null)
                 return null;

@@ -55,7 +55,7 @@ namespace BitChatClient.Network.KademliaDHT
         const int BUFFER_MAX_SIZE = 1024;
         const int SECRET_EXPIRY_SECONDS = 300; //5min
         const int KADEMLIA_K = 8;
-        const int KADEMLIA_HEALTH_CHECK_TIMER_INTERVAL = 5 * 60 * 1000; //5min
+        const int HEALTH_CHECK_TIMER_INTERVAL = 5 * 60 * 1000; //5min
 
         Socket _udpListener;
         Thread _readThread;
@@ -84,12 +84,10 @@ namespace BitChatClient.Network.KademliaDHT
             _udpListener = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
             _udpListener.Bind(new IPEndPoint(IPAddress.Any, udpDhtPort));
 
-            //init rpc query manager
+            //init routing table & rpc query manager
             _currentNode = new CurrentNode((_udpListener.LocalEndPoint as IPEndPoint).Port);
-            _queryManager = new DhtRpcQueryManager(KADEMLIA_K, _currentNode);
-
-            //setup routing table
-            _routingTable = new KBucket(KADEMLIA_K, _currentNode, _queryManager);
+            _routingTable = new KBucket(KADEMLIA_K, _currentNode);
+            _queryManager = new DhtRpcQueryManager(KADEMLIA_K, _currentNode, _routingTable);
 
             //start reading udp packets
             _readThread = new Thread(ReadPacketsAsync);
@@ -227,12 +225,19 @@ namespace BitChatClient.Network.KademliaDHT
                                 }
 
                                 //if contact doesnt exists then add contact else update last seen time
-                                NodeContact contact = _routingTable.FindContact(request.SourceNode.NodeID);
+                                KBucket closestBucket = _routingTable.FindClosestBucket(request.SourceNode.NodeID);
+                                NodeContact contact = closestBucket.FindContactInCurrentBucket(request.SourceNode.NodeID);
 
                                 if (contact == null)
-                                    ThreadPool.QueueUserWorkItem(AddNodeAfterPingAsync, request.SourceNode.NodeEP);
+                                {
+                                    //check if the closest bucket can accomodate another contact
+                                    if (!closestBucket.IsCurrentBucketFull(true))
+                                        ThreadPool.QueueUserWorkItem(AddContactAfterPingAsync, request.SourceNode);
+                                }
                                 else
+                                {
                                     contact.UpdateLastSeenTime();
+                                }
 
                                 break;
                         }
@@ -243,18 +248,21 @@ namespace BitChatClient.Network.KademliaDHT
             { }
         }
 
+        private void AddContactAfterPingAsync(object state)
+        {
+            try
+            {
+                _queryManager.Ping(state as NodeContact); //query manager auto add contacts that respond
+            }
+            catch
+            { }
+        }
+
         private void AddNodeAfterPingAsync(object state)
         {
             try
             {
-                IPEndPoint nodeEP = state as IPEndPoint;
-                NodeContact contact = _queryManager.Ping(nodeEP);
-
-                if (contact != null)
-                {
-                    //ping success; add contact to routing table
-                    _routingTable.AddContact(contact);
-                }
+                _queryManager.Ping(state as IPEndPoint); //query manager auto add contacts that respond
             }
             catch
             { }
@@ -270,29 +278,21 @@ namespace BitChatClient.Network.KademliaDHT
                 //find closest contacts for current node id
                 NodeContact[] initialContacts = _routingTable.GetKClosestContacts(_currentNode.NodeID);
 
-                if (initialContacts.Length < 1)
-                    return;
-
-                NodeContact[] closestContacts = _queryManager.QueryFindNode(initialContacts, _currentNode.NodeID);
-
-                if (closestContacts != null)
-                {
-                    foreach (NodeContact contact in closestContacts)
-                        _routingTable.AddContact(contact);
-                }
+                if (initialContacts.Length > 0)
+                    _queryManager.QueryFindNode(initialContacts, _currentNode.NodeID); //query manager auto add contacts that respond
 
                 //check contact health
-                _routingTable.CheckContactHealth();
+                _routingTable.CheckContactHealth(_queryManager);
 
                 //refresh buckets
-                _routingTable.RefreshBucket();
+                _routingTable.RefreshBucket(_queryManager);
             }
             catch
             { }
             finally
             {
                 if (_healthTimer != null)
-                    _healthTimer.Change(KADEMLIA_HEALTH_CHECK_TIMER_INTERVAL, Timeout.Infinite);
+                    _healthTimer.Change(HEALTH_CHECK_TIMER_INTERVAL, Timeout.Infinite);
             }
         }
 
