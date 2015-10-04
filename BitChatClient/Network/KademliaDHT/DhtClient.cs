@@ -25,6 +25,27 @@ using System.Security.Cryptography;
 using System.Threading;
 using TechnitiumLibrary.IO;
 
+/*
+ * Kademlia based Distributed Hash Table (DHT) Implementation For Bit Chat
+ * =======================================================================
+ *
+ * FEATURES IMPLEMENTED
+ * --------------------
+ * 1. Routing table with K-Bucket: K=8, bucket refresh, contact health check, additional "replacement" list of upto K contacts.
+ * 2. RPC: UDP based protocol with PING & FIND_NODE implemented. FIND_PEER & ANNOUNCE_PEER implemented similar to BitTorrent DHT implementation.
+ * 3. Peer data eviction after 15mins of receiving announcement.
+ * 4. Parallel lookup: FIND_NODE lookup with alpha=3 implemented.
+ * 
+ * FEATURES NOT IMPLEMENTED
+ * ------------------------
+ * 1. Node data republishing. Each peer MUST announce itself within 15mins to all nodes closer to bit chat networkID.
+ * 
+ * REFERENCE
+ * ---------
+ * 1. https://pdos.csail.mit.edu/~petar/papers/maymounkov-kademlia-lncs.pdf
+ * 2. http://www.bittorrent.org/beps/bep_0005.html
+*/
+
 namespace BitChatClient.Network.KademliaDHT
 {
     public class DhtClient
@@ -133,7 +154,7 @@ namespace BitChatClient.Network.KademliaDHT
                 {
                     bytesRecv = _udpListener.ReceiveFrom(recvBufferStream.Buffer, ref remoteEP);
 
-                    if ((bytesRecv > 0) && (bytesRecv <= BUFFER_MAX_SIZE))
+                    if (bytesRecv > 0)
                     {
                         recvBufferStream.Position = 0;
                         recvBufferStream.SetLength(bytesRecv);
@@ -232,10 +253,7 @@ namespace BitChatClient.Network.KademliaDHT
                 if (contact != null)
                 {
                     //ping success; add contact to routing table
-                    if (_routingTable.AddContact(contact))
-                        Console.WriteLine(_currentNode.NodeEP.ToString() + " added " + contact.NodeEP.ToString());
-                    else
-                        Console.WriteLine(_currentNode.NodeEP.ToString() + " failed to added " + contact.NodeEP.ToString());
+                    _routingTable.AddContact(contact);
                 }
             }
             catch
@@ -260,15 +278,7 @@ namespace BitChatClient.Network.KademliaDHT
                 if (closestContacts != null)
                 {
                     foreach (NodeContact contact in closestContacts)
-                    {
-                        if (_routingTable.FindContact(contact.NodeID) == null)
-                        {
-                            if (_routingTable.AddContact(contact))
-                                Console.WriteLine(_currentNode.NodeEP.ToString() + " added " + contact.NodeEP.ToString());
-                            else
-                                Console.WriteLine(_currentNode.NodeEP.ToString() + " failed to added " + contact.NodeEP.ToString());
-                        }
-                    }
+                        _routingTable.AddContact(contact);
                 }
 
                 //check contact health
@@ -305,7 +315,7 @@ namespace BitChatClient.Network.KademliaDHT
                 ThreadPool.QueueUserWorkItem(AddNodeAfterPingAsync, nodeEP);
         }
 
-        public PeerEndPoint[] GetPeers(BinaryID networkID)
+        public PeerEndPoint[] FindPeers(BinaryID networkID)
         {
             NodeContact[] initialContacts = _routingTable.GetKClosestContacts(networkID);
 
@@ -327,9 +337,11 @@ namespace BitChatClient.Network.KademliaDHT
 
         #endregion
 
-        public class CurrentNode : NodeContact
+        class CurrentNode : NodeContact
         {
             #region variables
+
+            const int MAX_PEERS_TO_RETURN = 50;
 
             Dictionary<BinaryID, List<PeerEndPoint>> _data = new Dictionary<BinaryID, List<PeerEndPoint>>();
 
@@ -379,9 +391,30 @@ namespace BitChatClient.Network.KademliaDHT
                 lock (_data)
                 {
                     if (_data.ContainsKey(networkID))
-                        return _data[networkID].ToArray();
+                    {
+                        List<PeerEndPoint> peers = _data[networkID];
+
+                        if (peers.Count > MAX_PEERS_TO_RETURN)
+                        {
+                            List<PeerEndPoint> finalPeers = new List<PeerEndPoint>(peers);
+                            Random rnd = new Random(DateTime.UtcNow.Millisecond);
+
+                            while (finalPeers.Count > MAX_PEERS_TO_RETURN)
+                            {
+                                finalPeers.RemoveAt(rnd.Next(finalPeers.Count - 1));
+                            }
+
+                            return finalPeers.ToArray();
+                        }
+                        else
+                        {
+                            return _data[networkID].ToArray();
+                        }
+                    }
                     else
+                    {
                         return new PeerEndPoint[] { };
+                    }
                 }
             }
 
