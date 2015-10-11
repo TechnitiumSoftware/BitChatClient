@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+using BitChatClient.Network.KademliaDHT;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -42,14 +43,15 @@ namespace BitChatClient.Network.Connections
     public enum UPnPDeviceStatus
     {
         Unknown = 0,
-        DeviceNotFound = 1,
-        ExternalIpPrivate = 2,
-        PortForwarded = 3,
-        PortForwardingFailed = 4,
-        PortForwardedNotAccessible = 5
+        Disabled = 1,
+        DeviceNotFound = 2,
+        ExternalIpPrivate = 3,
+        PortForwarded = 4,
+        PortForwardingFailed = 5,
+        PortForwardedNotAccessible = 6
     }
 
-    class ConnectionManager : IConnectionInfo, IDisposable
+    class ConnectionManager : IDisposable
     {
         #region events
 
@@ -61,6 +63,8 @@ namespace BitChatClient.Network.Connections
 
         const int SOCKET_SEND_TIMEOUT = 30000; //30 sec socket timeout; application protocol NOOPs at 15 sec
         const int SOCKET_RECV_TIMEOUT = 90000; //keep socket open for long time to allow tunnelling requests between time
+
+        BitChatProfile _profile;
 
         BinaryID _localPeerID;
         BitChatNetworkChannelRequest _channelRequestHandler;
@@ -76,6 +80,11 @@ namespace BitChatClient.Network.Connections
         TcpListener _tcpListener;
         Thread _tcpListenerThread;
 
+        //dht
+        DhtClient _dhtClient;
+        BinaryID _dhtSeedingNetworkID = new BinaryID(new byte[] { 0xfa, 0x20, 0xf3, 0x45, 0xe6, 0xbe, 0x43, 0x68, 0xcb, 0x1e, 0x2a, 0xfb, 0xc0, 0x08, 0x0d, 0x95, 0xf1, 0xd1, 0xe6, 0x5b });
+        TrackerManager _dhtSeedingTracker;
+
         //internet connectivity
         const int CONNECTIVITY_CHECK_TIMER_INTERVAL = 60 * 1000;
 
@@ -88,23 +97,17 @@ namespace BitChatClient.Network.Connections
         int _localPort;
         IPAddress _localLiveIP = null;
         IPAddress _upnpExternalIP = null;
-        int _upnpExternalPort = -1;
-
-        bool _isWebAccessible = false;
-        bool _webCheckError = false;
-        bool _webCheckSuccess = false;
-        IPEndPoint _webCheckExternalEP = null;
-        bool _receivedLiveInboundConnection = false;
+        IPEndPoint _connectivityCheckExternalEP = null;
 
         #endregion
 
         #region constructor
 
-        public ConnectionManager(int localPort, BitChatNetworkChannelRequest channelRequestHandler, ProxyNetworkPeersAvailable proxyNetworkPeersHandler)
+        public ConnectionManager(BitChatProfile profile, BitChatNetworkChannelRequest channelRequestHandler, ProxyNetworkPeersAvailable proxyNetworkPeersHandler)
         {
             try
             {
-                _tcpListener = new TcpListener(IPAddress.Any, localPort);
+                _tcpListener = new TcpListener(IPAddress.Any, profile.LocalPort);
                 _tcpListener.Start(10);
             }
             catch
@@ -113,10 +116,20 @@ namespace BitChatClient.Network.Connections
                 _tcpListener.Start(10);
             }
 
+            _profile = profile;
+
             _localPort = ((IPEndPoint)_tcpListener.LocalEndpoint).Port;
             _localPeerID = BinaryID.GenerateRandomID160();
             _channelRequestHandler = channelRequestHandler;
             _proxyNetworkPeersHandler = proxyNetworkPeersHandler;
+
+            //start dht
+            _dhtClient = new DhtClient(_localPort, profile.BootstrapDhtNodes);
+
+            //setup dht seeding tracker
+            _dhtSeedingTracker = new TrackerManager(_dhtSeedingNetworkID, _localPort);
+            _dhtSeedingTracker.DiscoveredPeers += _dhtSeedingTracker_DiscoveredPeers;
+            _dhtSeedingTracker.StartTracking(profile.TrackerURIs);
 
             //start accepting connections
             _tcpListenerThread = new Thread(AcceptTcpConnectionAsync);
@@ -204,9 +217,6 @@ namespace BitChatClient.Network.Connections
                         socket.ReceiveTimeout = SOCKET_RECV_TIMEOUT;
 
                         IPEndPoint remoteEP = socket.RemoteEndPoint as IPEndPoint;
-
-                        if (!_receivedLiveInboundConnection)
-                            _receivedLiveInboundConnection = !NetUtilities.IsPrivateIPv4(remoteEP.Address);
 
                         AcceptConnectionInitiateProtocol(new NetworkStream(socket), remoteEP);
                     }
@@ -439,7 +449,7 @@ namespace BitChatClient.Network.Connections
                 networkStream.WriteByte(1);
 
                 //send service port
-                networkStream.Write(BitConverter.GetBytes(Convert.ToUInt16(GetExternalPort())), 0, 2);
+                networkStream.Write(BitConverter.GetBytes(Convert.ToUInt16(_localPort)), 0, 2);
 
                 //send peer id
                 networkStream.Write(_localPeerID.ID, 0, 20);
@@ -490,6 +500,11 @@ namespace BitChatClient.Network.Connections
             }
         }
 
+        private void _dhtSeedingTracker_DiscoveredPeers(TrackerManager sender, IEnumerable<IPEndPoint> peerEPs)
+        {
+            _dhtClient.AddNode(peerEPs);
+        }
+
         #endregion
 
         #region internet connectivity
@@ -497,7 +512,12 @@ namespace BitChatClient.Network.Connections
         private void ConnectivityCheckTimerCallback(object state)
         {
             InternetConnectivityStatus newInternetStatus = InternetConnectivityStatus.Unknown;
-            UPnPDeviceStatus newUPnPStatus = UPnPDeviceStatus.Unknown;
+            UPnPDeviceStatus newUPnPStatus;
+
+            if (_profile.EnableUPnP)
+                newUPnPStatus = UPnPDeviceStatus.Unknown;
+            else
+                newUPnPStatus = UPnPDeviceStatus.Disabled;
 
             try
             {
@@ -519,6 +539,12 @@ namespace BitChatClient.Network.Connections
                 else
                 {
                     _localLiveIP = null;
+                }
+
+                if (newUPnPStatus == UPnPDeviceStatus.Disabled)
+                {
+                    newInternetStatus = InternetConnectivityStatus.NatInternetConnection;
+                    return;
                 }
 
                 //check for upnp device
@@ -552,129 +578,57 @@ namespace BitChatClient.Network.Connections
                     _upnpExternalIP = null;
                 }
 
-                //do upnp port forwarding
-                IPEndPoint LocalNetworkEP = new IPEndPoint(defaultNetworkInfo.LocalIP, _localPort);
-                int externalPort = _localPort;
-                bool isTCPMapped = false;
+                //do upnp port forwarding for Bit Chat
+                if (_upnpDevice.ForwardPort(ProtocolType.Tcp, _localPort, new IPEndPoint(defaultNetworkInfo.LocalIP, _localPort), "Bit Chat"))
+                    newUPnPStatus = UPnPDeviceStatus.PortForwarded;
+                else
+                    newUPnPStatus = UPnPDeviceStatus.PortForwardingFailed;
 
-                try
-                {
-                    int loopCount = 0;
-
-                    while (true)
-                    {
-                        PortMappingEntry portMap = _upnpDevice.GetSpecificPortMappingEntry(ProtocolType.Tcp, externalPort);
-
-                        if (portMap == null)
-                            break; //port available
-
-                        if (portMap.InternalEP.Equals(LocalNetworkEP))
-                        {
-                            //port already mapped with us
-                            isTCPMapped = true;
-                            newUPnPStatus = UPnPDeviceStatus.PortForwarded;
-                            _upnpExternalPort = externalPort;
-                            break;
-                        }
-
-                        //find new port for mapping
-                        if (externalPort < ushort.MaxValue)
-                            externalPort++;
-                        else
-                            externalPort = 1024;
-
-                        if (loopCount > ushort.MaxValue)
-                            return;
-
-                        loopCount++;
-                    }
-                }
-                catch { }
-
-                if (!isTCPMapped)
-                {
-                    try
-                    {
-                        _upnpDevice.AddPortMapping(ProtocolType.Tcp, externalPort, LocalNetworkEP, "Bit Chat");
-
-                        newUPnPStatus = UPnPDeviceStatus.PortForwarded;
-                        _upnpExternalPort = externalPort;
-
-                        Debug.Write("BitChatClient.ConnectivityCheckTimerCallback", "tcp port mapped " + externalPort);
-                    }
-                    catch
-                    {
-                        try
-                        {
-                            _upnpDevice.DeletePortMapping(ProtocolType.Tcp, externalPort);
-                            _upnpDevice.AddPortMapping(ProtocolType.Tcp, externalPort, LocalNetworkEP, "Bit Chat");
-
-                            newUPnPStatus = UPnPDeviceStatus.PortForwarded;
-                            _upnpExternalPort = externalPort;
-
-                            Debug.Write("BitChat.ConnectivityCheckTimerCallback", "tcp port mapped " + externalPort);
-                        }
-                        catch
-                        {
-                            newUPnPStatus = UPnPDeviceStatus.PortForwardingFailed;
-                            _upnpExternalPort = -1;
-                            throw;
-                        }
-                    }
-                }
+                //do upnp port forwarding for DHT
+                _upnpDevice.ForwardPort(ProtocolType.Udp, _dhtClient.LocalPort, new IPEndPoint(defaultNetworkInfo.LocalIP, _dhtClient.LocalPort), "Bit Chat DHT");
             }
             catch (Exception ex)
             {
-                Debug.Write("BitChat.ConnectivityCheckTimerCallback", ex);
+                Debug.Write("ConnectionManager.ConnectivityCheckTimerCallback", ex);
             }
             finally
             {
                 //validate change in status by performing tests
-                if ((_internetStatus != newInternetStatus) || (_upnpDeviceStatus != newUPnPStatus))
-                {
-                    _isWebAccessible = WebUtilities.IsWebAccessible();
+                bool statusChanged = false;
 
+                if (_internetStatus != newInternetStatus)
+                {
+                    if (!WebUtilities.IsWebAccessible())
+                    {
+                        newInternetStatus = InternetConnectivityStatus.NoInternetConnection;
+                        _localLiveIP = null;
+                        _upnpExternalIP = null;
+                    }
+
+                    statusChanged = (_internetStatus != newInternetStatus);
+                }
+
+                if ((newInternetStatus != InternetConnectivityStatus.NoInternetConnection) && (_upnpDeviceStatus != newUPnPStatus))
+                {
                     switch (newInternetStatus)
                     {
                         case InternetConnectivityStatus.DirectInternetConnection:
-                            if (_isWebAccessible)
-                            {
-                                if (!DoWebCheckIncomingConnection(_localPort))
-                                    _localLiveIP = null;
-                            }
-                            else
-                            {
-                                newInternetStatus = InternetConnectivityStatus.NoInternetConnection;
+                            if (!DoWebCheckIncomingConnection(_localPort))
                                 _localLiveIP = null;
-                            }
+
                             break;
 
                         case InternetConnectivityStatus.NatInternetConnection:
-                            if (_isWebAccessible)
-                            {
-                                DoWebCheckIncomingConnection(_localPort);
-                            }
-                            else
-                            {
-                                newInternetStatus = InternetConnectivityStatus.NoInternetConnection;
-                            }
+                            if (!DoWebCheckIncomingConnection(_localPort))
+                                _connectivityCheckExternalEP = null;
+
                             break;
 
                         case InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter:
-                            if (_isWebAccessible)
+                            if (newUPnPStatus == UPnPDeviceStatus.PortForwarded)
                             {
-                                if (newUPnPStatus == UPnPDeviceStatus.PortForwarded)
-                                {
-                                    if (!DoWebCheckIncomingConnection(_upnpExternalPort))
-                                        newUPnPStatus = UPnPDeviceStatus.PortForwardedNotAccessible;
-                                }
-                            }
-                            else
-                            {
-                                newInternetStatus = InternetConnectivityStatus.NoInternetConnection;
-                                newUPnPStatus = UPnPDeviceStatus.Unknown;
-                                _upnpExternalIP = null;
-                                _upnpExternalPort = -1;
+                                if (!DoWebCheckIncomingConnection(_localPort))
+                                    newUPnPStatus = UPnPDeviceStatus.PortForwardedNotAccessible;
                             }
 
                             break;
@@ -682,12 +636,33 @@ namespace BitChatClient.Network.Connections
                         default:
                             _localLiveIP = null;
                             _upnpExternalIP = null;
-                            _upnpExternalPort = -1;
                             break;
                     }
 
+                    statusChanged = statusChanged | (_upnpDeviceStatus != newUPnPStatus);
+                }
+
+                if (statusChanged)
+                {
                     _internetStatus = newInternetStatus;
                     _upnpDeviceStatus = newUPnPStatus;
+
+                    if (this.ExternalEP == null)
+                    {
+                        //if no incoming connection possible
+
+                        if (_dhtClient.GetTotalNodes() < KademliaDHT.DhtClient.KADEMLIA_K)
+                            _dhtSeedingTracker.LookupOnly = true;
+                        else
+                            _dhtSeedingTracker.StopTracking(); //we have enough dht nodes and can stop seeding tracker
+                    }
+                    else
+                    {
+                        _dhtSeedingTracker.LookupOnly = false;
+
+                        if (!_dhtSeedingTracker.IsTrackerRunning)
+                            _dhtSeedingTracker.StartTracking(); //keep seeding tracker running for other peers to find dht bootstrap nodes
+                    }
 
                     if (InternetConnectivityStatusChanged != null)
                         InternetConnectivityStatusChanged(this, EventArgs.Empty);
@@ -696,23 +671,19 @@ namespace BitChatClient.Network.Connections
                 //schedule next check
                 if (_connectivityCheckTimer != null)
                 {
-                    switch (_upnpDeviceStatus)
-                    {
-                        case UPnPDeviceStatus.DeviceNotFound:
-                        case UPnPDeviceStatus.PortForwardingFailed:
-                            _connectivityCheckTimer.Change(10000, Timeout.Infinite);
-                            break;
-
-                        default:
-                            _connectivityCheckTimer.Change(CONNECTIVITY_CHECK_TIMER_INTERVAL, Timeout.Infinite);
-                            break;
-                    }
+                    if ((_internetStatus == InternetConnectivityStatus.NoInternetConnection) || (_upnpDeviceStatus == UPnPDeviceStatus.DeviceNotFound) || (_upnpDeviceStatus == UPnPDeviceStatus.PortForwardingFailed))
+                        _connectivityCheckTimer.Change(10000, Timeout.Infinite);
+                    else
+                        _connectivityCheckTimer.Change(CONNECTIVITY_CHECK_TIMER_INTERVAL, Timeout.Infinite);
                 }
             }
         }
 
         private bool DoWebCheckIncomingConnection(int externalPort)
         {
+            bool _webCheckError = false;
+            bool _webCheckSuccess = false;
+
             try
             {
                 using (WebClient client = new WebClient())
@@ -724,9 +695,6 @@ namespace BitChatClient.Network.Connections
                         _webCheckError = false;
                         _webCheckSuccess = (mS.ReadByte() == 1);
 
-                        if (!_webCheckSuccess)
-                            _receivedLiveInboundConnection = false;
-
                         switch (mS.ReadByte())
                         {
                             case 1: //ipv4
@@ -737,7 +705,7 @@ namespace BitChatClient.Network.Connections
                                     mS.Read(ipv4, 0, 4);
                                     mS.Read(port, 0, 2);
 
-                                    _webCheckExternalEP = new IPEndPoint(new IPAddress(ipv4), BitConverter.ToUInt16(port, 0));
+                                    _connectivityCheckExternalEP = new IPEndPoint(new IPAddress(ipv4), BitConverter.ToUInt16(port, 0));
                                 }
                                 break;
 
@@ -749,12 +717,12 @@ namespace BitChatClient.Network.Connections
                                     mS.Read(ipv6, 0, 16);
                                     mS.Read(port, 0, 2);
 
-                                    _webCheckExternalEP = new IPEndPoint(new IPAddress(ipv6), BitConverter.ToUInt16(port, 0));
+                                    _connectivityCheckExternalEP = new IPEndPoint(new IPAddress(ipv6), BitConverter.ToUInt16(port, 0));
                                 }
                                 break;
 
                             default:
-                                _webCheckExternalEP = null;
+                                _connectivityCheckExternalEP = null;
                                 break;
                         }
                     }
@@ -764,53 +732,10 @@ namespace BitChatClient.Network.Connections
             {
                 _webCheckError = true;
                 _webCheckSuccess = false;
-                _webCheckExternalEP = null;
+                _connectivityCheckExternalEP = null;
             }
 
             return _webCheckSuccess || _webCheckError;
-        }
-
-        public IPEndPoint GetExternalEP()
-        {
-            if (_webCheckSuccess)
-                return _webCheckExternalEP;
-
-            switch (_internetStatus)
-            {
-                case InternetConnectivityStatus.DirectInternetConnection:
-                    if (_localLiveIP == null)
-                        return null;
-                    else
-                        return new IPEndPoint(_localLiveIP, _localPort);
-
-                case InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter:
-                    switch (_upnpDeviceStatus)
-                    {
-                        case UPnPDeviceStatus.PortForwarded:
-                            if (!_webCheckError && !_webCheckSuccess)
-                                return null;
-
-                            if (_upnpExternalIP == null)
-                                return null;
-                            else
-                                return new IPEndPoint(_upnpExternalIP, _upnpExternalPort);
-
-                        default:
-                            return null;
-                    }
-
-                default:
-                    return null;
-            }
-        }
-
-        public int GetExternalPort()
-        {
-            IPEndPoint externalEP = GetExternalEP();
-            if (externalEP != null)
-                return externalEP.Port;
-            else
-                return _localPort;
         }
 
         #endregion
@@ -831,8 +756,7 @@ namespace BitChatClient.Network.Connections
             try
             {
                 //check if self
-                IPEndPoint externalEP = GetExternalEP();
-                if ((externalEP != null) && externalEP.Equals(remotePeerEP))
+                if (remotePeerEP.Equals(this.ExternalEP))
                     throw new IOException("Cannot connect to remote port: self connection.");
 
                 //check existing connection
@@ -881,8 +805,7 @@ namespace BitChatClient.Network.Connections
             try
             {
                 //check if self
-                IPEndPoint externalEP = GetExternalEP();
-                if ((externalEP != null) && externalEP.Equals(remotePeerEP))
+                if (remotePeerEP.Equals(this.ExternalEP))
                     throw new IOException("Cannot connect to remote port: self connection.");
 
                 //check existing connection
@@ -921,16 +844,45 @@ namespace BitChatClient.Network.Connections
         public UPnPDeviceStatus UPnPStatus
         { get { return _upnpDeviceStatus; } }
 
-        public IPEndPoint UPnPExternalEP
+        public IPAddress UPnPExternalIP
+        { get { return _upnpExternalIP; } }
+
+        public IPEndPoint ExternalEP
         {
             get
             {
-                if (_upnpExternalPort > -1)
-                    return new IPEndPoint(_upnpExternalIP, _upnpExternalPort);
-                else
-                    return new IPEndPoint(_upnpExternalIP, 0);
+                switch (_internetStatus)
+                {
+                    case InternetConnectivityStatus.DirectInternetConnection:
+                        if (_localLiveIP == null)
+                            return null;
+                        else
+                            return new IPEndPoint(_localLiveIP, _localPort);
+
+                    case InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter:
+                        switch (_upnpDeviceStatus)
+                        {
+                            case UPnPDeviceStatus.PortForwarded:
+                                if (_upnpExternalIP == null)
+                                    return null;
+                                else
+                                    return new IPEndPoint(_upnpExternalIP, _localPort);
+
+                            default:
+                                return null;
+                        }
+
+                    default:
+                        if (_connectivityCheckExternalEP == null)
+                            return null;
+                        else
+                            return _connectivityCheckExternalEP;
+                }
             }
         }
+
+        public DhtClient DhtClient
+        { get { return _dhtClient; } }
 
         #endregion
     }
