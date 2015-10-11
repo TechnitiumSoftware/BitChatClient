@@ -39,8 +39,6 @@ namespace BitChatApp
         ushort _port = 0;
         List<Uri> _trackers = new List<Uri>();
 
-        Timer _timer;
-
         #endregion
 
         #region constructor
@@ -56,16 +54,12 @@ namespace BitChatApp
             txtPort.Text = profile.LocalPort.ToString();
             txtDownloadFolder.Text = profile.DownloadFolder;
             chkUseCRL.Checked = profile.CheckCertificateRevocationList;
+            chkUPnP.Checked = profile.EnableUPnP;
 
             foreach (Uri tracker in profile.TrackerURIs)
             {
                 txtTrackers.Text += tracker.AbsoluteUri + "\r\n";
             }
-
-            _timer = new Timer();
-            _timer.Interval = 1000;
-            _timer.Tick += _timer_Tick;
-            _timer.Start();
         }
 
         #endregion
@@ -137,36 +131,6 @@ namespace BitChatApp
             System.Diagnostics.Process.Start(@"http://go.technitium.com/?id=3");
         }
 
-        private void _timer_Tick(object sender, EventArgs e)
-        {
-            switch (_service.UPnPStatus)
-            {
-                case UPnPDeviceStatus.PortForwarded:
-                    lblUPnPStatus.Text = "Port forwarded [" + _service.UPnPExternalEP.ToString() + "]";
-                    break;
-
-                case UPnPDeviceStatus.PortForwardedNotAccessible:
-                    lblUPnPStatus.Text = "Port forwarded not accessible [" + _service.UPnPExternalEP.ToString() + "]";
-                    break;
-
-                case UPnPDeviceStatus.ExternalIpPrivate:
-                    lblUPnPStatus.Text = "Device WAN IP is private [" + _service.UPnPExternalEP.ToString() + "]";
-                    break;
-
-                case UPnPDeviceStatus.PortForwardingFailed:
-                    lblUPnPStatus.Text = "Port forwarding failed";
-                    break;
-
-                case UPnPDeviceStatus.DeviceNotFound:
-                    lblUPnPStatus.Text = "UPnP device not found";
-                    break;
-
-                default:
-                    lblUPnPStatus.Text = "Unknown";
-                    break;
-            }
-        }
-
         #endregion
 
         #region properties
@@ -185,6 +149,9 @@ namespace BitChatApp
 
         public bool CheckCertificateRevocationList
         { get { return chkUseCRL.Checked; } }
+
+        public bool EnableUPnP
+        { get { return chkUPnP.Checked; } }
 
         public Uri[] Trackers
         { get { return _trackers.ToArray(); } }

@@ -39,8 +39,7 @@
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.label15 = new System.Windows.Forms.Label();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
-            this.lblUPnPStatus = new System.Windows.Forms.Label();
-            this.label5 = new System.Windows.Forms.Label();
+            this.chkUPnP = new System.Windows.Forms.CheckBox();
             this.chkUseCRL = new System.Windows.Forms.CheckBox();
             this.txtTrackers = new System.Windows.Forms.TextBox();
             this.label2 = new System.Windows.Forms.Label();
@@ -147,8 +146,7 @@
             // 
             // groupBox2
             // 
-            this.groupBox2.Controls.Add(this.lblUPnPStatus);
-            this.groupBox2.Controls.Add(this.label5);
+            this.groupBox2.Controls.Add(this.chkUPnP);
             this.groupBox2.Controls.Add(this.chkUseCRL);
             this.groupBox2.Controls.Add(this.txtTrackers);
             this.groupBox2.Controls.Add(this.label2);
@@ -165,28 +163,20 @@
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Profile Settings";
             // 
-            // lblUPnPStatus
+            // chkUPnP
             // 
-            this.lblUPnPStatus.AutoSize = true;
-            this.lblUPnPStatus.Location = new System.Drawing.Point(101, 46);
-            this.lblUPnPStatus.Name = "lblUPnPStatus";
-            this.lblUPnPStatus.Size = new System.Drawing.Size(53, 13);
-            this.lblUPnPStatus.TabIndex = 43;
-            this.lblUPnPStatus.Text = "Unknown";
-            // 
-            // label5
-            // 
-            this.label5.AutoSize = true;
-            this.label5.Location = new System.Drawing.Point(30, 46);
-            this.label5.Name = "label5";
-            this.label5.Size = new System.Drawing.Size(68, 13);
-            this.label5.TabIndex = 42;
-            this.label5.Text = "UPnP Status";
+            this.chkUPnP.AutoSize = true;
+            this.chkUPnP.Location = new System.Drawing.Point(104, 94);
+            this.chkUPnP.Name = "chkUPnP";
+            this.chkUPnP.Size = new System.Drawing.Size(90, 17);
+            this.chkUPnP.TabIndex = 41;
+            this.chkUPnP.Text = "Enable UPnP";
+            this.chkUPnP.UseVisualStyleBackColor = true;
             // 
             // chkUseCRL
             // 
             this.chkUseCRL.AutoSize = true;
-            this.chkUseCRL.Location = new System.Drawing.Point(104, 93);
+            this.chkUseCRL.Location = new System.Drawing.Point(104, 71);
             this.chkUseCRL.Name = "chkUseCRL";
             this.chkUseCRL.Size = new System.Drawing.Size(180, 17);
             this.chkUseCRL.TabIndex = 40;
@@ -195,17 +185,17 @@
             // 
             // txtTrackers
             // 
-            this.txtTrackers.Location = new System.Drawing.Point(104, 116);
+            this.txtTrackers.Location = new System.Drawing.Point(104, 117);
             this.txtTrackers.Multiline = true;
             this.txtTrackers.Name = "txtTrackers";
             this.txtTrackers.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.txtTrackers.Size = new System.Drawing.Size(284, 70);
-            this.txtTrackers.TabIndex = 41;
+            this.txtTrackers.Size = new System.Drawing.Size(284, 74);
+            this.txtTrackers.TabIndex = 42;
             // 
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(12, 119);
+            this.label2.Location = new System.Drawing.Point(12, 120);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(86, 13);
             this.label2.TabIndex = 40;
@@ -213,7 +203,7 @@
             // 
             // btnBrowseDLFolder
             // 
-            this.btnBrowseDLFolder.Location = new System.Drawing.Point(335, 66);
+            this.btnBrowseDLFolder.Location = new System.Drawing.Point(335, 44);
             this.btnBrowseDLFolder.Name = "btnBrowseDLFolder";
             this.btnBrowseDLFolder.Size = new System.Drawing.Size(53, 22);
             this.btnBrowseDLFolder.TabIndex = 12;
@@ -232,7 +222,7 @@
             // 
             // txtDownloadFolder
             // 
-            this.txtDownloadFolder.Location = new System.Drawing.Point(104, 67);
+            this.txtDownloadFolder.Location = new System.Drawing.Point(104, 45);
             this.txtDownloadFolder.Name = "txtDownloadFolder";
             this.txtDownloadFolder.ReadOnly = true;
             this.txtDownloadFolder.Size = new System.Drawing.Size(225, 20);
@@ -241,7 +231,7 @@
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(11, 71);
+            this.label3.Location = new System.Drawing.Point(11, 49);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(87, 13);
             this.label3.TabIndex = 4;
@@ -337,7 +327,6 @@
         private System.Windows.Forms.CheckBox chkUseCRL;
         private System.Windows.Forms.TextBox txtTrackers;
         private System.Windows.Forms.Label label2;
-        private System.Windows.Forms.Label lblUPnPStatus;
-        private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.CheckBox chkUPnP;
     }
 }
