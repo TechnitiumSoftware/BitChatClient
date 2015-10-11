@@ -17,7 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient.Network.Connections;
+using BitChatClient.Network.KademliaDHT;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -26,7 +26,7 @@ using TechnitiumLibrary.Net.BitTorrent;
 
 namespace BitChatClient.Network
 {
-    delegate void TrackerManagerDiscoveredPeers(TrackerManager sender, List<IPEndPoint> peerEPs);
+    delegate void TrackerManagerDiscoveredPeers(TrackerManager sender, IEnumerable<IPEndPoint> peerEPs);
 
     class TrackerManager
     {
@@ -39,8 +39,11 @@ namespace BitChatClient.Network
         #region variables
 
         BinaryID _networkID;
-        IConnectionInfo _info;
+        int _servicePort;
+        DhtClient _dhtClient;
         bool _lookupOnly;
+
+        List<IPEndPoint> _dhtPeers = new List<IPEndPoint>();
 
         const int _TRACKER_TIMER_CHECK_INTERVAL = 10000;
         List<TrackerClient> _trackers = new List<TrackerClient>();
@@ -50,10 +53,11 @@ namespace BitChatClient.Network
 
         #region constructor
 
-        public TrackerManager(BinaryID networkID, IConnectionInfo info, bool lookupOnly = false)
+        public TrackerManager(BinaryID networkID, int servicePort, DhtClient dhtClient = null, bool lookupOnly = false)
         {
             _networkID = networkID;
-            _info = info;
+            _servicePort = servicePort;
+            _dhtClient = dhtClient;
             _lookupOnly = lookupOnly;
         }
 
@@ -78,16 +82,20 @@ namespace BitChatClient.Network
                     @event = (TrackerClientEvent)state;
                 }
 
-                IPEndPoint localEP = new IPEndPoint(IPAddress.Any, _info.GetExternalPort());
+                IPEndPoint localEP = new IPEndPoint(IPAddress.Any, _servicePort);
 
                 lock (_trackers)
                 {
                     foreach (TrackerClient tracker in _trackers)
                     {
                         if (!tracker.IsUpdating && (forceUpdate || (tracker.NextUpdateIn().TotalSeconds < 1)))
-                            ThreadPool.QueueUserWorkItem(new WaitCallback(UpdateTrackerAsync), new object[] { tracker, @event, localEP });
+                            ThreadPool.QueueUserWorkItem(UpdateTrackerAsync, new object[] { tracker, @event, localEP });
                     }
                 }
+
+                //dht announce
+                if (_dhtClient != null)
+                    ThreadPool.QueueUserWorkItem(DhtAnnounceAsync, localEP);
             }
             catch
             { }
@@ -122,9 +130,44 @@ namespace BitChatClient.Network
                         {
                             if (DiscoveredPeers != null)
                                 DiscoveredPeers(this, tracker.Peers);
+
+                            if (_dhtClient != null)
+                                _dhtClient.AddNode(tracker.Peers);
                         }
 
                         break;
+                }
+            }
+            catch
+            { }
+        }
+
+        private void DhtAnnounceAsync(object state)
+        {
+            IPEndPoint localEP = state as IPEndPoint;
+
+            try
+            {
+                IPEndPoint[] peers;
+
+                if (_lookupOnly)
+                    peers = _dhtClient.FindPeers(_networkID);
+                else
+                    peers = _dhtClient.Announce(_networkID, localEP.Port);
+
+                if ((peers != null) && (peers.Length > 0))
+                {
+                    lock (_dhtPeers)
+                    {
+                        foreach (IPEndPoint peer in peers)
+                        {
+                            if (!_dhtPeers.Contains(peer))
+                                _dhtPeers.Add(peer);
+                        }
+                    }
+
+                    if (DiscoveredPeers != null)
+                        DiscoveredPeers(this, peers);
                 }
             }
             catch
@@ -135,7 +178,7 @@ namespace BitChatClient.Network
 
         #region public
 
-        public void StartTracking(Uri[] trackerURIs = null)
+        public void StartTracking(IEnumerable<Uri> trackerURIs = null)
         {
             if (trackerURIs != null)
             {
@@ -152,7 +195,7 @@ namespace BitChatClient.Network
             {
                 lock (_trackers)
                 {
-                    if (_trackers.Count > 0)
+                    if ((_trackers.Count > 0) || (_dhtClient != null))
                         _trackerUpdateTimer = new Timer(TrackerUpdateTimerCallBack, TrackerClientEvent.Started, 1000, Timeout.Infinite);
                 }
             }
@@ -166,7 +209,7 @@ namespace BitChatClient.Network
                 _trackerUpdateTimer = null;
 
                 //update trackers
-                IPEndPoint localEP = new IPEndPoint(IPAddress.Any, _info.GetExternalPort());
+                IPEndPoint localEP = new IPEndPoint(IPAddress.Any, _servicePort);
 
                 lock (_trackers)
                 {
@@ -191,6 +234,21 @@ namespace BitChatClient.Network
             }
         }
 
+        public Uri[] GetTracketURIs()
+        {
+            Uri[] trackerURIs;
+
+            lock (_trackers)
+            {
+                trackerURIs = new Uri[_trackers.Count];
+
+                for (int i = 0; i < trackerURIs.Length; i++)
+                    trackerURIs[i] = _trackers[i].TrackerUri;
+            }
+
+            return trackerURIs;
+        }
+
         public TrackerClient AddTracker(Uri trackerURI)
         {
             lock (_trackers)
@@ -209,7 +267,7 @@ namespace BitChatClient.Network
             }
         }
 
-        public void AddTracker(Uri[] trackerURIs)
+        public void AddTracker(IEnumerable<Uri> trackerURIs)
         {
             lock (_trackers)
             {
@@ -240,20 +298,20 @@ namespace BitChatClient.Network
             }
         }
 
-        public List<IPEndPoint> GetPeers()
+        public int GetTotalDhtPeers()
         {
-            List<IPEndPoint> peerEPs = new List<IPEndPoint>(10);
-
-            foreach (TrackerClient tracker in _trackers)
+            lock (_dhtPeers)
             {
-                foreach (IPEndPoint peerEP in tracker.Peers)
-                {
-                    if (!peerEPs.Contains(peerEP))
-                        peerEPs.Add(peerEP);
-                }
+                return _dhtPeers.Count;
             }
+        }
 
-            return peerEPs;
+        public IPEndPoint[] GetDhtPeers()
+        {
+            lock (_dhtPeers)
+            {
+                return _dhtPeers.ToArray();
+            }
         }
 
         #endregion
