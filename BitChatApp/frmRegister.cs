@@ -328,7 +328,7 @@ namespace BitChatApp
                 Registration.Register(Program.SIGNUP_URI, selfSignedCert);
 
                 if (_profile == null)
-                    _profile = new BitChatProfile(null, 0, GetDownloadsPath(), BitChatProfile.DefaultTrackerURIs);
+                    _profile = new BitChatProfile(null, (new Random(DateTime.UtcNow.Millisecond)).Next(1024, 65535), GetDownloadsPath(), BitChatProfile.DefaultTrackerURIs);
 
                 _profile.LocalCertificateStore = new CertificateStore(selfSignedCert, privateKey);
                 _profile.SetPassword(SymmetricEncryptionAlgorithm.Rijndael, 256, txtProfilePassword.Text);
