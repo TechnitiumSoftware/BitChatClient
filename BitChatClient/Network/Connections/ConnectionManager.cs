@@ -31,7 +31,7 @@ namespace BitChatClient.Network.Connections
 {
     public enum InternetConnectivityStatus
     {
-        Unknown = 0,
+        Identifying = 0,
         NoInternetConnection = 1,
         DirectInternetConnection = 2,
         HttpProxyInternetConnection = 3,
@@ -42,7 +42,7 @@ namespace BitChatClient.Network.Connections
 
     public enum UPnPDeviceStatus
     {
-        Unknown = 0,
+        Identifying = 0,
         Disabled = 1,
         DeviceNotFound = 2,
         ExternalIpPrivate = 3,
@@ -90,9 +90,9 @@ namespace BitChatClient.Network.Connections
 
         Uri CONNECTIVITY_CHECK_WEB_SERVICE = new Uri("https://bitchat.im/connectivity/check.aspx");
         Timer _connectivityCheckTimer;
-        InternetConnectivityStatus _internetStatus = InternetConnectivityStatus.Unknown;
+        InternetConnectivityStatus _internetStatus = InternetConnectivityStatus.Identifying;
         InternetGatewayDevice _upnpDevice;
-        UPnPDeviceStatus _upnpDeviceStatus = UPnPDeviceStatus.Unknown;
+        UPnPDeviceStatus _upnpDeviceStatus = UPnPDeviceStatus.Identifying;
 
         int _localPort;
         IPAddress _localLiveIP = null;
@@ -518,14 +518,14 @@ namespace BitChatClient.Network.Connections
 
         private void ConnectivityCheckTimerCallback(object state)
         {
-            if (_upnpDeviceStatus == UPnPDeviceStatus.Unknown)
+            if (_upnpDeviceStatus == UPnPDeviceStatus.Identifying)
                 _upnpDevice = null;
 
-            InternetConnectivityStatus newInternetStatus = InternetConnectivityStatus.Unknown;
+            InternetConnectivityStatus newInternetStatus = InternetConnectivityStatus.Identifying;
             UPnPDeviceStatus newUPnPStatus;
 
             if (_profile.EnableUPnP)
-                newUPnPStatus = UPnPDeviceStatus.Unknown;
+                newUPnPStatus = UPnPDeviceStatus.Identifying;
             else
                 newUPnPStatus = UPnPDeviceStatus.Disabled;
 
@@ -749,10 +749,10 @@ namespace BitChatClient.Network.Connections
 
         public void ReCheckConnectivity()
         {
-            if (_internetStatus != InternetConnectivityStatus.Unknown)
+            if (_internetStatus != InternetConnectivityStatus.Identifying)
             {
-                _internetStatus = InternetConnectivityStatus.Unknown;
-                _upnpDeviceStatus = UPnPDeviceStatus.Unknown;
+                _internetStatus = InternetConnectivityStatus.Identifying;
+                _upnpDeviceStatus = UPnPDeviceStatus.Identifying;
 
                 _connectivityCheckTimer.Change(1000, Timeout.Infinite);
             }
@@ -865,7 +865,15 @@ namespace BitChatClient.Network.Connections
         { get { return _upnpDeviceStatus; } }
 
         public IPAddress UPnPExternalIP
-        { get { return _upnpExternalIP; } }
+        {
+            get
+            {
+                if (_internetStatus == InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter)
+                    return _upnpExternalIP;
+                else
+                    return null;
+            }
+        }
 
         public IPEndPoint ExternalEP
         {
@@ -892,7 +900,7 @@ namespace BitChatClient.Network.Connections
                                 return null;
                         }
 
-                    case InternetConnectivityStatus.Unknown:
+                    case InternetConnectivityStatus.Identifying:
                         return null;
 
                     default:
