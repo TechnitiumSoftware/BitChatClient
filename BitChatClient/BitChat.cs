@@ -74,6 +74,7 @@ namespace BitChatClient
         //tracker
         TrackerManager _trackerManager;
         DhtClient _dhtClient;
+        bool _enableTracking;
 
         //noop timer
         const int NOOP_PACKET_TIMER_INTERVAL = 15000;
@@ -131,6 +132,7 @@ namespace BitChatClient
             _dhtClient = connectionManager.DhtClient;
             _trackerManager = new TrackerManager(_network.NetworkID, connectionManager.LocalPort, _dhtClient);
             _trackerManager.DiscoveredPeers += _trackerManager_DiscoveredPeers;
+            _enableTracking = enableTracking;
 
             if (enableTracking)
                 _trackerManager.StartTracking(trackerURIs);
@@ -318,9 +320,9 @@ namespace BitChatClient
             }
 
             if (_network.Type == BitChatNetworkType.PrivateChat)
-                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.PeerEmailAddress.Address, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _trackerManager.IsTrackerRunning);
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.PeerEmailAddress.Address, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _enableTracking);
             else
-                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _trackerManager.IsTrackerRunning);
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _enableTracking);
         }
 
         public BitChat.Peer[] GetPeerList()
@@ -601,13 +603,19 @@ namespace BitChatClient
                     if (connectedPeerList.Count > 0)
                     {
                         _manager.PauseLocalAnnouncement(_network.NetworkID);
-                        _trackerManager.StopTracking();
+
+                        if (_enableTracking)
+                            _trackerManager.StopTracking();
                     }
                     else
                     {
                         _manager.ResumeLocalAnnouncement(_network.NetworkID);
-                        _trackerManager.StartTracking();
-                        _trackerManager.ForceUpdate();
+
+                        if (_enableTracking)
+                        {
+                            _trackerManager.StartTracking();
+                            _trackerManager.ForceUpdate();
+                        }
                     }
                 }
                 else
@@ -616,13 +624,18 @@ namespace BitChatClient
                     {
                         _manager.PauseLocalAnnouncement(_network.NetworkID);
 
-                        if (disconnectedPeerList.Count > 0)
-                            _trackerManager.ForceUpdate();
+                        if (_enableTracking)
+                        {
+                            if (disconnectedPeerList.Count > 0)
+                                _trackerManager.ForceUpdate();
+                        }
                     }
                     else
                     {
                         _manager.ResumeLocalAnnouncement(_network.NetworkID);
-                        _trackerManager.ForceUpdate();
+
+                        if (_enableTracking)
+                            _trackerManager.ForceUpdate();
                     }
                 }
 
@@ -731,14 +744,24 @@ namespace BitChatClient
         public bool IsTrackerRunning
         { get { return _trackerManager.IsTrackerRunning; } }
 
-        public void StartTracking()
+        public bool EnableTracking
         {
-            _trackerManager.StartTracking();
-        }
+            get
+            {
+                return _enableTracking;
+            }
+            set
+            {
+                _enableTracking = value;
 
-        public void StopTracking()
-        {
-            _trackerManager.StopTracking();
+                if (_network.Type == BitChatNetworkType.GroupChat)
+                {
+                    if (_enableTracking)
+                        _trackerManager.StartTracking();
+                    else
+                        _trackerManager.StopTracking();
+                }
+            }
         }
 
         #endregion
