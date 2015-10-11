@@ -43,7 +43,7 @@ namespace BitChatApp
             _chat = chat;
             _profile = profile;
 
-            chkEnableTracking.Checked = _chat.IsTrackerRunning;
+            chkLANChat.Checked = !_chat.EnableTracking;
 
             if (_chat.NetworkType == BitChatClient.Network.BitChatNetworkType.PrivateChat)
             {
@@ -329,12 +329,9 @@ namespace BitChatApp
             }
         }
 
-        private void chkEnableTracking_CheckedChanged(object sender, EventArgs e)
+        private void chkLANChat_CheckedChanged(object sender, EventArgs e)
         {
-            if (chkEnableTracking.Checked)
-                _chat.StartTracking();
-            else
-                _chat.StopTracking();
+            _chat.EnableTracking = !chkLANChat.Checked;
         }
     }
 }

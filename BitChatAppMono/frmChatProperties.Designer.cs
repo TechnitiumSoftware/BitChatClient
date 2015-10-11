@@ -51,7 +51,7 @@
             this.txtSecret = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
             this.chkShowSecret = new System.Windows.Forms.CheckBox();
-            this.chkEnableTracking = new System.Windows.Forms.CheckBox();
+            this.chkLANChat = new System.Windows.Forms.CheckBox();
             this.mnuTracker.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -238,16 +238,16 @@
             this.chkShowSecret.UseVisualStyleBackColor = true;
             this.chkShowSecret.CheckedChanged += new System.EventHandler(this.chkShowSecret_CheckedChanged);
             // 
-            // chkEnableTracking
+            // chkLANChat
             // 
-            this.chkEnableTracking.AutoSize = true;
-            this.chkEnableTracking.Location = new System.Drawing.Point(12, 258);
-            this.chkEnableTracking.Name = "chkEnableTracking";
-            this.chkEnableTracking.Size = new System.Drawing.Size(237, 17);
-            this.chkEnableTracking.TabIndex = 56;
-            this.chkEnableTracking.Text = "Enable only local network (LAN or WiFi) chat";
-            this.chkEnableTracking.UseVisualStyleBackColor = true;
-            this.chkEnableTracking.CheckedChanged += new System.EventHandler(this.chkEnableTracking_CheckedChanged);
+            this.chkLANChat.AutoSize = true;
+            this.chkLANChat.Location = new System.Drawing.Point(12, 258);
+            this.chkLANChat.Name = "chkLANChat";
+            this.chkLANChat.Size = new System.Drawing.Size(237, 17);
+            this.chkLANChat.TabIndex = 56;
+            this.chkLANChat.Text = "Enable only local network (LAN or WiFi) chat";
+            this.chkLANChat.UseVisualStyleBackColor = true;
+            this.chkLANChat.CheckedChanged += new System.EventHandler(this.chkLANChat_CheckedChanged);
             // 
             // frmChatProperties
             // 
@@ -256,7 +256,7 @@
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
             this.CancelButton = this.btnClose;
             this.ClientSize = new System.Drawing.Size(684, 282);
-            this.Controls.Add(this.chkEnableTracking);
+            this.Controls.Add(this.chkLANChat);
             this.Controls.Add(this.chkShowSecret);
             this.Controls.Add(this.txtSecret);
             this.Controls.Add(this.label3);
@@ -302,6 +302,6 @@
         private System.Windows.Forms.ToolStripMenuItem copyTrackerToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem copyAllTrackersToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem addDefaultTrackersToolStripMenuItem;
-        private System.Windows.Forms.CheckBox chkEnableTracking;
+        private System.Windows.Forms.CheckBox chkLANChat;
     }
 }
