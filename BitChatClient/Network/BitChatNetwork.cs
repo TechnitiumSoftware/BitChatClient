@@ -320,7 +320,7 @@ namespace BitChatClient.Network
                 ThreadPool.QueueUserWorkItem(new WaitCallback(MakeConnectionAsync), peerEP);
         }
 
-        public void MakeConnection(List<IPEndPoint> peerEPs)
+        public void MakeConnection(IEnumerable<IPEndPoint> peerEPs)
         {
             foreach (IPEndPoint peerEP in peerEPs)
             {
@@ -329,7 +329,7 @@ namespace BitChatClient.Network
             }
         }
 
-        public void MakeConnection(List<PeerInfo> peerList)
+        public void MakeConnection(IEnumerable<PeerInfo> peerList)
         {
             foreach (PeerInfo peerInfo in peerList)
             {
@@ -341,7 +341,7 @@ namespace BitChatClient.Network
             }
         }
 
-        public void MakeConnection(Connection viaConnection, List<IPEndPoint> peerEPs)
+        public void MakeConnection(Connection viaConnection, IEnumerable<IPEndPoint> peerEPs)
         {
             foreach (IPEndPoint peerEP in peerEPs)
             {

@@ -471,13 +471,14 @@ namespace BitChatClient.Network.PeerDiscovery
 
                 _udpListener = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
                 _udpListener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
-                _udpListener.Bind(new IPEndPoint(0, listenerPort));
+                _udpListener.Bind(new IPEndPoint(IPAddress.Any, listenerPort));
+
+                _networks = NetUtilities.GetNetworkInfo();
 
                 _listeningThread = new Thread(RecvDataAsync);
                 _listeningThread.IsBackground = true;
                 _listeningThread.Start();
 
-                _networks = NetUtilities.GetNetworkInfo();
                 _networkWatcher = new Timer(NetworkWatcher, null, NETWORK_WATCHER_INTERVAL, Timeout.Infinite);
             }
 

@@ -741,14 +741,14 @@ namespace BitChatClient.FileSharing
             lock (_peers)
             {
                 foreach (BitChat.Peer peer in _peers)
-                    peer.WritePacket(packetData, 0, packetData.Length);
+                    peer.WritePacket(packetData);
             }
 
             //announce to all seeds
             lock (_seeders)
             {
                 foreach (BitChat.Peer seeder in _seeders)
-                    seeder.WritePacket(packetData, 0, packetData.Length);
+                    seeder.WritePacket(packetData);
             }
         }
 

@@ -38,16 +38,16 @@ namespace BitChatClient.Network
 
         #region constructor
 
-        private ProxyNetwork(BinaryID networkID, IConnectionInfo info)
+        private ProxyNetwork(BinaryID networkID, int servicePort)
         {
-            _trackerManager = new TrackerManager(networkID, info);
+            _trackerManager = new TrackerManager(networkID, servicePort);
         }
 
         #endregion
 
         #region static
 
-        public static ProxyNetwork JoinProxyNetwork(BinaryID networkID, IConnectionInfo info, Connection connection)
+        public static ProxyNetwork JoinProxyNetwork(BinaryID networkID, int servicePort, Connection connection)
         {
             lock (_proxyNetworks)
             {
@@ -61,7 +61,7 @@ namespace BitChatClient.Network
                 }
                 else
                 {
-                    ProxyNetwork proxyNetwork = new ProxyNetwork(networkID, info);
+                    ProxyNetwork proxyNetwork = new ProxyNetwork(networkID, servicePort);
                     _proxyNetworks.Add(networkID, proxyNetwork);
 
                     proxyNetwork._proxyConnections.Add(connection.RemotePeerID, connection);

@@ -70,7 +70,8 @@
     <Compile Include="FileSharing\SharedFile.cs" />
     <Compile Include="IBitChatManager.cs" />
     <Compile Include="IDebug.cs" />
-    <Compile Include="Network\Connections\IConnectionInfo.cs" />
+    <Compile Include="IPEndPointParser.cs" />
+    <Compile Include="Network\INetworkInfo.cs" />
     <Compile Include="Network\KademliaDHT\DhtClient.cs" />
     <Compile Include="Network\KademliaDHT\NodeContact.cs" />
     <Compile Include="Network\KademliaDHT\KBucket.cs" />
