@@ -378,7 +378,7 @@ namespace BitChatApp
 
         private void networkInfoToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using (frmNetworkInfo frm = new frmNetworkInfo(_service.NetworkInfo))
+            using (frmNetworkInfo frm = new frmNetworkInfo(_service))
             {
                 frm.ShowDialog(this);
             }

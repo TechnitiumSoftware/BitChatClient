@@ -33,6 +33,7 @@
             this.columnHeader1 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.columnHeader2 = ((System.Windows.Forms.ColumnHeader)(new System.Windows.Forms.ColumnHeader()));
             this.btnClose = new System.Windows.Forms.Button();
+            this.btnRecheck = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // listView1
@@ -71,9 +72,20 @@
             this.btnClose.Location = new System.Drawing.Point(397, 230);
             this.btnClose.Name = "btnClose";
             this.btnClose.Size = new System.Drawing.Size(75, 23);
-            this.btnClose.TabIndex = 1;
+            this.btnClose.TabIndex = 2;
             this.btnClose.Text = "&Close";
             this.btnClose.UseVisualStyleBackColor = true;
+            // 
+            // btnRecheck
+            // 
+            this.btnRecheck.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnRecheck.Location = new System.Drawing.Point(12, 230);
+            this.btnRecheck.Name = "btnRecheck";
+            this.btnRecheck.Size = new System.Drawing.Size(75, 23);
+            this.btnRecheck.TabIndex = 1;
+            this.btnRecheck.Text = "&Refresh";
+            this.btnRecheck.UseVisualStyleBackColor = true;
+            this.btnRecheck.Click += new System.EventHandler(this.btnRecheck_Click);
             // 
             // frmNetworkInfo
             // 
@@ -82,6 +94,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.CancelButton = this.btnClose;
             this.ClientSize = new System.Drawing.Size(484, 261);
+            this.Controls.Add(this.btnRecheck);
             this.Controls.Add(this.btnClose);
             this.Controls.Add(this.listView1);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
@@ -103,5 +116,6 @@
         private System.Windows.Forms.Button btnClose;
         private System.Windows.Forms.ColumnHeader columnHeader1;
         private System.Windows.Forms.ColumnHeader columnHeader2;
+        private System.Windows.Forms.Button btnRecheck;
     }
 }

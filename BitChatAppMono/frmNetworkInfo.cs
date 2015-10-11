@@ -1,4 +1,5 @@
-﻿using BitChatClient.Network;
+﻿using BitChatClient;
+using BitChatClient.Network;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -12,7 +13,7 @@ namespace BitChatAppMono
 {
     public partial class frmNetworkInfo : Form
     {
-        INetworkInfo _info;
+        BitChatService _service;
         Timer _updateTimer;
 
         public frmNetworkInfo()
@@ -20,11 +21,11 @@ namespace BitChatAppMono
             InitializeComponent();
         }
 
-        public frmNetworkInfo(INetworkInfo info)
+        public frmNetworkInfo(BitChatService service)
         {
             InitializeComponent();
 
-            _info = info;
+            _service = service;
 
             listView1.Items.Add("Local Peer ID").SubItems.Add("Loading...");
             listView1.Items.Add("Local Port").SubItems.Add("Loading...");
@@ -45,29 +46,31 @@ namespace BitChatAppMono
 
         private void _updateTimer_Tick(object sender, EventArgs e)
         {
-            listView1.Items[0].SubItems[1].Text = _info.LocalPeerID.ToString();
-            listView1.Items[1].SubItems[1].Text = _info.LocalPort.ToString();
-            listView1.Items[2].SubItems[1].Text = _info.DhtNodeID.ToString();
-            listView1.Items[3].SubItems[1].Text = _info.DhtLocalPort.ToString();
-            listView1.Items[4].SubItems[1].Text = _info.DhtTotalNodes.ToString();
-            listView1.Items[5].SubItems[1].Text = _info.InternetStatus.ToString();
-            listView1.Items[6].SubItems[1].Text = _info.UPnPStatus.ToString();
+            INetworkInfo info = _service.NetworkInfo;
 
-            if (_info.UPnPExternalIP == null)
+            listView1.Items[0].SubItems[1].Text = info.LocalPeerID.ToString();
+            listView1.Items[1].SubItems[1].Text = info.LocalPort.ToString();
+            listView1.Items[2].SubItems[1].Text = info.DhtNodeID.ToString();
+            listView1.Items[3].SubItems[1].Text = info.DhtLocalPort.ToString();
+            listView1.Items[4].SubItems[1].Text = info.DhtTotalNodes.ToString();
+            listView1.Items[5].SubItems[1].Text = info.InternetStatus.ToString();
+            listView1.Items[6].SubItems[1].Text = info.UPnPStatus.ToString();
+
+            if (info.UPnPExternalIP == null)
                 listView1.Items[7].SubItems[1].Text = "";
             else
-                listView1.Items[7].SubItems[1].Text = _info.UPnPExternalIP.ToString();
+                listView1.Items[7].SubItems[1].Text = info.UPnPExternalIP.ToString();
 
-            if (_info.ExternalEP == null)
+            if (info.ExternalEP == null)
                 listView1.Items[8].SubItems[1].Text = "";
             else
-                listView1.Items[8].SubItems[1].Text = _info.ExternalEP.ToString();
+                listView1.Items[8].SubItems[1].Text = info.ExternalEP.ToString();
 
-            if (_info.ProxyNodes.Length > 0)
+            if (info.ProxyNodes.Length > 0)
             {
                 string tmp = "";
 
-                foreach (IPEndPoint proxyNodeEP in _info.ProxyNodes)
+                foreach (IPEndPoint proxyNodeEP in info.ProxyNodes)
                     tmp += ", " + proxyNodeEP.ToString();
 
                 listView1.Items[9].SubItems[1].Text = tmp.Substring(2);
@@ -81,6 +84,11 @@ namespace BitChatAppMono
         private void frmNetworkInfo_FormClosed(object sender, FormClosedEventArgs e)
         {
             _updateTimer.Stop();
+        }
+
+        private void btnRecheck_Click(object sender, EventArgs e)
+        {
+            _service.ReCheckConnectivity();
         }
     }
 }
