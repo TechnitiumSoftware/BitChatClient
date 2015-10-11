@@ -518,6 +518,9 @@ namespace BitChatClient.Network.Connections
 
         private void ConnectivityCheckTimerCallback(object state)
         {
+            if (_upnpDeviceStatus == UPnPDeviceStatus.Unknown)
+                _upnpDevice = null;
+
             InternetConnectivityStatus newInternetStatus = InternetConnectivityStatus.Unknown;
             UPnPDeviceStatus newUPnPStatus;
 
@@ -601,55 +604,54 @@ namespace BitChatClient.Network.Connections
             finally
             {
                 //validate change in status by performing tests
-                bool statusChanged = false;
-
                 if (_internetStatus != newInternetStatus)
                 {
-                    if (!WebUtilities.IsWebAccessible())
+                    if (WebUtilities.IsWebAccessible())
+                    {
+                        switch (newInternetStatus)
+                        {
+                            case InternetConnectivityStatus.DirectInternetConnection:
+                                if (!DoWebCheckIncomingConnection(_localPort))
+                                    _localLiveIP = null;
+
+                                break;
+
+                            case InternetConnectivityStatus.NatInternetConnection:
+                                if (!DoWebCheckIncomingConnection(_localPort))
+                                    _connectivityCheckExternalEP = null;
+
+                                break;
+
+                            case InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter:
+                                break;
+
+                            default:
+                                _localLiveIP = null;
+                                _upnpExternalIP = null;
+                                break;
+                        }
+                    }
+                    else
                     {
                         newInternetStatus = InternetConnectivityStatus.NoInternetConnection;
                         _localLiveIP = null;
                         _upnpExternalIP = null;
                     }
-
-                    statusChanged = (_internetStatus != newInternetStatus);
                 }
 
-                if ((newInternetStatus != InternetConnectivityStatus.NoInternetConnection) && (_upnpDeviceStatus != newUPnPStatus))
+                if ((newInternetStatus == InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter) && (_upnpDeviceStatus != newUPnPStatus) && (newUPnPStatus == UPnPDeviceStatus.PortForwarded))
                 {
-                    switch (newInternetStatus)
+                    if (_upnpDeviceStatus == UPnPDeviceStatus.PortForwardedNotAccessible)
                     {
-                        case InternetConnectivityStatus.DirectInternetConnection:
-                            if (!DoWebCheckIncomingConnection(_localPort))
-                                _localLiveIP = null;
-
-                            break;
-
-                        case InternetConnectivityStatus.NatInternetConnection:
-                            if (!DoWebCheckIncomingConnection(_localPort))
-                                _connectivityCheckExternalEP = null;
-
-                            break;
-
-                        case InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter:
-                            if (newUPnPStatus == UPnPDeviceStatus.PortForwarded)
-                            {
-                                if (!DoWebCheckIncomingConnection(_localPort))
-                                    newUPnPStatus = UPnPDeviceStatus.PortForwardedNotAccessible;
-                            }
-
-                            break;
-
-                        default:
-                            _localLiveIP = null;
-                            _upnpExternalIP = null;
-                            break;
+                        newUPnPStatus = UPnPDeviceStatus.PortForwardedNotAccessible;
                     }
-
-                    statusChanged = statusChanged | (_upnpDeviceStatus != newUPnPStatus);
+                    else if (!DoWebCheckIncomingConnection(_localPort))
+                    {
+                        newUPnPStatus = UPnPDeviceStatus.PortForwardedNotAccessible;
+                    }
                 }
 
-                if (statusChanged)
+                if ((_internetStatus != newInternetStatus) || (_upnpDeviceStatus != newUPnPStatus))
                 {
                     _internetStatus = newInternetStatus;
                     _upnpDeviceStatus = newUPnPStatus;
@@ -743,6 +745,17 @@ namespace BitChatClient.Network.Connections
             }
 
             return _webCheckSuccess || _webCheckError;
+        }
+
+        public void ReCheckConnectivity()
+        {
+            if (_internetStatus != InternetConnectivityStatus.Unknown)
+            {
+                _internetStatus = InternetConnectivityStatus.Unknown;
+                _upnpDeviceStatus = UPnPDeviceStatus.Unknown;
+
+                _connectivityCheckTimer.Change(1000, Timeout.Infinite);
+            }
         }
 
         #endregion
@@ -878,6 +891,9 @@ namespace BitChatClient.Network.Connections
                             default:
                                 return null;
                         }
+
+                    case InternetConnectivityStatus.Unknown:
+                        return null;
 
                     default:
                         if (_connectivityCheckExternalEP == null)

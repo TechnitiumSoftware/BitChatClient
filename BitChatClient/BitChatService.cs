@@ -201,6 +201,11 @@ namespace BitChatClient
                 _profile.BootstrapDhtNodes = dhtNodes;
         }
 
+        public void ReCheckConnectivity()
+        {
+            _manager.ReCheckConnectivity();
+        }
+
         #endregion
 
         #region properties
@@ -685,6 +690,11 @@ namespace BitChatClient
                 }
                 catch
                 { }
+            }
+
+            public void ReCheckConnectivity()
+            {
+                _connectionManager.ReCheckConnectivity();
             }
 
             #endregion
