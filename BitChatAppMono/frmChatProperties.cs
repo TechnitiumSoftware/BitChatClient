@@ -43,6 +43,8 @@ namespace BitChatAppMono
             _chat = chat;
             _profile = profile;
 
+            chkEnableTracking.Checked = _chat.IsTrackerRunning;
+
             if (_chat.NetworkType == BitChatClient.Network.BitChatNetworkType.PrivateChat)
             {
                 label1.Text = "Peer's Email Address";
@@ -52,6 +54,12 @@ namespace BitChatAppMono
             {
                 txtNetwork.Text = chat.NetworkName;
             }
+
+            ListViewItem dhtItem = lstTrackerInfo.Items.Add("DHT");
+
+            dhtItem.SubItems.Add("");
+            dhtItem.SubItems.Add("");
+            dhtItem.SubItems.Add("");
 
             foreach (TrackerClient tracker in _chat.GetTrackers())
             {
@@ -77,28 +85,37 @@ namespace BitChatAppMono
 
                 foreach (ListViewItem item in lstTrackerInfo.Items)
                 {
-                    TrackerClient tracker = item.Tag as TrackerClient;
-
                     if (tracking)
                     {
-                        string strUpdateIn = "updating...";
-                        TimeSpan updateIn = tracker.NextUpdateIn();
+                        TrackerClient tracker = item.Tag as TrackerClient;
 
-                        if (updateIn.TotalSeconds > 1)
+                        if (tracker == null)
                         {
-                            strUpdateIn = "";
-                            if (updateIn.Hours > 0)
-                                strUpdateIn = updateIn.Hours + "h ";
-
-                            if (updateIn.Minutes > 0)
-                                strUpdateIn += updateIn.Minutes + "m ";
-
-                            strUpdateIn += updateIn.Seconds + "s";
+                            item.SubItems[1].Text = "working";
+                            item.SubItems[2].Text = "";
+                            item.SubItems[3].Text = _chat.GetTotalDhtPeers().ToString();
                         }
+                        else
+                        {
+                            string strUpdateIn = "updating...";
+                            TimeSpan updateIn = tracker.NextUpdateIn();
 
-                        item.SubItems[1].Text = tracker.LastException == null ? "working" : tracker.LastException.Message;
-                        item.SubItems[2].Text = strUpdateIn;
-                        item.SubItems[3].Text = tracker.Peers.Count.ToString();
+                            if (updateIn.TotalSeconds > 1)
+                            {
+                                strUpdateIn = "";
+                                if (updateIn.Hours > 0)
+                                    strUpdateIn = updateIn.Hours + "h ";
+
+                                if (updateIn.Minutes > 0)
+                                    strUpdateIn += updateIn.Minutes + "m ";
+
+                                strUpdateIn += updateIn.Seconds + "s";
+                            }
+
+                            item.SubItems[1].Text = tracker.LastException == null ? "working" : tracker.LastException.Message;
+                            item.SubItems[2].Text = strUpdateIn;
+                            item.SubItems[3].Text = tracker.Peers.Count.ToString();
+                        }
                     }
                     else
                     {
@@ -144,21 +161,24 @@ namespace BitChatAppMono
             {
                 TrackerClient tracker = lstTrackerInfo.SelectedItems[0].Tag as TrackerClient;
 
+                IEnumerable<IPEndPoint> peerEPs;
+
+                if (tracker == null)
+                    peerEPs = _chat.GetDhtPeers();
+                else
+                    peerEPs = tracker.Peers;
+
                 string peers = "";
 
-                foreach (IPEndPoint peerEP in tracker.Peers)
+                foreach (IPEndPoint peerEP in peerEPs)
                 {
                     peers += peerEP.ToString() + "\r\n";
                 }
 
                 if (peers == "")
-                {
                     MessageBox.Show("No peer returned by the tracker.", "No Peer Available", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
                 else
-                {
-                    MessageBox.Show("Peers returned by the tracker:\r\n\r\n" + peers, "Peers List", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
+                    MessageBox.Show(peers, "Peers List", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
@@ -307,6 +327,14 @@ namespace BitChatAppMono
                 catch
                 { }
             }
+        }
+
+        private void chkEnableTracking_CheckedChanged(object sender, EventArgs e)
+        {
+            if (chkEnableTracking.Checked)
+                _chat.StartTracking();
+            else
+                _chat.StopTracking();
         }
     }
 }

@@ -43,6 +43,7 @@
             this.showPeersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.addTrackerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.addDefaultTrackersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.copyAllTrackersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.label2 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
@@ -50,7 +51,7 @@
             this.txtSecret = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
             this.chkShowSecret = new System.Windows.Forms.CheckBox();
-            this.addDefaultTrackersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.chkEnableTracking = new System.Windows.Forms.CheckBox();
             this.mnuTracker.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -120,7 +121,7 @@
             this.addDefaultTrackersToolStripMenuItem,
             this.copyAllTrackersToolStripMenuItem});
             this.mnuTracker.Name = "contextMenuStrip1";
-            this.mnuTracker.Size = new System.Drawing.Size(185, 186);
+            this.mnuTracker.Size = new System.Drawing.Size(185, 164);
             // 
             // updateTrackerToolStripMenuItem
             // 
@@ -161,6 +162,13 @@
             this.addTrackerToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
             this.addTrackerToolStripMenuItem.Text = "&Add Tracker";
             this.addTrackerToolStripMenuItem.Click += new System.EventHandler(this.addTrackerToolStripMenuItem_Click);
+            // 
+            // addDefaultTrackersToolStripMenuItem
+            // 
+            this.addDefaultTrackersToolStripMenuItem.Name = "addDefaultTrackersToolStripMenuItem";
+            this.addDefaultTrackersToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
+            this.addDefaultTrackersToolStripMenuItem.Text = "Add &Default Trackers";
+            this.addDefaultTrackersToolStripMenuItem.Click += new System.EventHandler(this.addDefaultTrackersToolStripMenuItem_Click);
             // 
             // copyAllTrackersToolStripMenuItem
             // 
@@ -230,12 +238,16 @@
             this.chkShowSecret.UseVisualStyleBackColor = true;
             this.chkShowSecret.CheckedChanged += new System.EventHandler(this.chkShowSecret_CheckedChanged);
             // 
-            // addDefaultTrackersToolStripMenuItem
+            // chkEnableTracking
             // 
-            this.addDefaultTrackersToolStripMenuItem.Name = "addDefaultTrackersToolStripMenuItem";
-            this.addDefaultTrackersToolStripMenuItem.Size = new System.Drawing.Size(184, 22);
-            this.addDefaultTrackersToolStripMenuItem.Text = "Add &Default Trackers";
-            this.addDefaultTrackersToolStripMenuItem.Click += new System.EventHandler(this.addDefaultTrackersToolStripMenuItem_Click);
+            this.chkEnableTracking.AutoSize = true;
+            this.chkEnableTracking.Location = new System.Drawing.Point(12, 258);
+            this.chkEnableTracking.Name = "chkEnableTracking";
+            this.chkEnableTracking.Size = new System.Drawing.Size(237, 17);
+            this.chkEnableTracking.TabIndex = 56;
+            this.chkEnableTracking.Text = "Enable only local network (LAN or WiFi) chat";
+            this.chkEnableTracking.UseVisualStyleBackColor = true;
+            this.chkEnableTracking.CheckedChanged += new System.EventHandler(this.chkEnableTracking_CheckedChanged);
             // 
             // frmChatProperties
             // 
@@ -244,6 +256,7 @@
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
             this.CancelButton = this.btnClose;
             this.ClientSize = new System.Drawing.Size(684, 282);
+            this.Controls.Add(this.chkEnableTracking);
             this.Controls.Add(this.chkShowSecret);
             this.Controls.Add(this.txtSecret);
             this.Controls.Add(this.label3);
@@ -289,5 +302,6 @@
         private System.Windows.Forms.ToolStripMenuItem copyTrackerToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem copyAllTrackersToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem addDefaultTrackersToolStripMenuItem;
+        private System.Windows.Forms.CheckBox chkEnableTracking;
     }
 }
