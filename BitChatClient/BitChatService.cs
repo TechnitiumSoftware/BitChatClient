@@ -478,6 +478,9 @@ namespace BitChatClient
 
                 lock (_networks)
                 {
+                    if (_networks.ContainsKey(network.NetworkID))
+                        throw new BitChatException("Bit Chat for email address '" + peerEmailAddress.Address + "' already exists.");
+
                     _networks.Add(network.NetworkID, network);
                 }
 
@@ -504,6 +507,9 @@ namespace BitChatClient
 
                 lock (_networks)
                 {
+                    if (_networks.ContainsKey(network.NetworkID))
+                        throw new BitChatException("Bit Chat group with name '" + networkName + "' already exists.");
+
                     _networks.Add(network.NetworkID, network);
                 }
 
