@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using BitChatClient.FileSharing;
 using BitChatClient.Network;
 using BitChatClient.Network.Connections;
+using BitChatClient.Network.KademliaDHT;
 using BitChatClient.Network.SecureChannel;
 using System;
 using System.Collections.Generic;
@@ -72,6 +73,7 @@ namespace BitChatClient
 
         //tracker
         TrackerManager _trackerManager;
+        DhtClient _dhtClient;
 
         //noop timer
         const int NOOP_PACKET_TIMER_INTERVAL = 15000;
@@ -95,7 +97,7 @@ namespace BitChatClient
 
         #region constructor
 
-        internal BitChat(IBitChatManager manager, IConnectionInfo connInfo, BitChatProfile profile, BitChatNetwork network, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs)
+        internal BitChat(IBitChatManager manager, ConnectionManager connectionManager, BitChatProfile profile, BitChatNetwork network, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs, bool enableTracking)
         {
             _manager = manager;
             _profile = profile;
@@ -126,9 +128,14 @@ namespace BitChatClient
 
             //start tracking
             _manager.StartLocalTracking(_network.NetworkID);
-            _trackerManager = new TrackerManager(_network.NetworkID, connInfo);
+            _dhtClient = connectionManager.DhtClient;
+            _trackerManager = new TrackerManager(_network.NetworkID, connectionManager.LocalPort, _dhtClient);
             _trackerManager.DiscoveredPeers += _trackerManager_DiscoveredPeers;
-            _trackerManager.StartTracking(trackerURIs);
+
+            if (enableTracking)
+                _trackerManager.StartTracking(trackerURIs);
+            else
+                _trackerManager.AddTracker(trackerURIs);
 
             //start noop timer
             _NOOPTimer = new Timer(NOOPTimerCallback, null, NOOP_PACKET_TIMER_INTERVAL, Timeout.Infinite);
@@ -291,7 +298,6 @@ namespace BitChatClient
         {
             List<Certificate> peerCerts = new List<Certificate>();
             List<BitChatProfile.SharedFileInfo> sharedFileInfo = new List<BitChatProfile.SharedFileInfo>();
-            List<Uri> trackerURIs = new List<Uri>();
 
             lock (_peers)
             {
@@ -311,13 +317,10 @@ namespace BitChatClient
                 }
             }
 
-            foreach (TrackerClient tracker in _trackerManager.GetTrackers())
-                trackerURIs.Add(tracker.TrackerUri);
-
             if (_network.Type == BitChatNetworkType.PrivateChat)
-                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.PeerEmailAddress.Address, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), trackerURIs.ToArray());
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.PeerEmailAddress.Address, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _trackerManager.IsTrackerRunning);
             else
-                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), trackerURIs.ToArray());
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _trackerManager.IsTrackerRunning);
         }
 
         public BitChat.Peer[] GetPeerList()
@@ -463,11 +466,12 @@ namespace BitChatClient
                 }
             }
 
+            //send other peers ep list to online peers
+            byte[] packetData = BitChatMessage.CreatePeerExchange(peerList);
+
             foreach (Peer onlinePeer in onlinePeers)
             {
-                //send other peers ep list to online peer
-                byte[] packetData = BitChatMessage.CreatePeerExchange(peerList);
-                onlinePeer.WritePacket(packetData, 0, packetData.Length);
+                onlinePeer.WritePacket(packetData);
             }
         }
 
@@ -694,7 +698,7 @@ namespace BitChatClient
 
         #region TrackerManager
 
-        private void _trackerManager_DiscoveredPeers(TrackerManager sender, List<IPEndPoint> peerEPs)
+        private void _trackerManager_DiscoveredPeers(TrackerManager sender, IEnumerable<IPEndPoint> peerEPs)
         {
             _network.MakeConnection(peerEPs);
         }
@@ -702,6 +706,16 @@ namespace BitChatClient
         public TrackerClient[] GetTrackers()
         {
             return _trackerManager.GetTrackers();
+        }
+
+        public int GetTotalDhtPeers()
+        {
+            return _trackerManager.GetTotalDhtPeers();
+        }
+
+        public IPEndPoint[] GetDhtPeers()
+        {
+            return _trackerManager.GetDhtPeers();
         }
 
         public TrackerClient AddTracker(Uri trackerURI)
@@ -717,9 +731,22 @@ namespace BitChatClient
         public bool IsTrackerRunning
         { get { return _trackerManager.IsTrackerRunning; } }
 
+        public void StartTracking()
+        {
+            _trackerManager.StartTracking();
+        }
+
+        public void StopTracking()
+        {
+            _trackerManager.StopTracking();
+        }
+
         #endregion
 
         #region properties
+
+        public BinaryID NetworkID
+        { get { return _network.NetworkID; } }
 
         public BitChatNetworkType NetworkType
         { get { return _network.Type; } }
@@ -897,8 +924,7 @@ namespace BitChatClient
                                         sharedFile.AddChat(_bitchat);
                                         sharedFile.AddSeeder(this); //add the seeder
 
-                                        byte[] packetData = BitChatMessage.CreateFileParticipate(sharedFile.MetaData.FileID);
-                                        WritePacket(packetData, 0, packetData.Length);
+                                        WritePacket(BitChatMessage.CreateFileParticipate(sharedFile.MetaData.FileID));
                                     }
                                 }
                                 else
@@ -1076,6 +1102,13 @@ namespace BitChatClient
                             _connectedPeerList.AddRange(peerList);
                         }
 
+
+                        foreach (PeerInfo peerInfo in peerList)
+                        {
+                            _bitchat._network.MakeConnection(peerInfo.PeerEPList);
+                            _bitchat._dhtClient.AddNode(peerInfo.PeerEPList);
+                        }
+
                         _bitchat._network.MakeConnection(peerList);
 
                         //start network status check
@@ -1145,9 +1178,9 @@ namespace BitChatClient
                     RaiseEventNetworkStatusUpdated();
             }
 
-            internal void WritePacket(byte[] packetData, int offset, int count)
+            internal void WritePacket(byte[] packetData)
             {
-                _virtualPeer.WritePacket(packetData, offset, count);
+                _virtualPeer.WritePacket(packetData, 0, packetData.Length);
             }
 
             public override string ToString()
