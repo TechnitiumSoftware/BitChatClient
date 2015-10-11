@@ -113,7 +113,10 @@ namespace BitChatClient.Network.PeerDiscovery
                 if (disposing)
                 {
                     if (_announcementTimer != null)
+                    {
                         _announcementTimer.Dispose();
+                        _announcementTimer = null;
+                    }
                 }
 
                 _disposed = true;
@@ -318,9 +321,7 @@ namespace BitChatClient.Network.PeerDiscovery
             finally
             {
                 if (_announcementTimer != null)
-                {
                     _announcementTimer.Change(ANNOUNCEMENT_INTERVAL, Timeout.Infinite);
-                }
             }
         }
 
