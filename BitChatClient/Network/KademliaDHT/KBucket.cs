@@ -201,49 +201,6 @@ namespace BitChatClient.Network.KademliaDHT
             { }
         }
 
-        private NodeContact[] GetAllContacts()
-        {
-            lock (_lockObj)
-            {
-                NodeContact[] contacts;
-
-                if (_contacts == null)
-                {
-                    NodeContact[] leftContacts = _leftBucket.GetAllContacts();
-                    NodeContact[] rightContacts = _rightBucket.GetAllContacts();
-
-                    contacts = new NodeContact[leftContacts.Length + rightContacts.Length];
-
-                    Array.Copy(leftContacts, contacts, leftContacts.Length);
-                    Array.Copy(rightContacts, 0, contacts, leftContacts.Length, rightContacts.Length);
-                }
-                else
-                {
-                    if (_bucketContainsCurrentNode)
-                    {
-                        contacts = new NodeContact[_contacts.Count - 1];
-                        int i = 0;
-
-                        foreach (NodeContact contact in _contacts.Values)
-                        {
-                            if (!contact.IsCurrentNode)
-                            {
-                                contacts[i] = contact;
-                                i++;
-                            }
-                        }
-                    }
-                    else
-                    {
-                        contacts = new NodeContact[_contacts.Count];
-                        _contacts.Values.CopyTo(contacts, 0);
-                    }
-                }
-
-                return contacts;
-            }
-        }
-
         #endregion
 
         #region public
@@ -508,10 +465,71 @@ namespace BitChatClient.Network.KademliaDHT
                 if (_contacts == null)
                     return _leftBucket.GetTotalContacts(includeReplacementCache) + _rightBucket.GetTotalContacts(includeReplacementCache);
 
-                if (includeReplacementCache)
-                    return _contacts.Count + _replacementContacts.Count;
+                int adjust = 0;
 
-                return _contacts.Count;
+                if (_bucketContainsCurrentNode)
+                    adjust = -1;
+
+                if (includeReplacementCache)
+                    return _contacts.Count + _replacementContacts.Count + adjust;
+
+                return _contacts.Count + adjust;
+            }
+        }
+
+        public NodeContact[] GetAllContacts(bool includeReplacementCache = false)
+        {
+            lock (_lockObj)
+            {
+                NodeContact[] contacts;
+
+                if (_contacts == null)
+                {
+                    NodeContact[] leftContacts = _leftBucket.GetAllContacts();
+                    NodeContact[] rightContacts = _rightBucket.GetAllContacts();
+
+                    contacts = new NodeContact[leftContacts.Length + rightContacts.Length];
+
+                    Array.Copy(leftContacts, contacts, leftContacts.Length);
+                    Array.Copy(rightContacts, 0, contacts, leftContacts.Length, rightContacts.Length);
+                }
+                else
+                {
+                    int cacheCount;
+
+                    if (includeReplacementCache)
+                        cacheCount = _replacementContacts.Count;
+                    else
+                        cacheCount = 0;
+
+                    if (_bucketContainsCurrentNode)
+                    {
+                        contacts = new NodeContact[_contacts.Count - 1 + cacheCount];
+                        int i = 0;
+
+                        foreach (NodeContact contact in _contacts.Values)
+                        {
+                            if (!contact.IsCurrentNode)
+                            {
+                                contacts[i] = contact;
+                                i++;
+                            }
+                        }
+
+                        if (includeReplacementCache)
+                            _replacementContacts.Values.CopyTo(contacts, _contacts.Count - 1);
+                    }
+                    else
+                    {
+                        contacts = new NodeContact[_contacts.Count + cacheCount];
+                        _contacts.Values.CopyTo(contacts, 0);
+
+                        if (includeReplacementCache)
+                            _replacementContacts.Values.CopyTo(contacts, _contacts.Count);
+                    }
+                }
+
+                return contacts;
             }
         }
 
