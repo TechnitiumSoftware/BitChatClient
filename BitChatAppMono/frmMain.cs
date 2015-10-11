@@ -327,9 +327,16 @@ namespace BitChatAppMono
             {
                 if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
                 {
-                    BitChat chat = _service.CreateBitChat(new System.Net.Mail.MailAddress(frm.txtNetworkNameOrPeerEmailAddress.Text.ToLower()), frm.txtPassword.Text, !frm.OnlyLanChat);
+                    try
+                    {
+                        BitChat chat = _service.CreateBitChat(new System.Net.Mail.MailAddress(frm.txtNetworkNameOrPeerEmailAddress.Text.ToLower()), frm.txtPassword.Text, !frm.OnlyLanChat);
 
-                    AddChatView(chat);
+                        AddChatView(chat);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message, "Error!", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                    }
                 }
             }
         }
@@ -340,9 +347,16 @@ namespace BitChatAppMono
             {
                 if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
                 {
-                    BitChat chat = _service.CreateBitChat(frm.txtNetworkNameOrPeerEmailAddress.Text, frm.txtPassword.Text, !frm.OnlyLanChat);
+                    try
+                    {
+                        BitChat chat = _service.CreateBitChat(frm.txtNetworkNameOrPeerEmailAddress.Text, frm.txtPassword.Text, !frm.OnlyLanChat);
 
-                    AddChatView(chat);
+                        AddChatView(chat);
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message, "Error!", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                    }
                 }
             }
         }
