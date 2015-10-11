@@ -347,6 +347,14 @@ namespace BitChatAppMono
             }
         }
 
+        private void networkInfoToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (frmNetworkInfo frm = new frmNetworkInfo(_service.NetworkInfo))
+            {
+                frm.ShowDialog(this);
+            }
+        }
+
         private void mnuProfileSettings_Click(object sender, EventArgs e)
         {
             using (frmSettings frm = new frmSettings(_service))
@@ -361,6 +369,7 @@ namespace BitChatAppMono
 
                     _profile.DownloadFolder = frm.DownloadFolder;
                     _profile.CheckCertificateRevocationList = frm.CheckCertificateRevocationList;
+                    _profile.EnableUPnP = frm.EnableUPnP;
                     _profile.TrackerURIs = frm.Trackers;
 
                     SaveProfile();

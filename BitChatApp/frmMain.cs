@@ -376,6 +376,14 @@ namespace BitChatApp
             }
         }
 
+        private void networkInfoToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (frmNetworkInfo frm = new frmNetworkInfo(_service.NetworkInfo))
+            {
+                frm.ShowDialog(this);
+            }
+        }
+
         private void mnuProfileSettings_Click(object sender, EventArgs e)
         {
             using (frmSettings frm = new frmSettings(_service))
@@ -390,6 +398,7 @@ namespace BitChatApp
 
                     _profile.DownloadFolder = frm.DownloadFolder;
                     _profile.CheckCertificateRevocationList = frm.CheckCertificateRevocationList;
+                    _profile.EnableUPnP = frm.EnableUPnP;
                     _profile.TrackerURIs = frm.Trackers;
 
                     SaveProfile();
@@ -473,8 +482,11 @@ namespace BitChatApp
                 //below vista
                 try
                 {
-                    if (!WindowsFirewall.PortExists(Protocol.TCP, _service.LocalPort))
-                        WindowsFirewall.AddPort("Bit Chat - TCP", Protocol.TCP, _service.LocalPort, true);
+                    if (!WindowsFirewall.PortExists(Protocol.TCP, _service.NetworkInfo.LocalPort))
+                        WindowsFirewall.AddPort("Bit Chat", Protocol.TCP, _service.NetworkInfo.LocalPort, true);
+
+                    if (!WindowsFirewall.PortExists(Protocol.UDP, _service.NetworkInfo.DhtLocalPort))
+                        WindowsFirewall.AddPort("Bit Chat - DHT", Protocol.UDP, _service.NetworkInfo.DhtLocalPort, true);
 
                     if (!WindowsFirewall.PortExists(Protocol.UDP, 41733))
                         WindowsFirewall.AddPort("Bit Chat - Local Discovery", Protocol.UDP, 41733, true);

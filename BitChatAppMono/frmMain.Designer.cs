@@ -56,6 +56,7 @@ namespace BitChatAppMono
             this.label2 = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
             this.btnCreateChat = new BitChatAppMono.UserControls.CustomButton();
+            this.networkInfoToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuChat.SuspendLayout();
             this.mnuPlus.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.mainContainer)).BeginInit();
@@ -118,6 +119,7 @@ namespace BitChatAppMono
             this.mnuAddPrivateChat1,
             this.mnuAddGroupChat1,
             this.toolStripSeparator3,
+            this.networkInfoToolStripMenuItem,
             this.mnuProfileSettings,
             this.mnuSwitchProfile,
             this.mnuCheckUpdate,
@@ -125,7 +127,7 @@ namespace BitChatAppMono
             this.toolStripSeparator5,
             this.mnuExit});
             this.mnuPlus.Name = "systrayMenu";
-            this.mnuPlus.Size = new System.Drawing.Size(174, 148);
+            this.mnuPlus.Size = new System.Drawing.Size(174, 214);
             // 
             // mnuAddPrivateChat1
             // 
@@ -134,7 +136,7 @@ namespace BitChatAppMono
             this.mnuAddPrivateChat1.Size = new System.Drawing.Size(173, 22);
             this.mnuAddPrivateChat1.Text = "Add &Private Chat";
             this.mnuAddPrivateChat1.Click += new System.EventHandler(this.mnuAddPrivateChat_Click);
-            //  
+            // 
             // mnuAddGroupChat1
             // 
             this.mnuAddGroupChat1.Font = new System.Drawing.Font("Segoe UI", 9F);
@@ -324,6 +326,13 @@ namespace BitChatAppMono
             this.btnCreateChat.TabStop = false;
             this.btnCreateChat.Click += new System.EventHandler(this.btnCreateChat_Click);
             // 
+            // networkInfoToolStripMenuItem
+            // 
+            this.networkInfoToolStripMenuItem.Name = "networkInfoToolStripMenuItem";
+            this.networkInfoToolStripMenuItem.Size = new System.Drawing.Size(173, 22);
+            this.networkInfoToolStripMenuItem.Text = "Network &Info";
+            this.networkInfoToolStripMenuItem.Click += new System.EventHandler(this.networkInfoToolStripMenuItem_Click);
+            // 
             // frmMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -384,6 +393,7 @@ namespace BitChatAppMono
         private System.Windows.Forms.ToolStripMenuItem mnuProfileSettings;
         private System.Windows.Forms.ToolStripMenuItem mnuAddPrivateChat2;
         private System.Windows.Forms.ToolStripMenuItem mnuAddPrivateChat1;
+        private System.Windows.Forms.ToolStripMenuItem networkInfoToolStripMenuItem;
 
     }
 }

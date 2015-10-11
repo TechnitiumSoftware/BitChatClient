@@ -65,6 +65,7 @@ namespace BitChatApp
             this.mnuAbout2 = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.mnuExit2 = new System.Windows.Forms.ToolStripMenuItem();
+            this.networkInfoToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuChat.SuspendLayout();
             this.mnuSysTray.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.mainContainer)).BeginInit();
@@ -353,6 +354,7 @@ namespace BitChatApp
             this.mnuAddPrivateChat1,
             this.mnuAddGroupChat1,
             this.toolStripSeparator4,
+            this.networkInfoToolStripMenuItem,
             this.mnuProfileSettings,
             this.mnuSwitchProfile2,
             this.mnuCheckUpdate2,
@@ -360,7 +362,7 @@ namespace BitChatApp
             this.toolStripSeparator2,
             this.mnuExit2});
             this.mnuPlus.Name = "addChatContextMenu";
-            this.mnuPlus.Size = new System.Drawing.Size(174, 192);
+            this.mnuPlus.Size = new System.Drawing.Size(174, 214);
             // 
             // mnuAddPrivateChat1
             // 
@@ -403,6 +405,13 @@ namespace BitChatApp
             this.mnuExit2.Size = new System.Drawing.Size(173, 22);
             this.mnuExit2.Text = "E&xit";
             this.mnuExit2.Click += new System.EventHandler(this.mnuExit_Click);
+            // 
+            // networkInfoToolStripMenuItem
+            // 
+            this.networkInfoToolStripMenuItem.Name = "networkInfoToolStripMenuItem";
+            this.networkInfoToolStripMenuItem.Size = new System.Drawing.Size(173, 22);
+            this.networkInfoToolStripMenuItem.Text = "Network &Info";
+            this.networkInfoToolStripMenuItem.Click += new System.EventHandler(this.networkInfoToolStripMenuItem_Click);
             // 
             // frmMain
             // 
@@ -474,6 +483,7 @@ namespace BitChatApp
         private System.Windows.Forms.ToolStripMenuItem mnuExit2;
         private System.Windows.Forms.ToolStripMenuItem mnuAddPrivateChat2;
         private System.Windows.Forms.ToolStripMenuItem mnuAddPrivateChat1;
+        private System.Windows.Forms.ToolStripMenuItem networkInfoToolStripMenuItem;
 
     }
 }

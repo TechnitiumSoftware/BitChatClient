@@ -128,6 +128,12 @@
     <Compile Include="frmImportPEM.Designer.cs">
       <DependentUpon>frmImportPEM.cs</DependentUpon>
     </Compile>
+    <Compile Include="frmNetworkInfo.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmNetworkInfo.Designer.cs">
+      <DependentUpon>frmNetworkInfo.cs</DependentUpon>
+    </Compile>
     <Compile Include="frmProfileManager.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -267,6 +273,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="frmImportPEM.resx">
       <DependentUpon>frmImportPEM.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmNetworkInfo.resx">
+      <DependentUpon>frmNetworkInfo.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmProfileManager.resx">
       <DependentUpon>frmProfileManager.cs</DependentUpon>
