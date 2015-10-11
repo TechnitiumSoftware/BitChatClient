@@ -118,7 +118,11 @@ namespace BitChatClient.FileSharing
                     mS.Write(_blockHash[i], 0, _blockHash[i].Length);
 
                 mS.Position = 0;
-                return new BinaryID(_hash.ComputeHash(mS));
+
+                lock (_hash)
+                {
+                    return new BinaryID(_hash.ComputeHash(mS));
+                }
             }
         }
 
@@ -128,7 +132,10 @@ namespace BitChatClient.FileSharing
 
         public byte[] ComputeBlockHash(byte[] blockData)
         {
-            return _hash.ComputeHash(blockData);
+            lock (_hash)
+            {
+                return _hash.ComputeHash(blockData);
+            }
         }
 
         public override void WriteTo(BinaryWriter bW)

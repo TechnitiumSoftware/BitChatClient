@@ -168,6 +168,13 @@ namespace BitChatClient.Network.Connections
                 if (_tcpListenerThread != null)
                     _tcpListenerThread.Abort();
 
+                //stop dht seeding tracker
+                if (_dhtSeedingTracker != null)
+                {
+                    _dhtSeedingTracker.StopTracking();
+                    _dhtSeedingTracker = null;
+                }
+
                 //shutdown upnp port mapping
                 if (_connectivityCheckTimer != null)
                 {

@@ -227,7 +227,7 @@ namespace BitChatClient
             Dictionary<BinaryID, BitChatNetwork> _networks = new Dictionary<BinaryID, BitChatNetwork>();
 
             //proxy nodes
-            const int PROXY_NODE_MAX_CONNECTIONS = 3;
+            const int PROXY_NODE_MAX_CONNECTIONS = 5;
             const int PROXY_NODE_CHECK_INTERVAL = 30000; //30sec
 
             Dictionary<IPEndPoint, Connection> _proxyNodeConnections = new Dictionary<IPEndPoint, Connection>();
