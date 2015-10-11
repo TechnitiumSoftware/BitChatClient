@@ -89,6 +89,8 @@ namespace BitChatClient
             _bitChatInfoList = new BitChatInfo[] { };
             _trackerURIs = trackerURIs;
             _checkCertificateRevocationList = true;
+            _bootstrapDhtNodes = new IPEndPoint[] { };
+            _enableUPnP = true;
         }
 
         public BitChatProfile(CertificateStore localCertStore, int localPort, string downloadFolder, Uri[] trackerURIs, string password)
@@ -100,6 +102,8 @@ namespace BitChatClient
             _bitChatInfoList = new BitChatInfo[] { };
             _trackerURIs = trackerURIs;
             _checkCertificateRevocationList = true;
+            _bootstrapDhtNodes = new IPEndPoint[] { };
+            _enableUPnP = true;
         }
 
         public BitChatProfile(Stream s, string password)
