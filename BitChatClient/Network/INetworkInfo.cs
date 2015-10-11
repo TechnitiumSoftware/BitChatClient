@@ -17,10 +17,31 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-namespace BitChatClient.Network.Connections
+using BitChatClient.Network.Connections;
+using System.Net;
+
+namespace BitChatClient.Network
 {
-    interface IConnectionInfo
+    public interface INetworkInfo
     {
-        int GetExternalPort();
+        BinaryID LocalPeerID { get; }
+
+        int LocalPort { get; }
+
+        BinaryID DhtNodeID { get; }
+
+        int DhtLocalPort { get; }
+
+        int DhtTotalNodes { get; }
+
+        InternetConnectivityStatus InternetStatus { get; }
+
+        UPnPDeviceStatus UPnPStatus { get; }
+
+        IPAddress UPnPExternalIP { get; }
+
+        IPEndPoint ExternalEP { get; }
+
+        IPEndPoint[] ProxyNodes { get; }
     }
 }
