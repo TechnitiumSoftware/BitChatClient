@@ -69,9 +69,11 @@ namespace BitChatClient
         CertificateStore _localCertStore;
         int _localPort;
         string _downloadFolder;
-        BitChatInfo[] _bitChatInfoList;
         Uri[] _trackerURIs;
+        BitChatInfo[] _bitChatInfoList;
         bool _checkCertificateRevocationList;
+        IPEndPoint[] _bootstrapDhtNodes;
+        bool _enableUPnP;
 
         byte[] _clientData;
 
@@ -112,11 +114,6 @@ namespace BitChatClient
 
         #region private
 
-        public void UpdateBitChatInfo(BitChatInfo[] bitChatInfoList)
-        {
-            _bitChatInfoList = bitChatInfoList;
-        }
-
         protected override void ReadPlainTextFrom(BinaryReader bR)
         {
             if (Encoding.ASCII.GetString(bR.ReadBytes(2)) != "BP")
@@ -127,81 +124,133 @@ namespace BitChatClient
             switch (version)
             {
                 case 1:
-                    #region version 1
-                    {
-                        //tracker client id
-                        TrackerClientID localClientID = new TrackerClientID(bR);
-
-                        //local cert store
-                        if (bR.ReadByte() == 1)
-                            _localCertStore = new CertificateStore(bR);
-
-                        //bitchat local service end point
-                        IPEndPoint localEP = new IPEndPoint(new IPAddress(bR.ReadBytes(bR.ReadByte())), bR.ReadInt32());
-                        _localPort = localEP.Port;
-
-                        //default tracker urls
-                        _trackerURIs = DefaultTrackerURIs;
-
-                        break;
-                    }
-                    #endregion
+                    ReadSettingsVersion1(bR);
+                    break;
 
                 case 2:
                 case 3:
-                    #region version 2 & 3
-                    {
-                        //local cert store
-                        if (bR.ReadByte() == 1)
-                            _localCertStore = new CertificateStore(bR);
+                    ReadSettingsVersion2And3(version, bR);
+                    break;
 
-                        //bitchat local service end point
-                        IPEndPoint localEP = new IPEndPoint(new IPAddress(bR.ReadBytes(bR.ReadByte())), bR.ReadInt32());
-                        _localPort = localEP.Port;
-
-                        //download folder
-                        _downloadFolder = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadUInt16()));
-                        if (_downloadFolder == null)
-                            _downloadFolder = @"C:\";
-
-                        //load tracker urls
-                        _trackerURIs = new Uri[bR.ReadByte()];
-                        for (int i = 0; i < _trackerURIs.Length; i++)
-                            _trackerURIs[i] = new Uri(Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte())));
-
-                        //load bitchat info
-                        _bitChatInfoList = new BitChatInfo[bR.ReadByte()];
-                        for (int i = 0; i < _bitChatInfoList.Length; i++)
-                            _bitChatInfoList[i] = new BitChatInfo(bR);
-
-                        if (version > 2)
-                        {
-                            //check CertificateRevocationList
-                            _checkCertificateRevocationList = bR.ReadBoolean();
-                        }
-                        else
-                        {
-                            _checkCertificateRevocationList = true;
-                        }
-
-                        //generic client data
-                        int dataCount = bR.ReadInt32();
-                        if (dataCount > 0)
-                            _clientData = bR.ReadBytes(dataCount);
-
-                        break;
-                    }
-                    #endregion
+                case 4:
+                    ReadSettingsVersion4(bR);
+                    break;
 
                 default:
                     throw new BitChatException("BitChatProfile data version not supported.");
             }
         }
 
+        private void ReadSettingsVersion1(BinaryReader bR)
+        {
+            //tracker client id
+            TrackerClientID localClientID = new TrackerClientID(bR);
+
+            //local cert store
+            if (bR.ReadByte() == 1)
+                _localCertStore = new CertificateStore(bR);
+
+            //bitchat local service end point
+            IPEndPoint localEP = new IPEndPoint(new IPAddress(bR.ReadBytes(bR.ReadByte())), bR.ReadInt32());
+            _localPort = localEP.Port;
+
+            //default tracker urls
+            _trackerURIs = DefaultTrackerURIs;
+
+            _checkCertificateRevocationList = true;
+            _bootstrapDhtNodes = new IPEndPoint[] { };
+            _enableUPnP = true;
+        }
+
+        private void ReadSettingsVersion2And3(byte version, BinaryReader bR)
+        {
+            //local cert store
+            if (bR.ReadByte() == 1)
+                _localCertStore = new CertificateStore(bR);
+
+            //bitchat local service end point
+            IPEndPoint localEP = new IPEndPoint(new IPAddress(bR.ReadBytes(bR.ReadByte())), bR.ReadInt32());
+            _localPort = localEP.Port;
+
+            //download folder
+            _downloadFolder = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadUInt16()));
+            if (_downloadFolder == null)
+                _downloadFolder = @"C:\";
+
+            //load tracker urls
+            _trackerURIs = new Uri[bR.ReadByte()];
+            for (int i = 0; i < _trackerURIs.Length; i++)
+                _trackerURIs[i] = new Uri(Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte())));
+
+            //load bitchat info
+            _bitChatInfoList = new BitChatInfo[bR.ReadByte()];
+            for (int i = 0; i < _bitChatInfoList.Length; i++)
+                _bitChatInfoList[i] = new BitChatInfo(bR);
+
+            if (version > 2)
+            {
+                //check CertificateRevocationList
+                _checkCertificateRevocationList = bR.ReadBoolean();
+            }
+            else
+            {
+                _checkCertificateRevocationList = true;
+            }
+
+            //generic client data
+            int dataCount = bR.ReadInt32();
+            if (dataCount > 0)
+                _clientData = bR.ReadBytes(dataCount);
+
+            _bootstrapDhtNodes = new IPEndPoint[] { };
+            _enableUPnP = true;
+        }
+
+        private void ReadSettingsVersion4(BinaryReader bR)
+        {
+            //local cert store
+            if (bR.ReadByte() == 1)
+                _localCertStore = new CertificateStore(bR);
+
+            //bitchat local port
+            _localPort = bR.ReadInt32();
+
+            //download folder
+            _downloadFolder = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadUInt16()));
+            if (_downloadFolder == null)
+                _downloadFolder = @"C:\";
+
+            //load tracker urls
+            _trackerURIs = new Uri[bR.ReadByte()];
+            for (int i = 0; i < _trackerURIs.Length; i++)
+                _trackerURIs[i] = new Uri(Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte())));
+
+            //load bitchat info
+            _bitChatInfoList = new BitChatInfo[bR.ReadByte()];
+            for (int i = 0; i < _bitChatInfoList.Length; i++)
+                _bitChatInfoList[i] = new BitChatInfo(bR);
+
+            //check CertificateRevocationList
+            _checkCertificateRevocationList = bR.ReadBoolean();
+
+            //bootstrap dht nodes
+            _bootstrapDhtNodes = new IPEndPoint[bR.ReadInt32()];
+            for (int i = 0; i < _bootstrapDhtNodes.Length; i++)
+                _bootstrapDhtNodes[i] = IPEndPointParser.Parse(bR);
+
+            //upnp enabled
+            _enableUPnP = bR.ReadBoolean();
+
+            //generic client data
+            int dataCount = bR.ReadInt32();
+            if (dataCount > 0)
+                _clientData = bR.ReadBytes(dataCount);
+        }
+
         protected override void WritePlainTextTo(BinaryWriter bW)
         {
             bW.Write(Encoding.ASCII.GetBytes("BP"));
-            bW.Write((byte)3);
+            bW.Write((byte)4);
 
             //local cert store
             if (_localCertStore == null)
@@ -212,10 +261,7 @@ namespace BitChatClient
                 _localCertStore.WriteTo(bW);
             }
 
-            //bitchat local service end point
-            byte[] localIP = new byte[4];
-            bW.Write(Convert.ToByte(localIP.Length));
-            bW.Write(localIP);
+            //bitchat local port
             bW.Write(_localPort);
 
             //download folder
@@ -245,6 +291,14 @@ namespace BitChatClient
             //check CertificateRevocationList
             bW.Write(_checkCertificateRevocationList);
 
+            //bootstrap dht nodes
+            bW.Write(_bootstrapDhtNodes.Length);
+            foreach (IPEndPoint nodeEP in _bootstrapDhtNodes)
+                IPEndPointParser.WriteTo(nodeEP, bW);
+
+            //upnp enabled
+            bW.Write(_enableUPnP);
+
             //generic client data
             if ((_clientData == null) || (_clientData.Length == 0))
             {
@@ -273,6 +327,12 @@ namespace BitChatClient
             set { _localPort = value; }
         }
 
+        public IPEndPoint[] BootstrapDhtNodes
+        {
+            get { return _bootstrapDhtNodes; }
+            set { _bootstrapDhtNodes = value; }
+        }
+
         public string DownloadFolder
         {
             get { return _downloadFolder; }
@@ -280,7 +340,10 @@ namespace BitChatClient
         }
 
         public BitChatInfo[] BitChatInfoList
-        { get { return _bitChatInfoList; } }
+        {
+            get { return _bitChatInfoList; }
+            set { _bitChatInfoList = value; }
+        }
 
         public Uri[] TrackerURIs
         {
@@ -300,6 +363,12 @@ namespace BitChatClient
             set { _clientData = value; }
         }
 
+        public bool EnableUPnP
+        {
+            get { return _enableUPnP; }
+            set { _enableUPnP = value; }
+        }
+
         #endregion
 
         public class BitChatInfo : WriteStream
@@ -313,12 +382,13 @@ namespace BitChatClient
             Certificate[] _peerCerts;
             SharedFileInfo[] _sharedFiles;
             Uri[] _trackerURIs;
+            bool _enableTracking;
 
             #endregion
 
             #region constructor
 
-            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID networkID, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs)
+            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID networkID, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking)
             {
                 _type = type;
                 _networkNameOrPeerEmailAddress = networkNameOrPeerEmailAddress;
@@ -327,6 +397,7 @@ namespace BitChatClient
                 _peerCerts = peerCerts;
                 _sharedFiles = sharedFiles;
                 _trackerURIs = trackerURIs;
+                _enableTracking = enableTracking;
             }
 
             public BitChatInfo(BinaryReader bR)
@@ -342,6 +413,7 @@ namespace BitChatClient
                     case 2:
                     case 3:
                     case 4:
+                    case 5:
                         if (version > 2)
                             _type = (BitChatNetworkType)bR.ReadByte();
                         else
@@ -373,6 +445,11 @@ namespace BitChatClient
                                 _trackerURIs[i] = new Uri(Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte())));
                         }
 
+                        if (version > 4)
+                            _enableTracking = bR.ReadBoolean();
+                        else
+                            _enableTracking = true;
+
                         break;
 
                     default:
@@ -387,7 +464,7 @@ namespace BitChatClient
             public override void WriteTo(BinaryWriter bW)
             {
                 bW.Write(Encoding.ASCII.GetBytes("BI"));
-                bW.Write((byte)4);
+                bW.Write((byte)5);
 
                 bW.Write((byte)_type);
 
@@ -426,6 +503,8 @@ namespace BitChatClient
                     bW.Write(Convert.ToByte(buffer.Length));
                     bW.Write(buffer);
                 }
+
+                bW.Write(_enableTracking);
             }
 
             #endregion
@@ -452,6 +531,12 @@ namespace BitChatClient
 
             public Uri[] TrackerURIs
             { get { return _trackerURIs; } }
+
+            public bool EnableTracking
+            {
+                get { return _enableTracking; }
+                set { _enableTracking = value; }
+            }
 
             #endregion
         }
