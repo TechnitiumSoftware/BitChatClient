@@ -17,15 +17,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using TechnitiumLibrary.IO;
+using TechnitiumLibrary.Net.Proxy;
 
 namespace BitChatClient.Network.KademliaDHT
 {
-    class DhtRpcQueryManager
+    class DhtRpcQueryManager : IDisposable
     {
         #region variables
 
@@ -36,6 +38,9 @@ namespace BitChatClient.Network.KademliaDHT
         int _k;
         NodeContact _currentNode;
         KBucket _routingTable;
+
+        SocksClient _proxy;
+        SocksUdpAssociateRequestHandler _proxyRequestHandler;
 
         Socket _udpClient;
         Thread _readThread;
@@ -66,6 +71,46 @@ namespace BitChatClient.Network.KademliaDHT
 
         #endregion
 
+        #region IDisposable
+
+        ~DhtRpcQueryManager()
+        {
+            Dispose(false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        bool _disposed = false;
+
+        private void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (_udpClient != null)
+                    _udpClient.Dispose();
+
+                if (_proxyRequestHandler != null)
+                {
+                    _proxyRequestHandler.Dispose();
+                    _proxyRequestHandler = null;
+                }
+
+                if (_readThread != null)
+                    _readThread.Abort();
+
+                if (_sendBufferStream != null)
+                    _sendBufferStream.Dispose();
+
+                _disposed = true;
+            }
+        }
+
+        #endregion
+
         #region private
 
         private void ReadPacketsAsync(object state)
@@ -75,52 +120,85 @@ namespace BitChatClient.Network.KademliaDHT
             byte[] bufferRecv = recvStream.Buffer;
             int bytesRecv;
 
-            try
+            while (true)
             {
-                while (true)
+                try
                 {
-                    bytesRecv = _udpClient.ReceiveFrom(bufferRecv, ref remoteNodeEP);
-
-                    if (bytesRecv > 0)
+                    while (true)
                     {
-                        recvStream.SetLength(bytesRecv);
-                        recvStream.Position = 0;
-
-                        try
+                        if (_proxy == null)
                         {
-                            DhtRpcPacket response = new DhtRpcPacket(recvStream, (remoteNodeEP as IPEndPoint).Address);
-
-                            //only incoming response packets handled here
-                            if (response.PacketType == RpcPacketType.Response)
+                            bytesRecv = _udpClient.ReceiveFrom(bufferRecv, ref remoteNodeEP);
+                        }
+                        else
+                        {
+                            if ((_proxyRequestHandler == null) || (!_proxyRequestHandler.ProxyConnected))
                             {
-                                Transaction transaction = null;
+                                if (_proxyRequestHandler != null)
+                                    _proxyRequestHandler.Dispose();
 
-                                lock (_transactions)
+                                _proxyRequestHandler = _proxy.UdpAssociate();
+                            }
+
+                            try
+                            {
+                                SocksEndPoint socksRemoteNodeEP;
+                                bytesRecv = _proxyRequestHandler.ReceiveFrom(bufferRecv, 0, bufferRecv.Length, out socksRemoteNodeEP);
+                                remoteNodeEP = socksRemoteNodeEP.GetEndPoint();
+                            }
+                            catch
+                            {
+                                bytesRecv = 0;
+                            }
+                        }
+
+                        if (bytesRecv > 0)
+                        {
+                            recvStream.SetLength(bytesRecv);
+                            recvStream.Position = 0;
+
+                            try
+                            {
+                                DhtRpcPacket response = new DhtRpcPacket(recvStream, (remoteNodeEP as IPEndPoint).Address);
+
+                                //only incoming response packets handled here
+                                if (response.PacketType == RpcPacketType.Response)
                                 {
-                                    if (_transactions.ContainsKey(response.TransactionID))
+                                    Transaction transaction = null;
+
+                                    lock (_transactions)
                                     {
-                                        transaction = _transactions[response.TransactionID];
+                                        if (_transactions.ContainsKey(response.TransactionID))
+                                        {
+                                            transaction = _transactions[response.TransactionID];
+                                        }
                                     }
-                                }
 
-                                if ((transaction != null) && transaction.RemoteNodeEP.Equals(remoteNodeEP))
-                                {
-                                    lock (transaction)
+                                    if ((transaction != null) && transaction.RemoteNodeEP.Equals(remoteNodeEP))
                                     {
-                                        transaction.ResponsePacket = response;
+                                        lock (transaction)
+                                        {
+                                            transaction.ResponsePacket = response;
 
-                                        Monitor.Pulse(transaction);
+                                            Monitor.Pulse(transaction);
+                                        }
                                     }
                                 }
                             }
+                            catch
+                            { }
                         }
-                        catch
-                        { }
                     }
                 }
+                catch (ThreadAbortException)
+                {
+                    return;
+                }
+                catch
+                {
+                    Thread.Sleep(5000);
+                }
             }
-            catch
-            { }
         }
 
         private DhtRpcPacket Query(DhtRpcPacket packet, IPEndPoint remoteNodeEP, NodeContact contact)
@@ -140,7 +218,21 @@ namespace BitChatClient.Network.KademliaDHT
                     {
                         _sendBufferStream.Position = 0;
                         packet.WriteTo(_sendBufferStream);
-                        _udpClient.SendTo(_sendBufferStream.Buffer, 0, (int)_sendBufferStream.Position, SocketFlags.None, remoteNodeEP);
+
+                        if (_proxy == null)
+                            _udpClient.SendTo(_sendBufferStream.Buffer, 0, (int)_sendBufferStream.Position, SocketFlags.None, remoteNodeEP);
+                        else
+                        {
+                            if ((_proxyRequestHandler == null) || (!_proxyRequestHandler.ProxyConnected))
+                            {
+                                if (_proxyRequestHandler != null)
+                                    _proxyRequestHandler.Dispose();
+
+                                _proxyRequestHandler = _proxy.UdpAssociate();
+                            }
+
+                            _proxyRequestHandler.SendTo(_sendBufferStream.Buffer, 0, (int)_sendBufferStream.Position, new SocksEndPoint(remoteNodeEP));
+                        }
                     }
 
                     if (!Monitor.Wait(transaction, QUERY_TIMEOUT))
@@ -152,10 +244,16 @@ namespace BitChatClient.Network.KademliaDHT
                     }
 
                     //auto add contact or update last seen time
-                    if (contact != null)
-                        _routingTable.AddContact(contact);
+                    if (contact == null)
+                        contact = transaction.ResponsePacket.SourceNode;
+
+                    KBucket closestBucket = _routingTable.FindClosestBucket(contact.NodeID);
+                    NodeContact bucketContact = closestBucket.FindContactInCurrentBucket(contact.NodeID);
+
+                    if (bucketContact == null)
+                        closestBucket.AddContactInCurrentBucket(contact);
                     else
-                        _routingTable.AddContact(transaction.ResponsePacket.SourceNode);
+                        bucketContact.UpdateLastSeenTime();
 
                     return transaction.ResponsePacket;
                 }
@@ -490,6 +588,22 @@ namespace BitChatClient.Network.KademliaDHT
                 Monitor.Wait(peers, QUERY_TIMEOUT);
 
                 return peers.ToArray();
+            }
+        }
+
+        #endregion
+
+        #region properties
+
+        public SocksClient SocksProxy
+        {
+            get { return _proxy; }
+            set
+            {
+                _proxy = value;
+
+                if (_proxyRequestHandler != null)
+                    _proxyRequestHandler.Dispose();
             }
         }
 
