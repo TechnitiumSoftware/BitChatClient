@@ -21,17 +21,17 @@ using BitChatClient.Network.Connections;
 using System;
 using System.Collections.Generic;
 using System.Net;
+using TechnitiumLibrary.Net.Proxy;
 
 namespace BitChatClient.Network
 {
-    class ProxyNetwork
+    class ProxyNetwork : IDisposable
     {
         #region variables
 
         static Dictionary<BinaryID, ProxyNetwork> _proxyNetworks = new Dictionary<BinaryID, ProxyNetwork>(2);
 
         TrackerManager _trackerManager;
-
         Dictionary<BinaryID, Connection> _proxyConnections = new Dictionary<BinaryID, Connection>(2);
 
         #endregion
@@ -45,9 +45,37 @@ namespace BitChatClient.Network
 
         #endregion
 
+        #region IDisposable
+
+        ~ProxyNetwork()
+        {
+            Dispose(false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        bool _disposed = false;
+
+        private void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (_trackerManager != null)
+                    _trackerManager.Dispose();
+
+                _disposed = true;
+            }
+        }
+
+        #endregion
+
         #region static
 
-        public static ProxyNetwork JoinProxyNetwork(BinaryID networkID, int servicePort, Connection connection)
+        public static ProxyNetwork JoinProxyNetwork(BinaryID networkID, int servicePort, Connection connection, SocksClient proxy)
         {
             lock (_proxyNetworks)
             {
@@ -62,6 +90,8 @@ namespace BitChatClient.Network
                 else
                 {
                     ProxyNetwork proxyNetwork = new ProxyNetwork(networkID, servicePort);
+                    proxyNetwork.SocksProxy = proxy;
+
                     _proxyNetworks.Add(networkID, proxyNetwork);
 
                     proxyNetwork._proxyConnections.Add(connection.RemotePeerID, connection);
@@ -98,6 +128,15 @@ namespace BitChatClient.Network
             }
 
             return null;
+        }
+
+        public static void UpdateSocksProxy(SocksClient proxy)
+        {
+            lock (_proxyNetworks)
+            {
+                foreach (ProxyNetwork proxyNetwork in _proxyNetworks.Values)
+                    proxyNetwork.SocksProxy = proxy;
+            }
         }
 
         #endregion
@@ -139,6 +178,12 @@ namespace BitChatClient.Network
 
         public BinaryID NetworkID
         { get { return _trackerManager.NetworkID; } }
+
+        public SocksClient SocksProxy
+        {
+            get { return _trackerManager.SocksClient; }
+            set { _trackerManager.SocksClient = value; }
+        }
 
         #endregion
     }

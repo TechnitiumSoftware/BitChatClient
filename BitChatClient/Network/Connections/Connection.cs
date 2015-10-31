@@ -364,7 +364,7 @@ namespace BitChatClient.Network.Connections
                                                     {
                                                         if (!_proxyNetworks.ContainsKey(networkID))
                                                         {
-                                                            ProxyNetwork proxyNetwork = ProxyNetwork.JoinProxyNetwork(networkID, _connectionManager.LocalPort, this);
+                                                            ProxyNetwork proxyNetwork = ProxyNetwork.JoinProxyNetwork(networkID, _connectionManager.LocalPort, this, _connectionManager.Profile.GetSocksProxy());
                                                             _proxyNetworks.Add(networkID, proxyNetwork);
 
                                                             proxyNetwork.AddTrackers(trackerURIs);
