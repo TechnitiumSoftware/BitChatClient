@@ -23,12 +23,13 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using TechnitiumLibrary.Net.BitTorrent;
+using TechnitiumLibrary.Net.Proxy;
 
 namespace BitChatClient.Network
 {
     delegate void TrackerManagerDiscoveredPeers(TrackerManager sender, IEnumerable<IPEndPoint> peerEPs);
 
-    class TrackerManager
+    class TrackerManager : IDisposable
     {
         #region events
 
@@ -38,12 +39,17 @@ namespace BitChatClient.Network
 
         #region variables
 
+        const int DHT_UPDATE_INTERVAL_SECONDS = 5 * 60; //5 min
+
         BinaryID _networkID;
         int _servicePort;
         DhtClient _dhtClient;
         bool _lookupOnly;
 
+        SocksClient _proxy;
+
         List<IPEndPoint> _dhtPeers = new List<IPEndPoint>();
+        DateTime _dhtLastUpdated;
 
         const int _TRACKER_TIMER_CHECK_INTERVAL = 10000;
         List<TrackerClient> _trackers = new List<TrackerClient>();
@@ -59,6 +65,33 @@ namespace BitChatClient.Network
             _servicePort = servicePort;
             _dhtClient = dhtClient;
             _lookupOnly = lookupOnly;
+        }
+
+        #endregion
+
+        #region IDisposable
+
+        ~TrackerManager()
+        {
+            Dispose(false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected bool _disposed = false;
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                StopTracking();
+
+                _disposed = true;
+            }
         }
 
         #endregion
@@ -93,9 +126,12 @@ namespace BitChatClient.Network
                     }
                 }
 
-                //dht announce
+                //update dht
                 if (_dhtClient != null)
-                    ThreadPool.QueueUserWorkItem(DhtAnnounceAsync, localEP);
+                {
+                    if (forceUpdate || (DateTime.UtcNow - _dhtLastUpdated).TotalSeconds > DHT_UPDATE_INTERVAL_SECONDS)
+                        ThreadPool.QueueUserWorkItem(UpdateDhtAsync, localEP);
+                }
             }
             catch
             { }
@@ -142,7 +178,7 @@ namespace BitChatClient.Network
             { }
         }
 
-        private void DhtAnnounceAsync(object state)
+        private void UpdateDhtAsync(object state)
         {
             IPEndPoint localEP = state as IPEndPoint;
 
@@ -154,6 +190,8 @@ namespace BitChatClient.Network
                     peers = _dhtClient.FindPeers(_networkID);
                 else
                     peers = _dhtClient.Announce(_networkID, localEP.Port);
+
+                _dhtLastUpdated = DateTime.UtcNow;
 
                 if ((peers != null) && (peers.Length > 0))
                 {
@@ -187,7 +225,12 @@ namespace BitChatClient.Network
                     _trackers.Clear();
 
                     foreach (Uri trackerURI in trackerURIs)
-                        _trackers.Add(TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID()));
+                    {
+                        TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID());
+                        tracker.SocksProxy = _proxy;
+
+                        _trackers.Add(tracker);
+                    }
                 }
             }
 
@@ -259,11 +302,13 @@ namespace BitChatClient.Network
                         return null;
                 }
 
-                TrackerClient newTracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID());
+                {
+                    TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID());
+                    tracker.SocksProxy = _proxy;
 
-                _trackers.Add(newTracker);
-
-                return newTracker;
+                    _trackers.Add(tracker);
+                    return tracker;
+                }
             }
         }
 
@@ -285,7 +330,12 @@ namespace BitChatClient.Network
                     }
 
                     if (!trackerExists)
-                        _trackers.Add(TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID()));
+                    {
+                        TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID());
+                        tracker.SocksProxy = _proxy;
+
+                        _trackers.Add(tracker);
+                    }
                 }
             }
         }
@@ -328,6 +378,23 @@ namespace BitChatClient.Network
         {
             get { return _lookupOnly; }
             set { _lookupOnly = value; }
+        }
+
+        public SocksClient SocksClient
+        {
+            get { return _proxy; }
+            set
+            {
+                _proxy = value;
+
+                lock (_trackers)
+                {
+                    foreach (TrackerClient tracker in _trackers)
+                    {
+                        tracker.SocksProxy = _proxy;
+                    }
+                }
+            }
         }
 
         #endregion
