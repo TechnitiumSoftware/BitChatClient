@@ -27,6 +27,9 @@ using System.ComponentModel;
 using System.Drawing;
 using System.Text;
 using System.Windows.Forms;
+using System.IO;
+using System.Net;
+using TechnitiumLibrary.Net.Proxy;
 
 namespace BitChatApp
 {
@@ -36,8 +39,11 @@ namespace BitChatApp
 
         BitChatService _service;
 
-        ushort _port = 0;
         List<Uri> _trackers = new List<Uri>();
+        ushort _port = 0;
+
+        IPAddress _proxyIP;
+        ushort _proxyPort = 0;
 
         #endregion
 
@@ -51,15 +57,38 @@ namespace BitChatApp
 
             BitChatProfile profile = service.Profile;
 
-            txtPort.Text = profile.LocalPort.ToString();
             txtDownloadFolder.Text = profile.DownloadFolder;
-            chkUseCRL.Checked = profile.CheckCertificateRevocationList;
-            chkUPnP.Checked = profile.EnableUPnP;
 
             foreach (Uri tracker in profile.TrackerURIs)
             {
                 txtTrackers.Text += tracker.AbsoluteUri + "\r\n";
             }
+
+            txtPort.Text = profile.LocalPort.ToString();
+            chkUseCRL.Checked = profile.CheckCertificateRevocationList;
+            chkUPnP.Checked = profile.EnableUPnP;
+            chkProxy.Checked = profile.ProxyEnabled;
+
+            btnCheckProxy.Enabled = chkProxy.Checked;
+            txtProxyIP.Text = profile.ProxyEndPoint.Address.ToString();
+            txtProxyPort.Text = profile.ProxyEndPoint.Port.ToString();
+            txtProxyIP.Enabled = chkProxy.Checked;
+            txtProxyPort.Enabled = chkProxy.Checked;
+            chkProxyAuth.Enabled = chkProxy.Checked;
+
+            if (profile.ProxyCredentials == null)
+            {
+                chkProxyAuth.Checked = false;
+            }
+            else
+            {
+                chkProxyAuth.Checked = true;
+                txtProxyUser.Text = profile.ProxyCredentials.UserName;
+                txtProxyPass.Text = profile.ProxyCredentials.Password;
+            }
+
+            txtProxyUser.Enabled = chkProxyAuth.Enabled && chkProxyAuth.Checked;
+            txtProxyPass.Enabled = chkProxyAuth.Enabled && chkProxyAuth.Checked;
         }
 
         #endregion
@@ -94,9 +123,9 @@ namespace BitChatApp
                 }
             }
 
-            if (!ushort.TryParse(txtPort.Text, out _port))
+            if (!Directory.Exists(txtDownloadFolder.Text))
             {
-                MessageBox.Show("The port number specified is invalid. The number must be in 0-65535 range.", "Invalid Port Specified!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Download folder does not exists. Please select a valid folder.", "Download Folder Does Not Exists!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
@@ -112,8 +141,42 @@ namespace BitChatApp
             }
             catch (Exception)
             {
-                MessageBox.Show("The tracker URL format is invalid. Please enter a valid tracker URL.", "Invalid Tracker URL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("The tracker URL format is invalid. Please enter a valid tracker URL.", "Invalid Tracker URL!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
+            }
+
+            if (!ushort.TryParse(txtPort.Text, out _port))
+            {
+                MessageBox.Show("The port number specified is invalid. The number must be in 0-65535 range.", "Invalid Port Specified!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(txtProxyIP.Text))
+            {
+                _proxyIP = IPAddress.Loopback;
+            }
+            else
+            {
+                if (!IPAddress.TryParse(txtProxyIP.Text, out _proxyIP))
+                {
+                    MessageBox.Show("The proxy IP address specified is invalid.", "Invalid Proxy IP Address Specified!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+            }
+
+            if (!ushort.TryParse(txtProxyPort.Text, out _proxyPort))
+            {
+                MessageBox.Show("The proxy port number specified is invalid. The number must be in 0-65535 range.", "Invalid Proxy Port Specified!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (chkProxyAuth.Checked)
+            {
+                if (string.IsNullOrWhiteSpace(txtProxyUser.Text))
+                {
+                    MessageBox.Show("The proxy username is missing. Please enter a username.", "Proxy Username Missing!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
             }
 
             this.DialogResult = System.Windows.Forms.DialogResult.OK;
@@ -131,6 +194,43 @@ namespace BitChatApp
             System.Diagnostics.Process.Start(@"http://go.technitium.com/?id=3");
         }
 
+        private void chkProxy_CheckedChanged(object sender, EventArgs e)
+        {
+            btnCheckProxy.Enabled = chkProxy.Checked;
+            txtProxyIP.Enabled = chkProxy.Checked;
+            txtProxyPort.Enabled = chkProxy.Checked;
+            chkProxyAuth.Enabled = chkProxy.Checked;
+            txtProxyUser.Enabled = chkProxyAuth.Enabled && chkProxyAuth.Checked;
+            txtProxyPass.Enabled = chkProxyAuth.Enabled && chkProxyAuth.Checked;
+        }
+
+        private void chkProxyAuth_CheckedChanged(object sender, EventArgs e)
+        {
+            txtProxyUser.Enabled = chkProxyAuth.Checked;
+            txtProxyPass.Enabled = chkProxyAuth.Checked;
+        }
+
+        private void btnCheckProxy_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                NetworkCredential credentials = null;
+
+                if (chkProxyAuth.Checked)
+                    credentials = new NetworkCredential(txtProxyUser.Text, txtProxyPass.Text);
+
+                SocksClient proxy = new SocksClient(new IPEndPoint(IPAddress.Parse(txtProxyIP.Text), int.Parse(txtProxyPort.Text)), credentials);
+
+                proxy.CheckProxyAccess();
+
+                MessageBox.Show("Proxy check was successful. Bit Chat was able to connect to the proxy server successfully.", "Proxy Check Success!", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Proxy Check Failed!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
         #endregion
 
         #region properties
@@ -141,11 +241,14 @@ namespace BitChatApp
         public string Password
         { get { return txtProfilePassword.Text; } }
 
-        public ushort Port
-        { get { return _port; } }
-
         public string DownloadFolder
         { get { return txtDownloadFolder.Text; } }
+
+        public Uri[] Trackers
+        { get { return _trackers.ToArray(); } }
+
+        public ushort Port
+        { get { return _port; } }
 
         public bool CheckCertificateRevocationList
         { get { return chkUseCRL.Checked; } }
@@ -153,8 +256,22 @@ namespace BitChatApp
         public bool EnableUPnP
         { get { return chkUPnP.Checked; } }
 
-        public Uri[] Trackers
-        { get { return _trackers.ToArray(); } }
+        public bool EnableSocksProxy
+        { get { return chkProxy.Checked; } }
+
+        public IPEndPoint ProxyEndPoint
+        { get { return new IPEndPoint(_proxyIP, _proxyPort); } }
+
+        public NetworkCredential ProxyCredentials
+        {
+            get
+            {
+                if (chkProxyAuth.Checked)
+                    return new NetworkCredential(txtProxyUser.Text, txtProxyPass.Text);
+                else
+                    return null;
+            }
+        }
 
         #endregion
     }

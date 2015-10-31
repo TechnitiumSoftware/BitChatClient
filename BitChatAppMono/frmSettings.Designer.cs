@@ -39,6 +39,16 @@
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.label15 = new System.Windows.Forms.Label();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
+            this.chkProxyAuth = new System.Windows.Forms.CheckBox();
+            this.txtProxyPass = new System.Windows.Forms.TextBox();
+            this.label7 = new System.Windows.Forms.Label();
+            this.txtProxyUser = new System.Windows.Forms.TextBox();
+            this.label8 = new System.Windows.Forms.Label();
+            this.txtProxyPort = new System.Windows.Forms.TextBox();
+            this.label6 = new System.Windows.Forms.Label();
+            this.txtProxyIP = new System.Windows.Forms.TextBox();
+            this.label5 = new System.Windows.Forms.Label();
+            this.chkProxy = new System.Windows.Forms.CheckBox();
             this.chkUPnP = new System.Windows.Forms.CheckBox();
             this.chkUseCRL = new System.Windows.Forms.CheckBox();
             this.txtTrackers = new System.Windows.Forms.TextBox();
@@ -51,6 +61,7 @@
             this.label1 = new System.Windows.Forms.Label();
             this.btnOK = new System.Windows.Forms.Button();
             this.btnClose = new System.Windows.Forms.Button();
+            this.btnCheckProxy = new System.Windows.Forms.Button();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.SuspendLayout();
@@ -58,7 +69,7 @@
             // linkLabel1
             // 
             this.linkLabel1.AutoSize = true;
-            this.linkLabel1.Location = new System.Drawing.Point(122, 129);
+            this.linkLabel1.Location = new System.Drawing.Point(150, 129);
             this.linkLabel1.Name = "linkLabel1";
             this.linkLabel1.Size = new System.Drawing.Size(128, 13);
             this.linkLabel1.TabIndex = 40;
@@ -69,7 +80,7 @@
             // chkAccept
             // 
             this.chkAccept.AutoSize = true;
-            this.chkAccept.Location = new System.Drawing.Point(125, 109);
+            this.chkAccept.Location = new System.Drawing.Point(153, 109);
             this.chkAccept.Name = "chkAccept";
             this.chkAccept.Size = new System.Drawing.Size(181, 17);
             this.chkAccept.TabIndex = 37;
@@ -80,14 +91,14 @@
             // 
             this.label14.Location = new System.Drawing.Point(6, 16);
             this.label14.Name = "label14";
-            this.label14.Size = new System.Drawing.Size(382, 33);
+            this.label14.Size = new System.Drawing.Size(429, 33);
             this.label14.TabIndex = 38;
             this.label14.Text = "To protect from unauthorized access to your profile, enter a strong encryption pa" +
     "ssword below to stored your profile securely on this computer.";
             // 
             // txtConfirmPassword
             // 
-            this.txtConfirmPassword.Location = new System.Drawing.Point(125, 83);
+            this.txtConfirmPassword.Location = new System.Drawing.Point(153, 83);
             this.txtConfirmPassword.Name = "txtConfirmPassword";
             this.txtConfirmPassword.PasswordChar = '#';
             this.txtConfirmPassword.Size = new System.Drawing.Size(220, 20);
@@ -96,7 +107,7 @@
             // label13
             // 
             this.label13.AutoSize = true;
-            this.label13.Location = new System.Drawing.Point(29, 86);
+            this.label13.Location = new System.Drawing.Point(57, 86);
             this.label13.Name = "label13";
             this.label13.Size = new System.Drawing.Size(90, 13);
             this.label13.TabIndex = 35;
@@ -104,7 +115,7 @@
             // 
             // txtProfilePassword
             // 
-            this.txtProfilePassword.Location = new System.Drawing.Point(125, 57);
+            this.txtProfilePassword.Location = new System.Drawing.Point(153, 57);
             this.txtProfilePassword.Name = "txtProfilePassword";
             this.txtProfilePassword.PasswordChar = '#';
             this.txtProfilePassword.Size = new System.Drawing.Size(220, 20);
@@ -113,7 +124,7 @@
             // label12
             // 
             this.label12.AutoSize = true;
-            this.label12.Location = new System.Drawing.Point(35, 60);
+            this.label12.Location = new System.Drawing.Point(63, 60);
             this.label12.Name = "label12";
             this.label12.Size = new System.Drawing.Size(84, 13);
             this.label12.TabIndex = 33;
@@ -131,7 +142,7 @@
             this.groupBox1.Controls.Add(this.txtConfirmPassword);
             this.groupBox1.Location = new System.Drawing.Point(12, 12);
             this.groupBox1.Name = "groupBox1";
-            this.groupBox1.Size = new System.Drawing.Size(394, 216);
+            this.groupBox1.Size = new System.Drawing.Size(440, 200);
             this.groupBox1.TabIndex = 8;
             this.groupBox1.TabStop = false;
             this.groupBox1.Text = "Profile Password";
@@ -140,12 +151,22 @@
             // 
             this.label15.Location = new System.Drawing.Point(6, 153);
             this.label15.Name = "label15";
-            this.label15.Size = new System.Drawing.Size(382, 57);
+            this.label15.Size = new System.Drawing.Size(429, 45);
             this.label15.TabIndex = 41;
             this.label15.Text = resources.GetString("label15.Text");
             // 
             // groupBox2
             // 
+            this.groupBox2.Controls.Add(this.chkProxyAuth);
+            this.groupBox2.Controls.Add(this.txtProxyPass);
+            this.groupBox2.Controls.Add(this.label7);
+            this.groupBox2.Controls.Add(this.txtProxyUser);
+            this.groupBox2.Controls.Add(this.label8);
+            this.groupBox2.Controls.Add(this.txtProxyPort);
+            this.groupBox2.Controls.Add(this.label6);
+            this.groupBox2.Controls.Add(this.txtProxyIP);
+            this.groupBox2.Controls.Add(this.label5);
+            this.groupBox2.Controls.Add(this.chkProxy);
             this.groupBox2.Controls.Add(this.chkUPnP);
             this.groupBox2.Controls.Add(this.chkUseCRL);
             this.groupBox2.Controls.Add(this.txtTrackers);
@@ -156,46 +177,139 @@
             this.groupBox2.Controls.Add(this.label3);
             this.groupBox2.Controls.Add(this.txtPort);
             this.groupBox2.Controls.Add(this.label1);
-            this.groupBox2.Location = new System.Drawing.Point(12, 234);
+            this.groupBox2.Location = new System.Drawing.Point(12, 218);
             this.groupBox2.Name = "groupBox2";
-            this.groupBox2.Size = new System.Drawing.Size(394, 197);
-            this.groupBox2.TabIndex = 9;
+            this.groupBox2.Size = new System.Drawing.Size(440, 291);
+            this.groupBox2.TabIndex = 6;
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Profile Settings";
+            // 
+            // chkProxyAuth
+            // 
+            this.chkProxyAuth.AutoSize = true;
+            this.chkProxyAuth.Location = new System.Drawing.Point(279, 212);
+            this.chkProxyAuth.Name = "chkProxyAuth";
+            this.chkProxyAuth.Size = new System.Drawing.Size(130, 17);
+            this.chkProxyAuth.TabIndex = 51;
+            this.chkProxyAuth.Text = "Enable Authentication";
+            this.chkProxyAuth.UseVisualStyleBackColor = true;
+            this.chkProxyAuth.CheckedChanged += new System.EventHandler(this.chkProxyAuth_CheckedChanged);
+            // 
+            // txtProxyPass
+            // 
+            this.txtProxyPass.Location = new System.Drawing.Point(335, 261);
+            this.txtProxyPass.MaxLength = 255;
+            this.txtProxyPass.Name = "txtProxyPass";
+            this.txtProxyPass.PasswordChar = '#';
+            this.txtProxyPass.Size = new System.Drawing.Size(96, 20);
+            this.txtProxyPass.TabIndex = 11;
+            // 
+            // label7
+            // 
+            this.label7.AutoSize = true;
+            this.label7.Location = new System.Drawing.Point(276, 264);
+            this.label7.Name = "label7";
+            this.label7.Size = new System.Drawing.Size(53, 13);
+            this.label7.TabIndex = 50;
+            this.label7.Text = "Password";
+            // 
+            // txtProxyUser
+            // 
+            this.txtProxyUser.Location = new System.Drawing.Point(335, 235);
+            this.txtProxyUser.MaxLength = 255;
+            this.txtProxyUser.Name = "txtProxyUser";
+            this.txtProxyUser.Size = new System.Drawing.Size(96, 20);
+            this.txtProxyUser.TabIndex = 10;
+            // 
+            // label8
+            // 
+            this.label8.AutoSize = true;
+            this.label8.Location = new System.Drawing.Point(274, 238);
+            this.label8.Name = "label8";
+            this.label8.Size = new System.Drawing.Size(55, 13);
+            this.label8.TabIndex = 48;
+            this.label8.Text = "Username";
+            // 
+            // txtProxyPort
+            // 
+            this.txtProxyPort.Location = new System.Drawing.Point(178, 261);
+            this.txtProxyPort.MaxLength = 5;
+            this.txtProxyPort.Name = "txtProxyPort";
+            this.txtProxyPort.Size = new System.Drawing.Size(45, 20);
+            this.txtProxyPort.TabIndex = 9;
+            this.txtProxyPort.Text = "1080";
+            // 
+            // label6
+            // 
+            this.label6.AutoSize = true;
+            this.label6.Location = new System.Drawing.Point(117, 264);
+            this.label6.Name = "label6";
+            this.label6.Size = new System.Drawing.Size(55, 13);
+            this.label6.TabIndex = 46;
+            this.label6.Text = "Proxy Port";
+            // 
+            // txtProxyIP
+            // 
+            this.txtProxyIP.Location = new System.Drawing.Point(178, 235);
+            this.txtProxyIP.MaxLength = 15;
+            this.txtProxyIP.Name = "txtProxyIP";
+            this.txtProxyIP.Size = new System.Drawing.Size(90, 20);
+            this.txtProxyIP.TabIndex = 8;
+            this.txtProxyIP.Text = "127.0.0.1";
+            // 
+            // label5
+            // 
+            this.label5.AutoSize = true;
+            this.label5.Location = new System.Drawing.Point(98, 238);
+            this.label5.Name = "label5";
+            this.label5.Size = new System.Drawing.Size(74, 13);
+            this.label5.TabIndex = 44;
+            this.label5.Text = "Proxy Address";
+            // 
+            // chkProxy
+            // 
+            this.chkProxy.AutoSize = true;
+            this.chkProxy.Location = new System.Drawing.Point(101, 212);
+            this.chkProxy.Name = "chkProxy";
+            this.chkProxy.Size = new System.Drawing.Size(127, 17);
+            this.chkProxy.TabIndex = 7;
+            this.chkProxy.Text = "Enable Socks5 Proxy";
+            this.chkProxy.UseVisualStyleBackColor = true;
+            this.chkProxy.CheckedChanged += new System.EventHandler(this.chkProxy_CheckedChanged);
             // 
             // chkUPnP
             // 
             this.chkUPnP.AutoSize = true;
-            this.chkUPnP.Location = new System.Drawing.Point(104, 94);
+            this.chkUPnP.Location = new System.Drawing.Point(101, 189);
             this.chkUPnP.Name = "chkUPnP";
             this.chkUPnP.Size = new System.Drawing.Size(90, 17);
-            this.chkUPnP.TabIndex = 41;
+            this.chkUPnP.TabIndex = 6;
             this.chkUPnP.Text = "Enable UPnP";
             this.chkUPnP.UseVisualStyleBackColor = true;
             // 
             // chkUseCRL
             // 
             this.chkUseCRL.AutoSize = true;
-            this.chkUseCRL.Location = new System.Drawing.Point(104, 71);
+            this.chkUseCRL.Location = new System.Drawing.Point(101, 166);
             this.chkUseCRL.Name = "chkUseCRL";
             this.chkUseCRL.Size = new System.Drawing.Size(180, 17);
-            this.chkUseCRL.TabIndex = 40;
+            this.chkUseCRL.TabIndex = 5;
             this.chkUseCRL.Text = "Check for Certificate Revocation";
             this.chkUseCRL.UseVisualStyleBackColor = true;
             // 
             // txtTrackers
             // 
-            this.txtTrackers.Location = new System.Drawing.Point(104, 117);
+            this.txtTrackers.Location = new System.Drawing.Point(101, 46);
             this.txtTrackers.Multiline = true;
             this.txtTrackers.Name = "txtTrackers";
             this.txtTrackers.ScrollBars = System.Windows.Forms.ScrollBars.Both;
-            this.txtTrackers.Size = new System.Drawing.Size(284, 74);
-            this.txtTrackers.TabIndex = 42;
+            this.txtTrackers.Size = new System.Drawing.Size(330, 88);
+            this.txtTrackers.TabIndex = 3;
             // 
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(12, 120);
+            this.label2.Location = new System.Drawing.Point(9, 49);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(86, 13);
             this.label2.TabIndex = 40;
@@ -203,10 +317,10 @@
             // 
             // btnBrowseDLFolder
             // 
-            this.btnBrowseDLFolder.Location = new System.Drawing.Point(335, 44);
+            this.btnBrowseDLFolder.Location = new System.Drawing.Point(378, 18);
             this.btnBrowseDLFolder.Name = "btnBrowseDLFolder";
             this.btnBrowseDLFolder.Size = new System.Drawing.Size(53, 22);
-            this.btnBrowseDLFolder.TabIndex = 12;
+            this.btnBrowseDLFolder.TabIndex = 2;
             this.btnBrowseDLFolder.Text = "Bro&wse";
             this.btnBrowseDLFolder.UseVisualStyleBackColor = true;
             this.btnBrowseDLFolder.Click += new System.EventHandler(this.btnBrowseDLFolder_Click);
@@ -214,7 +328,7 @@
             // label4
             // 
             this.label4.AutoSize = true;
-            this.label4.Location = new System.Drawing.Point(165, 22);
+            this.label4.Location = new System.Drawing.Point(162, 143);
             this.label4.Name = "label4";
             this.label4.Size = new System.Drawing.Size(218, 13);
             this.label4.TabIndex = 6;
@@ -222,16 +336,17 @@
             // 
             // txtDownloadFolder
             // 
-            this.txtDownloadFolder.Location = new System.Drawing.Point(104, 45);
+            this.txtDownloadFolder.Location = new System.Drawing.Point(101, 19);
+            this.txtDownloadFolder.MaxLength = 255;
             this.txtDownloadFolder.Name = "txtDownloadFolder";
             this.txtDownloadFolder.ReadOnly = true;
-            this.txtDownloadFolder.Size = new System.Drawing.Size(225, 20);
-            this.txtDownloadFolder.TabIndex = 5;
+            this.txtDownloadFolder.Size = new System.Drawing.Size(271, 20);
+            this.txtDownloadFolder.TabIndex = 1;
             // 
             // label3
             // 
             this.label3.AutoSize = true;
-            this.label3.Location = new System.Drawing.Point(11, 49);
+            this.label3.Location = new System.Drawing.Point(8, 23);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(87, 13);
             this.label3.TabIndex = 4;
@@ -239,24 +354,25 @@
             // 
             // txtPort
             // 
-            this.txtPort.Location = new System.Drawing.Point(104, 19);
+            this.txtPort.Location = new System.Drawing.Point(101, 140);
+            this.txtPort.MaxLength = 5;
             this.txtPort.Name = "txtPort";
             this.txtPort.Size = new System.Drawing.Size(55, 20);
-            this.txtPort.TabIndex = 1;
+            this.txtPort.TabIndex = 4;
             // 
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(72, 22);
+            this.label1.Location = new System.Drawing.Point(23, 143);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(26, 13);
+            this.label1.Size = new System.Drawing.Size(72, 13);
             this.label1.TabIndex = 0;
-            this.label1.Text = "Port";
+            this.label1.Text = "Incoming Port";
             // 
             // btnOK
             // 
             this.btnOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnOK.Location = new System.Drawing.Point(250, 437);
+            this.btnOK.Location = new System.Drawing.Point(296, 521);
             this.btnOK.Name = "btnOK";
             this.btnOK.Size = new System.Drawing.Size(75, 23);
             this.btnOK.TabIndex = 10;
@@ -268,13 +384,24 @@
             // 
             this.btnClose.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnClose.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnClose.Location = new System.Drawing.Point(331, 437);
+            this.btnClose.Location = new System.Drawing.Point(377, 521);
             this.btnClose.Name = "btnClose";
             this.btnClose.Size = new System.Drawing.Size(75, 23);
             this.btnClose.TabIndex = 11;
             this.btnClose.Text = "Close";
             this.btnClose.UseVisualStyleBackColor = true;
             this.btnClose.Click += new System.EventHandler(this.btnClose_Click);
+            // 
+            // btnCheckProxy
+            // 
+            this.btnCheckProxy.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.btnCheckProxy.Location = new System.Drawing.Point(12, 521);
+            this.btnCheckProxy.Name = "btnCheckProxy";
+            this.btnCheckProxy.Size = new System.Drawing.Size(75, 23);
+            this.btnCheckProxy.TabIndex = 12;
+            this.btnCheckProxy.Text = "Check Proxy";
+            this.btnCheckProxy.UseVisualStyleBackColor = true;
+            this.btnCheckProxy.Click += new System.EventHandler(this.btnCheckProxy_Click);
             // 
             // frmSettings
             // 
@@ -283,7 +410,8 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
             this.CancelButton = this.btnClose;
-            this.ClientSize = new System.Drawing.Size(418, 464);
+            this.ClientSize = new System.Drawing.Size(464, 551);
+            this.Controls.Add(this.btnCheckProxy);
             this.Controls.Add(this.btnClose);
             this.Controls.Add(this.btnOK);
             this.Controls.Add(this.groupBox2);
@@ -328,5 +456,16 @@
         private System.Windows.Forms.TextBox txtTrackers;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.CheckBox chkUPnP;
+        private System.Windows.Forms.TextBox txtProxyPass;
+        private System.Windows.Forms.Label label7;
+        private System.Windows.Forms.TextBox txtProxyUser;
+        private System.Windows.Forms.Label label8;
+        private System.Windows.Forms.TextBox txtProxyPort;
+        private System.Windows.Forms.Label label6;
+        private System.Windows.Forms.TextBox txtProxyIP;
+        private System.Windows.Forms.Label label5;
+        private System.Windows.Forms.CheckBox chkProxy;
+        private System.Windows.Forms.CheckBox chkProxyAuth;
+        private System.Windows.Forms.Button btnCheckProxy;
     }
 }

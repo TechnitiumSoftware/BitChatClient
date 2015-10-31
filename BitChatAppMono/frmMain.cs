@@ -137,6 +137,7 @@ namespace BitChatAppMono
 
             //start automatic update client
             _updateClient = new AutomaticUpdateClient(Program.MUTEX_NAME, Application.ProductVersion, Program.UPDATE_URI, Program.UPDATE_CHECK_INTERVAL_DAYS, Program.TRUSTED_CERTIFICATES, _lastUpdateCheckedOn, _lastModifiedGMT);
+            _updateClient.SocksProxy = _profile.GetSocksProxy();
             _updateClient.ExitApplication += _updateClient_ExitApplication;
             _updateClient.UpdateAvailable += _updateClient_UpdateAvailable;
             _updateClient.NoUpdateAvailable += _updateClient_NoUpdateAvailable;
@@ -150,11 +151,20 @@ namespace BitChatAppMono
                 StartDebugging();
                 e.Handled = true;
             }
+            else if (e.Alt && (e.KeyCode == Keys.F))
+            {
+                btnPlusButton_Click(null, null);
+            }
         }
 
         private void frmMain_FormClosed(object sender, FormClosedEventArgs e)
         {
-            SaveProfile();
+            try
+            {
+                SaveProfile();
+            }
+            catch
+            { }
 
             if (_debugFile != null)
             {
@@ -168,6 +178,7 @@ namespace BitChatAppMono
             }
 
             _link.Dispose();
+            _updateClient.Dispose();
             _service.Dispose();
         }
 
@@ -378,15 +389,21 @@ namespace BitChatAppMono
                     if (frm.PasswordChangeRequest)
                         _profile.ChangePassword(frm.Password);
 
-                    if (frm.Port != _profile.LocalPort)
-                        _profile.LocalPort = frm.Port;
-
                     _profile.DownloadFolder = frm.DownloadFolder;
+                    _profile.TrackerURIs = frm.Trackers;
+                    _profile.LocalPort = frm.Port;
                     _profile.CheckCertificateRevocationList = frm.CheckCertificateRevocationList;
                     _profile.EnableUPnP = frm.EnableUPnP;
-                    _profile.TrackerURIs = frm.Trackers;
+
+                    if (frm.EnableSocksProxy)
+                        _profile.EnableSocksProxy(frm.ProxyEndPoint, frm.ProxyCredentials);
+                    else
+                        _profile.DisableSocksProxy();
 
                     SaveProfile();
+
+                    //set proxy
+                    _updateClient.SocksProxy = _profile.GetSocksProxy();
                 }
             }
         }
@@ -454,7 +471,7 @@ namespace BitChatAppMono
 
         private void InvalidCertificateEvent(BitChatService sender, InvalidCertificateException e)
         {
-            MessageBox.Show(e.Message + "/r/n/r/nClick OK to logout from this Bit Chat profile.", "Invalid Certificate Detected", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(e.Message + "\r\n\r\nClick OK to logout from this Bit Chat profile.", "Invalid Certificate Detected", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
             this.Hide();
             this.DialogResult = System.Windows.Forms.DialogResult.Ignore;
