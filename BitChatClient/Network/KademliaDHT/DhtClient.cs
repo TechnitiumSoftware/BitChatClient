@@ -24,6 +24,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Threading;
 using TechnitiumLibrary.IO;
+using TechnitiumLibrary.Net.Proxy;
 
 /*
  * Kademlia based Distributed Hash Table (DHT) Implementation For Bit Chat
@@ -48,14 +49,14 @@ using TechnitiumLibrary.IO;
 
 namespace BitChatClient.Network.KademliaDHT
 {
-    public class DhtClient
+    public class DhtClient : IDisposable
     {
         #region variables
 
         const int BUFFER_MAX_SIZE = 1024;
         const int SECRET_EXPIRY_SECONDS = 300; //5min
         public const int KADEMLIA_K = 8;
-        const int HEALTH_CHECK_TIMER_INTERVAL = 5 * 60 * 1000; //5min
+        const int HEALTH_CHECK_TIMER_INTERVAL = 5 * 60 * 1000; //5 min
 
         Socket _udpListener;
         Thread _readThread;
@@ -78,7 +79,6 @@ namespace BitChatClient.Network.KademliaDHT
         #region constructor
 
         public DhtClient(int udpDhtPort, IEnumerable<IPEndPoint> bootstrapNodeEPs)
-            : base()
         {
             //bind udp dht port
             _udpListener = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
@@ -110,6 +110,55 @@ namespace BitChatClient.Network.KademliaDHT
 
             //start health timer
             _healthTimer = new Timer(HealthTimerCallback, null, DhtRpcQueryManager.QUERY_TIMEOUT, Timeout.Infinite);
+        }
+
+        #endregion
+
+        #region IDisposable
+
+        ~DhtClient()
+        {
+            Dispose(false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        bool _disposed = false;
+
+        private void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                if (_udpListener != null)
+                    _udpListener.Dispose();
+
+                if (_readThread != null)
+                    _readThread.Abort();
+
+                if (_queryManager != null)
+                    _queryManager.Dispose();
+
+                if (_routingTable != null)
+                    _routingTable.Dispose();
+
+                if (_healthTimer != null)
+                {
+                    _healthTimer.Dispose();
+                    _healthTimer = null;
+                }
+
+                if (_secretHmac != null)
+                    _secretHmac.Dispose();
+
+                if (_previousSecretHmac != null)
+                    _previousSecretHmac.Dispose();
+
+                _disposed = true;
+            }
         }
 
         #endregion
@@ -283,17 +332,17 @@ namespace BitChatClient.Network.KademliaDHT
                 //remove expired data
                 _currentNode.RemoveExpiredPeers();
 
-                //find closest contacts for current node id
-                NodeContact[] initialContacts = _routingTable.GetKClosestContacts(_currentNode.NodeID);
-
-                if (initialContacts.Length > 0)
-                    _queryManager.QueryFindNode(initialContacts, _currentNode.NodeID); //query manager auto add contacts that respond
-
                 //check contact health
                 _routingTable.CheckContactHealth(_queryManager);
 
                 //refresh buckets
                 _routingTable.RefreshBucket(_queryManager);
+
+                //find closest contacts for current node id
+                NodeContact[] initialContacts = _routingTable.GetKClosestContacts(_currentNode.NodeID);
+
+                if (initialContacts.Length > 0)
+                    _queryManager.QueryFindNode(initialContacts, _currentNode.NodeID); //query manager auto add contacts that respond
             }
             catch
             { }
@@ -345,7 +394,7 @@ namespace BitChatClient.Network.KademliaDHT
 
         public int GetTotalNodes()
         {
-            return _routingTable.GetTotalContacts(true);
+            return _routingTable.TotalContacts + _routingTable.TotalReplacementContacts;
         }
 
         public IPEndPoint[] GetAllNodes()
@@ -368,6 +417,12 @@ namespace BitChatClient.Network.KademliaDHT
 
         public int LocalPort
         { get { return ((IPEndPoint)_udpListener.LocalEndPoint).Port; } }
+
+        public SocksClient SocksProxy
+        {
+            get { return _queryManager.SocksProxy; }
+            set { _queryManager.SocksProxy = value; }
+        }
 
         #endregion
 
