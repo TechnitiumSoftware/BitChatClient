@@ -154,6 +154,11 @@ namespace BitChatClient.Network.SecureChannel
             {
                 _baseStream.Dispose();
 
+                _reNegotiationTimer.Dispose();
+
+                if (_reNegotiateReadBuffer != null)
+                    _reNegotiateReadBuffer.Dispose();
+
                 _cryptoEncryptor.Dispose();
                 _cryptoDecryptor.Dispose();
 
