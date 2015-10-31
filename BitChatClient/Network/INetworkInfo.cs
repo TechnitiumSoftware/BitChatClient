@@ -38,9 +38,13 @@ namespace BitChatClient.Network
 
         UPnPDeviceStatus UPnPStatus { get; }
 
+        IPAddress UPnPDeviceIP { get; }
+
         IPAddress UPnPExternalIP { get; }
 
-        IPEndPoint ExternalEP { get; }
+        IPEndPoint SocksProxyEndPoint { get; }
+
+        IPEndPoint ExternalEndPoint { get; }
 
         IPEndPoint[] ProxyNodes { get; }
     }

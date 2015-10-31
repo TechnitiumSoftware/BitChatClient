@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using BitChatClient.Network.Connections;
 using BitChatClient.Network.SecureChannel;
 using System.Net;
+using TechnitiumLibrary.Net.Proxy;
 using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatClient.Network
@@ -43,5 +44,7 @@ namespace BitChatClient.Network
         bool CheckCertificateRevocationList();
 
         void RemoveNetwork(BitChatNetwork network);
+
+        SocksClient GetSocksProxy();
     }
 }
