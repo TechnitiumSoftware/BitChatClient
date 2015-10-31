@@ -29,6 +29,7 @@ using System.Net;
 using System.Net.Mail;
 using System.Threading;
 using TechnitiumLibrary.Net.BitTorrent;
+using TechnitiumLibrary.Net.Proxy;
 using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatClient
@@ -101,12 +102,15 @@ namespace BitChatClient
         internal BitChat(IBitChatManager manager, ConnectionManager connectionManager, BitChatProfile profile, BitChatNetwork network, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs, bool enableTracking)
         {
             _manager = manager;
-            _profile = profile;
-            _network = network;
-            _network.VirtualPeerAdded += _network_VirtualPeerAdded;
-            _network.VirtualPeerHasRevokedCertificate += _network_VirtualPeerHasRevokedCertificate;
-            _network.VirtualPeerSecureChannelException += _network_VirtualPeerSecureChannelException;
 
+            _profile = profile;
+            _profile.SocksProxyUpdated += profile_SocksProxyUpdated;
+
+            _network = network;
+            _network.VirtualPeerAdded += network_VirtualPeerAdded;
+            _network.VirtualPeerHasRevokedCertificate += network_VirtualPeerHasRevokedCertificate;
+            _network.VirtualPeerSecureChannelException += network_VirtualPeerSecureChannelException;
+            
             foreach (BitChatNetwork.VirtualPeer virtualPeer in _network.GetVirtualPeerList())
             {
                 Peer peer = new Peer(virtualPeer, this);
@@ -131,7 +135,8 @@ namespace BitChatClient
             _manager.StartLocalTracking(_network.NetworkID);
             _dhtClient = connectionManager.DhtClient;
             _trackerManager = new TrackerManager(_network.NetworkID, connectionManager.LocalPort, _dhtClient);
-            _trackerManager.DiscoveredPeers += _trackerManager_DiscoveredPeers;
+            _trackerManager.SocksClient = _profile.GetSocksProxy();
+            _trackerManager.DiscoveredPeers += trackerManager_DiscoveredPeers;
             _enableTracking = enableTracking;
 
             if (enableTracking)
@@ -175,9 +180,21 @@ namespace BitChatClient
                     _NOOPTimer = null;
                 }
 
+                if (_updateNetworkStatusTimer != null)
+                {
+                    _updateNetworkStatusTimer.Dispose();
+                    _updateNetworkStatusTimer = null;
+                }
+
+                if (_reCheckNetworkStatusTimer != null)
+                {
+                    _reCheckNetworkStatusTimer.Dispose();
+                    _reCheckNetworkStatusTimer = null;
+                }
+
                 //stop tracking
                 _manager.StopLocalTracking(_network.NetworkID);
-                _trackerManager.StopTracking();
+                _trackerManager.Dispose();
 
                 //stop network
                 _network.Dispose();
@@ -418,7 +435,7 @@ namespace BitChatClient
 
         #region private
 
-        private void _network_VirtualPeerAdded(BitChatNetwork sender, BitChatNetwork.VirtualPeer virtualPeer)
+        private void network_VirtualPeerAdded(BitChatNetwork sender, BitChatNetwork.VirtualPeer virtualPeer)
         {
             Peer peer = new Peer(virtualPeer, this);
 
@@ -431,13 +448,13 @@ namespace BitChatClient
                 RaiseEventPeerAdded(peer);
         }
 
-        private void _network_VirtualPeerHasRevokedCertificate(BitChatNetwork sender, InvalidCertificateException ex)
+        private void network_VirtualPeerHasRevokedCertificate(BitChatNetwork sender, InvalidCertificateException ex)
         {
             if (PeerHasRevokedCertificate != null)
                 RaiseEventPeerHasRevokedCertificate(ex);
         }
 
-        private void _network_VirtualPeerSecureChannelException(BitChatNetwork sender, SecureChannelException ex)
+        private void network_VirtualPeerSecureChannelException(BitChatNetwork sender, SecureChannelException ex)
         {
             if (PeerSecureChannelException != null)
                 RaiseEventPeerSecureChannelException(ex);
@@ -447,6 +464,11 @@ namespace BitChatClient
         {
             byte[] packetData = BitChatMessage.CreateFileAdvertisement(sharedFile.MetaData);
             _network.WritePacketBroadcast(packetData, 0, packetData.Length);
+        }
+
+        private void profile_SocksProxyUpdated(object sender, EventArgs e)
+        {
+            _trackerManager.SocksClient = _profile.GetSocksProxy();
         }
 
         #endregion
@@ -711,7 +733,7 @@ namespace BitChatClient
 
         #region TrackerManager
 
-        private void _trackerManager_DiscoveredPeers(TrackerManager sender, IEnumerable<IPEndPoint> peerEPs)
+        private void trackerManager_DiscoveredPeers(TrackerManager sender, IEnumerable<IPEndPoint> peerEPs)
         {
             _network.MakeConnection(peerEPs);
         }
@@ -758,6 +780,13 @@ namespace BitChatClient
                 {
                     if (_enableTracking)
                         _trackerManager.StartTracking();
+                    else
+                        _trackerManager.StopTracking();
+                }
+                else
+                {
+                    if (_enableTracking)
+                        TriggerUpdateNetworkStatus();
                     else
                         _trackerManager.StopTracking();
                 }

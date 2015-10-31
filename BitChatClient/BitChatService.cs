@@ -28,6 +28,7 @@ using System.Net;
 using System.Net.Mail;
 using System.Threading;
 using TechnitiumLibrary.Net;
+using TechnitiumLibrary.Net.Proxy;
 using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatClient
@@ -59,9 +60,8 @@ namespace BitChatClient
             //verify profile cert
             profile.LocalCertificateStore.Certificate.Verify(trustedRootCertificates);
 
-            _invalidCertEventHandler = invalidCertEventHandler;
-
             _profile = profile;
+            _invalidCertEventHandler = invalidCertEventHandler;
 
             _manager = new InternalBitChatService(this, profile, trustedRootCertificates, supportedCryptoOptions);
 
@@ -123,7 +123,7 @@ namespace BitChatClient
 
                 foreach (Certificate cert in certificates)
                 {
-                    cert.VerifyRevocationList();
+                    cert.VerifyRevocationList(_profile.GetSocksProxy());
                 }
             }
             catch (InvalidCertificateException ex)
@@ -238,8 +238,8 @@ namespace BitChatClient
             Dictionary<IPEndPoint, Connection> _proxyNodeConnections = new Dictionary<IPEndPoint, Connection>();
             Timer _proxyNodeCheckTimer;
 
-            int _reNegotiateOnBytesSent = 104857600; //100mb
-            int _reNegotiateAfterSeconds = 3600; //1hr
+            const int RE_NEGOTIATE_AFTER_BYTES_SENT = 104857600; //100mb
+            const int RE_NEGOTIATE_AFTER_SECONDS = 3600; //1hr
 
             #endregion
 
@@ -281,6 +281,12 @@ namespace BitChatClient
             {
                 if (!_disposed)
                 {
+                    if (_proxyNodeCheckTimer != null)
+                    {
+                        _proxyNodeCheckTimer.Dispose();
+                        _proxyNodeCheckTimer = null;
+                    }
+
                     if (_connectionManager != null)
                         _connectionManager.Dispose();
 
@@ -297,7 +303,7 @@ namespace BitChatClient
 
             private void ConnectionManager_InternetConnectivityStatusChanged(object sender, EventArgs e)
             {
-                IPEndPoint externalEP = _connectionManager.ExternalEP;
+                IPEndPoint externalEP = _connectionManager.ExternalEndPoint;
 
                 if (externalEP == null)
                 {
@@ -622,12 +628,12 @@ namespace BitChatClient
 
             public int GetReNegotiateOnBytesSent()
             {
-                return _reNegotiateOnBytesSent;
+                return RE_NEGOTIATE_AFTER_BYTES_SENT;
             }
 
             public int GetReNegotiateAfterSeconds()
             {
-                return _reNegotiateAfterSeconds + 60;
+                return RE_NEGOTIATE_AFTER_SECONDS + 60;
             }
 
             public bool CheckCertificateRevocationList()
@@ -641,6 +647,11 @@ namespace BitChatClient
                 {
                     _networks.Remove(network.NetworkID);
                 }
+            }
+
+            public SocksClient GetSocksProxy()
+            {
+                return _profile.GetSocksProxy();
             }
 
             #endregion
@@ -673,7 +684,7 @@ namespace BitChatClient
                     if (network == null)
                         throw new BitChatException("Network not found for given channel name.");
 
-                    SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _profile.LocalCertificateStore, _trustedRootCertificates, this, _supportedCryptoOptions, _reNegotiateOnBytesSent, _reNegotiateAfterSeconds, network.SharedSecret);
+                    SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _profile.LocalCertificateStore, _trustedRootCertificates, this, _supportedCryptoOptions, RE_NEGOTIATE_AFTER_BYTES_SENT, RE_NEGOTIATE_AFTER_SECONDS, network.SharedSecret);
 
                     network.JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel, _profile.CheckCertificateRevocationList);
                 }
@@ -740,11 +751,17 @@ namespace BitChatClient
             public UPnPDeviceStatus UPnPStatus
             { get { return _connectionManager.UPnPStatus; } }
 
+            public IPAddress UPnPDeviceIP
+            { get { return _connectionManager.UPnPDeviceIP; } }
+
             public IPAddress UPnPExternalIP
             { get { return _connectionManager.UPnPExternalIP; } }
 
-            public IPEndPoint ExternalEP
-            { get { return _connectionManager.ExternalEP; } }
+            public IPEndPoint SocksProxyEndPoint
+            { get { return _connectionManager.SocksProxyEndPoint; } }
+
+            public IPEndPoint ExternalEndPoint
+            { get { return _connectionManager.ExternalEndPoint; } }
 
             public IPEndPoint[] ProxyNodes
             {

@@ -136,8 +136,8 @@ namespace BitChatClient
 
         public BinaryID Clone()
         {
-            byte[] id = new byte[20];
-            Buffer.BlockCopy(_id, 0, id, 0, 20);
+            byte[] id = new byte[_id.Length];
+            Buffer.BlockCopy(_id, 0, id, 0, _id.Length);
             return new BinaryID(id);
         }
 
