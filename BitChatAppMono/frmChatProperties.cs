@@ -141,7 +141,7 @@ namespace BitChatAppMono
         {
             showPeersToolStripMenuItem.Enabled = (lstTrackerInfo.SelectedItems.Count == 1);
 
-            if (lstTrackerInfo.SelectedItems.Count > 0)
+            if ((lstTrackerInfo.SelectedItems.Count > 0) && (lstTrackerInfo.SelectedItems[0].Text != "DHT"))
             {
                 updateTrackerToolStripMenuItem.Enabled = true;
                 removeTrackerToolStripMenuItem.Enabled = true;
@@ -189,7 +189,9 @@ namespace BitChatAppMono
                 foreach (ListViewItem item in lstTrackerInfo.SelectedItems)
                 {
                     TrackerClient tracker = item.Tag as TrackerClient;
-                    tracker.ScheduleUpdateNow();
+
+                    if (tracker != null)
+                        tracker.ScheduleUpdateNow();
                 }
             }
         }
@@ -262,9 +264,11 @@ namespace BitChatAppMono
                 {
                     TrackerClient tracker = item.Tag as TrackerClient;
 
-                    _chat.RemoveTracker(tracker);
-
-                    lstTrackerInfo.Items.Remove(item);
+                    if (tracker != null)
+                    {
+                        _chat.RemoveTracker(tracker);
+                        lstTrackerInfo.Items.Remove(item);
+                    }
                 }
             }
         }
@@ -287,7 +291,8 @@ namespace BitChatAppMono
                 {
                     TrackerClient tracker = item.Tag as TrackerClient;
 
-                    trackers += tracker.TrackerUri.AbsoluteUri + "\r\n";
+                    if (tracker != null)
+                        trackers += tracker.TrackerUri.AbsoluteUri + "\r\n";
                 }
             }
 
@@ -313,7 +318,8 @@ namespace BitChatAppMono
                 {
                     TrackerClient tracker = item.Tag as TrackerClient;
 
-                    trackers += tracker.TrackerUri.AbsoluteUri + "\r\n";
+                    if (tracker != null)
+                        trackers += tracker.TrackerUri.AbsoluteUri + "\r\n";
                 }
             }
 

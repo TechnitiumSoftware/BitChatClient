@@ -34,7 +34,9 @@ namespace BitChatApp
             listView1.Items.Add("DHT Nodes").SubItems.Add("Loading...");
             listView1.Items.Add("Internet Status").SubItems.Add("Loading...");
             listView1.Items.Add("UPnP Status").SubItems.Add("Loading...");
+            listView1.Items.Add("UPnP Device IP").SubItems.Add("Loading...");
             listView1.Items.Add("UPnP External IP").SubItems.Add("Loading...");
+            listView1.Items.Add("Socks Proxy IP").SubItems.Add("Loading...");
             listView1.Items.Add("External End Point").SubItems.Add("Loading...");
             listView1.Items.Add("Proxy Nodes").SubItems.Add("Loading...");
 
@@ -59,12 +61,22 @@ namespace BitChatApp
             if (info.UPnPExternalIP == null)
                 listView1.Items[7].SubItems[1].Text = "";
             else
-                listView1.Items[7].SubItems[1].Text = info.UPnPExternalIP.ToString();
+                listView1.Items[7].SubItems[1].Text = info.UPnPDeviceIP.ToString();
 
-            if (info.ExternalEP == null)
+            if (info.UPnPExternalIP == null)
                 listView1.Items[8].SubItems[1].Text = "";
             else
-                listView1.Items[8].SubItems[1].Text = info.ExternalEP.ToString();
+                listView1.Items[8].SubItems[1].Text = info.UPnPExternalIP.ToString();
+
+            if (info.SocksProxyEndPoint == null)
+                listView1.Items[9].SubItems[1].Text = "";
+            else
+                listView1.Items[9].SubItems[1].Text = info.SocksProxyEndPoint.ToString();
+
+            if (info.ExternalEndPoint == null)
+                listView1.Items[10].SubItems[1].Text = "";
+            else
+                listView1.Items[10].SubItems[1].Text = info.ExternalEndPoint.ToString();
 
             if (info.ProxyNodes.Length > 0)
             {
@@ -73,11 +85,11 @@ namespace BitChatApp
                 foreach (IPEndPoint proxyNodeEP in info.ProxyNodes)
                     tmp += ", " + proxyNodeEP.ToString();
 
-                listView1.Items[9].SubItems[1].Text = tmp.Substring(2);
+                listView1.Items[11].SubItems[1].Text = tmp.Substring(2);
             }
             else
             {
-                listView1.Items[9].SubItems[1].Text = "";
+                listView1.Items[11].SubItems[1].Text = "";
             }
         }
 
