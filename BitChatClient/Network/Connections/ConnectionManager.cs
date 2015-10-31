@@ -25,6 +25,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using TechnitiumLibrary.Net;
+using TechnitiumLibrary.Net.Proxy;
 using TechnitiumLibrary.Net.UPnP.Networking;
 
 namespace BitChatClient.Network.Connections
@@ -34,10 +35,9 @@ namespace BitChatClient.Network.Connections
         Identifying = 0,
         NoInternetConnection = 1,
         DirectInternetConnection = 2,
-        HttpProxyInternetConnection = 3,
-        Socks5ProxyInternetConnection = 4,
-        NatInternetConnectionViaUPnPRouter = 5,
-        NatInternetConnection = 6
+        Socks5ProxyInternetConnection = 3,
+        NatInternetConnectionViaUPnPRouter = 4,
+        NatInternetConnection = 5
     }
 
     public enum UPnPDeviceStatus
@@ -117,6 +117,7 @@ namespace BitChatClient.Network.Connections
             }
 
             _profile = profile;
+            _profile.SocksProxyUpdated += profile_SocksProxyUpdated;
 
             _localPort = ((IPEndPoint)_tcpListener.LocalEndpoint).Port;
             _localPeerID = BinaryID.GenerateRandomID160();
@@ -125,9 +126,11 @@ namespace BitChatClient.Network.Connections
 
             //start dht
             _dhtClient = new DhtClient(_localPort, profile.BootstrapDhtNodes);
+            _dhtClient.SocksProxy = _profile.GetSocksProxy();
 
             //setup dht seeding tracker
             _dhtSeedingTracker = new TrackerManager(_dhtSeedingNetworkID, _localPort);
+            _dhtSeedingTracker.SocksClient = _profile.GetSocksProxy();
             _dhtSeedingTracker.DiscoveredPeers += _dhtSeedingTracker_DiscoveredPeers;
             _dhtSeedingTracker.StartTracking(profile.TrackerURIs);
 
@@ -170,10 +173,11 @@ namespace BitChatClient.Network.Connections
 
                 //stop dht seeding tracker
                 if (_dhtSeedingTracker != null)
-                {
-                    _dhtSeedingTracker.StopTracking();
-                    _dhtSeedingTracker = null;
-                }
+                    _dhtSeedingTracker.Dispose();
+
+                //stop dht client
+                if (_dhtClient != null)
+                    _dhtClient.Dispose();
 
                 //shutdown upnp port mapping
                 if (_connectivityCheckTimer != null)
@@ -509,7 +513,18 @@ namespace BitChatClient.Network.Connections
 
         private void _dhtSeedingTracker_DiscoveredPeers(TrackerManager sender, IEnumerable<IPEndPoint> peerEPs)
         {
-            _dhtClient.AddNode(peerEPs);
+            if (_dhtClient != null)
+                _dhtClient.AddNode(peerEPs);
+        }
+
+        private void profile_SocksProxyUpdated(object sender, EventArgs e)
+        {
+            SocksClient proxy = _profile.GetSocksProxy();
+
+            _dhtClient.SocksProxy = proxy;
+            _dhtSeedingTracker.SocksClient = proxy;
+
+            ProxyNetwork.UpdateSocksProxy(proxy);
         }
 
         #endregion
@@ -531,11 +546,19 @@ namespace BitChatClient.Network.Connections
 
             try
             {
+                if (_profile.ProxyEnabled)
+                {
+                    newInternetStatus = InternetConnectivityStatus.Socks5ProxyInternetConnection;
+                    newUPnPStatus = UPnPDeviceStatus.Disabled;
+                    return;
+                }
+
                 NetworkInfo defaultNetworkInfo = NetUtilities.GetDefaultNetworkInfo();
                 if (defaultNetworkInfo == null)
                 {
                     //no internet available;
                     newInternetStatus = InternetConnectivityStatus.NoInternetConnection;
+                    newUPnPStatus = UPnPDeviceStatus.Disabled;
                     return;
                 }
 
@@ -543,6 +566,7 @@ namespace BitChatClient.Network.Connections
                 {
                     //public ip so, direct internet connection available
                     newInternetStatus = InternetConnectivityStatus.DirectInternetConnection;
+                    newUPnPStatus = UPnPDeviceStatus.Disabled;
                     _localLiveIP = defaultNetworkInfo.LocalIP;
                     return;
                 }
@@ -561,7 +585,7 @@ namespace BitChatClient.Network.Connections
                 try
                 {
                     if ((_upnpDevice == null) || (!_upnpDevice.NetworkBroadcastAddress.Equals(defaultNetworkInfo.BroadcastIP)))
-                        _upnpDevice = InternetGatewayDevice.Discover(defaultNetworkInfo.BroadcastIP, 30000);
+                        _upnpDevice = InternetGatewayDevice.Discover(defaultNetworkInfo.BroadcastIP, 2000);
 
                     newInternetStatus = InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter;
                 }
@@ -603,88 +627,115 @@ namespace BitChatClient.Network.Connections
             }
             finally
             {
-                //validate change in status by performing tests
-                if (_internetStatus != newInternetStatus)
+                try
                 {
-                    if (WebUtilities.IsWebAccessible())
+                    //validate change in status by performing tests
+                    if (_internetStatus != newInternetStatus)
                     {
                         switch (newInternetStatus)
                         {
-                            case InternetConnectivityStatus.DirectInternetConnection:
-                                if (!DoWebCheckIncomingConnection(_localPort))
-                                    _localLiveIP = null;
-
+                            case InternetConnectivityStatus.NoInternetConnection:
+                                _localLiveIP = null;
+                                _upnpExternalIP = null;
+                                _connectivityCheckExternalEP = null;
                                 break;
 
-                            case InternetConnectivityStatus.NatInternetConnection:
-                                if (!DoWebCheckIncomingConnection(_localPort))
-                                    _connectivityCheckExternalEP = null;
+                            case InternetConnectivityStatus.Socks5ProxyInternetConnection:
+                                if (!_profile.GetSocksProxy().IsProxyAvailable())
+                                    newInternetStatus = InternetConnectivityStatus.NoInternetConnection;
 
-                                break;
-
-                            case InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter:
+                                _localLiveIP = null;
+                                _upnpExternalIP = null;
+                                _connectivityCheckExternalEP = null;
                                 break;
 
                             default:
-                                _localLiveIP = null;
-                                _upnpExternalIP = null;
+                                if (WebUtilities.IsWebAccessible())
+                                {
+                                    switch (newInternetStatus)
+                                    {
+                                        case InternetConnectivityStatus.DirectInternetConnection:
+                                            if (!DoWebCheckIncomingConnection(_localPort))
+                                                _localLiveIP = null;
+
+                                            break;
+
+                                        case InternetConnectivityStatus.NatInternetConnection:
+                                            if (!DoWebCheckIncomingConnection(_localPort))
+                                                _connectivityCheckExternalEP = null;
+
+                                            break;
+
+                                        case InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter:
+                                            break;
+
+                                        default:
+                                            _localLiveIP = null;
+                                            _upnpExternalIP = null;
+                                            _connectivityCheckExternalEP = null;
+                                            break;
+                                    }
+                                }
+                                else
+                                {
+                                    newInternetStatus = InternetConnectivityStatus.NoInternetConnection;
+                                    _localLiveIP = null;
+                                    _upnpExternalIP = null;
+                                    _connectivityCheckExternalEP = null;
+                                }
                                 break;
                         }
                     }
-                    else
+
+                    if ((newInternetStatus == InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter) && (_upnpDeviceStatus != newUPnPStatus) && (newUPnPStatus == UPnPDeviceStatus.PortForwarded))
                     {
-                        newInternetStatus = InternetConnectivityStatus.NoInternetConnection;
-                        _localLiveIP = null;
-                        _upnpExternalIP = null;
+                        if (_upnpDeviceStatus == UPnPDeviceStatus.PortForwardedNotAccessible)
+                        {
+                            newUPnPStatus = UPnPDeviceStatus.PortForwardedNotAccessible;
+                        }
+                        else if (!DoWebCheckIncomingConnection(_localPort))
+                        {
+                            newUPnPStatus = UPnPDeviceStatus.PortForwardedNotAccessible;
+                        }
                     }
-                }
 
-                if ((newInternetStatus == InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter) && (_upnpDeviceStatus != newUPnPStatus) && (newUPnPStatus == UPnPDeviceStatus.PortForwarded))
-                {
-                    if (_upnpDeviceStatus == UPnPDeviceStatus.PortForwardedNotAccessible)
+                    if ((_internetStatus != newInternetStatus) || (_upnpDeviceStatus != newUPnPStatus))
                     {
-                        newUPnPStatus = UPnPDeviceStatus.PortForwardedNotAccessible;
-                    }
-                    else if (!DoWebCheckIncomingConnection(_localPort))
-                    {
-                        newUPnPStatus = UPnPDeviceStatus.PortForwardedNotAccessible;
-                    }
-                }
+                        _internetStatus = newInternetStatus;
+                        _upnpDeviceStatus = newUPnPStatus;
 
-                if ((_internetStatus != newInternetStatus) || (_upnpDeviceStatus != newUPnPStatus))
-                {
-                    _internetStatus = newInternetStatus;
-                    _upnpDeviceStatus = newUPnPStatus;
+                        if (this.ExternalEndPoint == null)
+                        {
+                            //if no incoming connection possible
 
-                    if (this.ExternalEP == null)
-                    {
-                        //if no incoming connection possible
-
-                        if (_dhtClient.GetTotalNodes() < KademliaDHT.DhtClient.KADEMLIA_K)
-                            _dhtSeedingTracker.LookupOnly = true;
+                            if (_dhtClient.GetTotalNodes() < KademliaDHT.DhtClient.KADEMLIA_K)
+                                _dhtSeedingTracker.LookupOnly = true;
+                            else
+                                _dhtSeedingTracker.StopTracking(); //we have enough dht nodes and can stop seeding tracker
+                        }
                         else
-                            _dhtSeedingTracker.StopTracking(); //we have enough dht nodes and can stop seeding tracker
+                        {
+                            _dhtSeedingTracker.LookupOnly = false;
+
+                            if (!_dhtSeedingTracker.IsTrackerRunning)
+                                _dhtSeedingTracker.StartTracking(); //keep seeding tracker running for other peers to find dht bootstrap nodes
+                        }
+
+                        if (InternetConnectivityStatusChanged != null)
+                            InternetConnectivityStatusChanged(this, EventArgs.Empty);
                     }
-                    else
+
+                    //schedule next check
+                    if (_connectivityCheckTimer != null)
                     {
-                        _dhtSeedingTracker.LookupOnly = false;
-
-                        if (!_dhtSeedingTracker.IsTrackerRunning)
-                            _dhtSeedingTracker.StartTracking(); //keep seeding tracker running for other peers to find dht bootstrap nodes
+                        if ((_internetStatus == InternetConnectivityStatus.NoInternetConnection) || (_upnpDeviceStatus == UPnPDeviceStatus.DeviceNotFound) || (_upnpDeviceStatus == UPnPDeviceStatus.PortForwardingFailed))
+                            _connectivityCheckTimer.Change(10000, Timeout.Infinite);
+                        else
+                            _connectivityCheckTimer.Change(CONNECTIVITY_CHECK_TIMER_INTERVAL, Timeout.Infinite);
                     }
-
-                    if (InternetConnectivityStatusChanged != null)
-                        InternetConnectivityStatusChanged(this, EventArgs.Empty);
                 }
-
-                //schedule next check
-                if (_connectivityCheckTimer != null)
-                {
-                    if ((_internetStatus == InternetConnectivityStatus.NoInternetConnection) || (_upnpDeviceStatus == UPnPDeviceStatus.DeviceNotFound) || (_upnpDeviceStatus == UPnPDeviceStatus.PortForwardingFailed))
-                        _connectivityCheckTimer.Change(10000, Timeout.Infinite);
-                    else
-                        _connectivityCheckTimer.Change(CONNECTIVITY_CHECK_TIMER_INTERVAL, Timeout.Infinite);
-                }
+                catch
+                { }
             }
         }
 
@@ -695,8 +746,9 @@ namespace BitChatClient.Network.Connections
 
             try
             {
-                using (WebClient client = new WebClient())
+                using (WebClientEx client = new WebClientEx())
                 {
+                    client.SocksProxy = _profile.GetSocksProxy();
                     client.QueryString.Add("port", externalPort.ToString());
 
                     using (MemoryStream mS = new MemoryStream(client.DownloadData(CONNECTIVITY_CHECK_WEB_SERVICE)))
@@ -776,7 +828,7 @@ namespace BitChatClient.Network.Connections
             try
             {
                 //check if self
-                if (remotePeerEP.Equals(this.ExternalEP))
+                if (remotePeerEP.Equals(this.ExternalEndPoint))
                     throw new IOException("Cannot connect to remote port: self connection.");
 
                 //check existing connection
@@ -787,14 +839,28 @@ namespace BitChatClient.Network.Connections
                 try
                 {
                     //try new tcp connection
-                    TcpClient client = new TcpClient();
-                    client.Connect(remotePeerEP);
 
-                    client.NoDelay = true;
-                    client.SendTimeout = SOCKET_SEND_TIMEOUT;
-                    client.ReceiveTimeout = SOCKET_RECV_TIMEOUT;
+                    Stream connectionStream;
 
-                    return MakeConnectionInitiateProtocol(new NetworkStream(client.Client), remotePeerEP);
+                    if (_profile.ProxyEnabled)
+                    {
+                        SocksConnectRequestHandler requestHandler = _profile.GetSocksProxy().Connect(remotePeerEP);
+
+                        connectionStream = new NetworkStream(requestHandler.GetSocket());
+                    }
+                    else
+                    {
+                        TcpClient client = new TcpClient();
+                        client.Connect(remotePeerEP);
+
+                        client.NoDelay = true;
+                        client.SendTimeout = SOCKET_SEND_TIMEOUT;
+                        client.ReceiveTimeout = SOCKET_RECV_TIMEOUT;
+
+                        connectionStream = new NetworkStream(client.Client);
+                    }
+
+                    return MakeConnectionInitiateProtocol(connectionStream, remotePeerEP);
                 }
                 catch (SocketException)
                 {
@@ -825,7 +891,7 @@ namespace BitChatClient.Network.Connections
             try
             {
                 //check if self
-                if (remotePeerEP.Equals(this.ExternalEP))
+                if (remotePeerEP.Equals(this.ExternalEndPoint))
                     throw new IOException("Cannot connect to remote port: self connection.");
 
                 //check existing connection
@@ -864,6 +930,17 @@ namespace BitChatClient.Network.Connections
         public UPnPDeviceStatus UPnPStatus
         { get { return _upnpDeviceStatus; } }
 
+        public IPAddress UPnPDeviceIP
+        {
+            get
+            {
+                if (_upnpDevice == null)
+                    return null;
+                else
+                    return _upnpDevice.DeviceIP;
+            }
+        }
+
         public IPAddress UPnPExternalIP
         {
             get
@@ -875,7 +952,18 @@ namespace BitChatClient.Network.Connections
             }
         }
 
-        public IPEndPoint ExternalEP
+        public IPEndPoint SocksProxyEndPoint
+        {
+            get
+            {
+                if (_internetStatus == InternetConnectivityStatus.Socks5ProxyInternetConnection)
+                    return _profile.ProxyEndPoint;
+                else
+                    return null;
+            }
+        }
+
+        public IPEndPoint ExternalEndPoint
         {
             get
             {
@@ -914,6 +1002,9 @@ namespace BitChatClient.Network.Connections
 
         public DhtClient DhtClient
         { get { return _dhtClient; } }
+
+        public BitChatProfile Profile
+        { get { return _profile; } }
 
         #endregion
     }
