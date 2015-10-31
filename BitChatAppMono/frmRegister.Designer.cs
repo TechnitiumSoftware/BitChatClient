@@ -75,6 +75,7 @@
             this.label18 = new System.Windows.Forms.Label();
             this.panel1 = new System.Windows.Forms.Panel();
             this.pictureBox2 = new System.Windows.Forms.PictureBox();
+            this.chkEnableSocksProxy = new System.Windows.Forms.CheckBox();
             this.pnlRegister.SuspendLayout();
             this.pnlMessages.SuspendLayout();
             this.pnlDownloadCert.SuspendLayout();
@@ -84,6 +85,7 @@
             // 
             // pnlRegister
             // 
+            this.pnlRegister.Controls.Add(this.chkEnableSocksProxy);
             this.pnlRegister.Controls.Add(this.rbImportRSA);
             this.pnlRegister.Controls.Add(this.rbAutoGenRSA);
             this.pnlRegister.Controls.Add(this.linkLabel1);
@@ -124,10 +126,10 @@
             // rbImportRSA
             // 
             this.rbImportRSA.AutoSize = true;
-            this.rbImportRSA.Location = new System.Drawing.Point(30, 227);
+            this.rbImportRSA.Location = new System.Drawing.Point(30, 218);
             this.rbImportRSA.Name = "rbImportRSA";
             this.rbImportRSA.Size = new System.Drawing.Size(197, 17);
-            this.rbImportRSA.TabIndex = 34;
+            this.rbImportRSA.TabIndex = 35;
             this.rbImportRSA.Text = "&Import custom RSA 4096-bit key pair";
             this.rbImportRSA.UseVisualStyleBackColor = true;
             this.rbImportRSA.CheckedChanged += new System.EventHandler(this.rbImportRSA_CheckedChanged);
@@ -136,10 +138,10 @@
             // 
             this.rbAutoGenRSA.AutoSize = true;
             this.rbAutoGenRSA.Checked = true;
-            this.rbAutoGenRSA.Location = new System.Drawing.Point(30, 204);
+            this.rbAutoGenRSA.Location = new System.Drawing.Point(30, 195);
             this.rbAutoGenRSA.Name = "rbAutoGenRSA";
             this.rbAutoGenRSA.Size = new System.Drawing.Size(279, 17);
-            this.rbAutoGenRSA.TabIndex = 33;
+            this.rbAutoGenRSA.TabIndex = 34;
             this.rbAutoGenRSA.TabStop = true;
             this.rbAutoGenRSA.Text = "&Automatically generate RSA 4096-bit key pair (default)";
             this.rbAutoGenRSA.UseVisualStyleBackColor = true;
@@ -150,7 +152,7 @@
             this.linkLabel1.Location = new System.Drawing.Point(356, 337);
             this.linkLabel1.Name = "linkLabel1";
             this.linkLabel1.Size = new System.Drawing.Size(224, 13);
-            this.linkLabel1.TabIndex = 38;
+            this.linkLabel1.TabIndex = 40;
             this.linkLabel1.TabStop = true;
             this.linkLabel1.Text = "Read terms and conditions, and privacy policy";
             this.linkLabel1.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel1_LinkClicked);
@@ -162,7 +164,7 @@
             this.chkAccept.Location = new System.Drawing.Point(359, 317);
             this.chkAccept.Name = "chkAccept";
             this.chkAccept.Size = new System.Drawing.Size(178, 17);
-            this.chkAccept.TabIndex = 37;
+            this.chkAccept.TabIndex = 39;
             this.chkAccept.Text = "I accept all terms and conditions";
             this.chkAccept.UseVisualStyleBackColor = true;
             this.chkAccept.CheckedChanged += new System.EventHandler(this.chkAccept_CheckedChanged);
@@ -179,7 +181,7 @@
             // label14
             // 
             this.label14.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
-            this.label14.Location = new System.Drawing.Point(12, 257);
+            this.label14.Location = new System.Drawing.Point(12, 269);
             this.label14.Name = "label14";
             this.label14.Size = new System.Drawing.Size(313, 48);
             this.label14.TabIndex = 38;
@@ -191,24 +193,24 @@
             this.btnBack.Location = new System.Drawing.Point(582, 364);
             this.btnBack.Name = "btnBack";
             this.btnBack.Size = new System.Drawing.Size(75, 23);
-            this.btnBack.TabIndex = 41;
+            this.btnBack.TabIndex = 42;
             this.btnBack.Text = "&Back";
             this.btnBack.UseVisualStyleBackColor = true;
             this.btnBack.Click += new System.EventHandler(this.btnBack_Click);
             // 
             // txtConfirmPassword
             // 
-            this.txtConfirmPassword.Location = new System.Drawing.Point(109, 334);
+            this.txtConfirmPassword.Location = new System.Drawing.Point(109, 343);
             this.txtConfirmPassword.Name = "txtConfirmPassword";
             this.txtConfirmPassword.PasswordChar = '#';
             this.txtConfirmPassword.Size = new System.Drawing.Size(203, 20);
-            this.txtConfirmPassword.TabIndex = 36;
+            this.txtConfirmPassword.TabIndex = 38;
             // 
             // label13
             // 
             this.label13.AutoSize = true;
             this.label13.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
-            this.label13.Location = new System.Drawing.Point(13, 337);
+            this.label13.Location = new System.Drawing.Point(13, 346);
             this.label13.Name = "label13";
             this.label13.Size = new System.Drawing.Size(94, 13);
             this.label13.TabIndex = 35;
@@ -216,17 +218,17 @@
             // 
             // txtProfilePassword
             // 
-            this.txtProfilePassword.Location = new System.Drawing.Point(109, 308);
+            this.txtProfilePassword.Location = new System.Drawing.Point(109, 317);
             this.txtProfilePassword.Name = "txtProfilePassword";
             this.txtProfilePassword.PasswordChar = '#';
             this.txtProfilePassword.Size = new System.Drawing.Size(203, 20);
-            this.txtProfilePassword.TabIndex = 35;
+            this.txtProfilePassword.TabIndex = 37;
             // 
             // label12
             // 
             this.label12.AutoSize = true;
             this.label12.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
-            this.label12.Location = new System.Drawing.Point(19, 311);
+            this.label12.Location = new System.Drawing.Point(19, 318);
             this.label12.Name = "label12";
             this.label12.Size = new System.Drawing.Size(88, 13);
             this.label12.TabIndex = 33;
@@ -590,7 +592,7 @@
             this.btnRegister.Location = new System.Drawing.Point(501, 364);
             this.btnRegister.Name = "btnRegister";
             this.btnRegister.Size = new System.Drawing.Size(75, 23);
-            this.btnRegister.TabIndex = 40;
+            this.btnRegister.TabIndex = 41;
             this.btnRegister.Text = "&Register";
             this.btnRegister.UseVisualStyleBackColor = true;
             this.btnRegister.Click += new System.EventHandler(this.btnRegister_Click);
@@ -760,6 +762,17 @@
             this.pictureBox2.TabIndex = 12;
             this.pictureBox2.TabStop = false;
             // 
+            // chkEnableSocksProxy
+            // 
+            this.chkEnableSocksProxy.AutoSize = true;
+            this.chkEnableSocksProxy.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
+            this.chkEnableSocksProxy.Location = new System.Drawing.Point(30, 244);
+            this.chkEnableSocksProxy.Name = "chkEnableSocksProxy";
+            this.chkEnableSocksProxy.Size = new System.Drawing.Size(130, 17);
+            this.chkEnableSocksProxy.TabIndex = 36;
+            this.chkEnableSocksProxy.Text = "Enable Socks 5 Proxy";
+            this.chkEnableSocksProxy.UseVisualStyleBackColor = true;
+            // 
             // frmRegister
             // 
             this.AcceptButton = this.btnRegister;
@@ -837,5 +850,6 @@
         private System.Windows.Forms.Label lblRegisteredEmail;
         private System.Windows.Forms.RadioButton rbImportRSA;
         private System.Windows.Forms.RadioButton rbAutoGenRSA;
+        private System.Windows.Forms.CheckBox chkEnableSocksProxy;
     }
 }

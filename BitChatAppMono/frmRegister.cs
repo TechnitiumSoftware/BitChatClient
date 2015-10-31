@@ -45,6 +45,10 @@ namespace BitChatAppMono
 
         RSAParameters _parameters;
 
+        bool _enableProxy;
+        IPEndPoint _proxyEP;
+        NetworkCredential _proxyCredentials;
+
         #endregion
 
         #region constructor
@@ -54,6 +58,8 @@ namespace BitChatAppMono
             _localAppData = localAppData;
 
             InitializeComponent();
+
+            this.chkEnableSocksProxy.CheckedChanged += new System.EventHandler(this.chkEnableSocksProxy_CheckedChanged);
         }
 
         public frmRegister(string localAppData, BitChatProfile profile, string profileFilePath, bool reissue)
@@ -62,7 +68,13 @@ namespace BitChatAppMono
             _profile = profile;
             _profileFilePath = profileFilePath;
 
+            _proxyEP = _profile.ProxyEndPoint;
+            _proxyCredentials = _profile.ProxyCredentials;
+
             InitializeComponent();
+
+            chkEnableSocksProxy.Checked = _profile.ProxyEnabled;
+            this.chkEnableSocksProxy.CheckedChanged += new System.EventHandler(this.chkEnableSocksProxy_CheckedChanged);
 
             if (reissue)
             {
@@ -120,6 +132,29 @@ namespace BitChatAppMono
                     }
                 }
             }
+        }
+
+        private void chkEnableSocksProxy_CheckedChanged(object sender, EventArgs e)
+        {
+            if (chkEnableSocksProxy.Checked)
+            {
+                using (frmSocksProxyConfig frm = new frmSocksProxyConfig(_proxyEP, _proxyCredentials))
+                {
+
+
+                    if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
+                    {
+                        _proxyEP = frm.ProxyEndPoint;
+                        _proxyCredentials = frm.ProxyCredentials;
+                    }
+                    else
+                    {
+                        chkEnableSocksProxy.Checked = false;
+                    }
+                }
+            }
+
+            _enableProxy = chkEnableSocksProxy.Checked;
         }
 
         private void btnBack_Click(object sender, EventArgs e)
@@ -250,7 +285,7 @@ namespace BitChatAppMono
                 postalCode = txtPostalCode.Text;
 
 
-            CertificateProfile profile = new CertificateProfile(name, CertificateProfileType.Individual, emailAddress, website, phoneNumber, streetAddress, city, state, country, postalCode);
+            CertificateProfile certProfile = new CertificateProfile(name, CertificateProfileType.Individual, emailAddress, website, phoneNumber, streetAddress, city, state, country, postalCode);
 
             pnlRegister.Visible = false;
             lblPanelTitle.Text = "Registering...";
@@ -263,14 +298,14 @@ namespace BitChatAppMono
             pnlMessages.Visible = true;
 
             Action<CertificateProfile> d = new Action<CertificateProfile>(RegisterAsync);
-            d.BeginInvoke(profile, null, null);
+            d.BeginInvoke(certProfile, null, null);
         }
 
         private void btnDownloadAndStart_Click(object sender, EventArgs e)
         {
             try
             {
-                _profile.LocalCertificateStore.Certificate = Registration.GetSignedCertificate(Program.SIGNUP_URI, _profile.LocalCertificateStore);
+                _profile.DownloadSignedCertificate(Program.SIGNUP_URI);
 
                 using (FileStream fS = new FileStream(_profileFilePath, FileMode.Create, FileAccess.ReadWrite))
                 {
@@ -286,7 +321,7 @@ namespace BitChatAppMono
             }
         }
 
-        private void RegisterAsync(CertificateProfile profile)
+        private void RegisterAsync(CertificateProfile certProfile)
         {
             try
             {
@@ -298,15 +333,15 @@ namespace BitChatAppMono
                 else
                     privateKey = new AsymmetricCryptoKey(AsymmetricEncryptionAlgorithm.RSA, 4096);
 
-                Certificate selfSignedCert = new Certificate(CertificateType.RootCA, "", profile, CertificateCapability.SignCACertificate, DateTime.UtcNow, DateTime.UtcNow, AsymmetricEncryptionAlgorithm.RSA, privateKey.GetPublicKey());
+                Certificate selfSignedCert = new Certificate(CertificateType.RootCA, "", certProfile, CertificateCapability.SignCACertificate, DateTime.UtcNow, DateTime.UtcNow, AsymmetricEncryptionAlgorithm.RSA, privateKey.GetPublicKey());
                 selfSignedCert.SelfSign("SHA256", privateKey, null);
 
-                Registration.Register(Program.SIGNUP_URI, selfSignedCert);
+                _profile = new BitChatProfile(new CertificateStore(selfSignedCert, privateKey), (new Random(DateTime.UtcNow.Millisecond)).Next(1024, 65535), Environment.GetFolderPath(Environment.SpecialFolder.Desktop), BitChatProfile.DefaultTrackerURIs);
 
-                if (_profile == null)
-                    _profile = new BitChatProfile(null, (new Random(DateTime.UtcNow.Millisecond)).Next(1024, 65535), Environment.GetFolderPath(Environment.SpecialFolder.Desktop), BitChatProfile.DefaultTrackerURIs);
+                if (_enableProxy)
+                    _profile.EnableSocksProxy(_proxyEP, _proxyCredentials);
 
-                _profile.LocalCertificateStore = new CertificateStore(selfSignedCert, privateKey);
+                _profile.Register(Program.SIGNUP_URI);
                 _profile.SetPassword(SymmetricEncryptionAlgorithm.Rijndael, 256, txtProfilePassword.Text);
 
                 _profileFilePath = Path.Combine(_localAppData, _profile.LocalCertificateStore.Certificate.IssuedTo.Name + ".profile");
