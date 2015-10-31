@@ -24,13 +24,21 @@ using System.IO;
 using System.Net;
 using System.Text;
 using TechnitiumLibrary.IO;
+using TechnitiumLibrary.Net;
 using TechnitiumLibrary.Net.BitTorrent;
+using TechnitiumLibrary.Net.Proxy;
 using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatClient
 {
     public class BitChatProfile : CryptoContainer
     {
+        #region event
+
+        public event EventHandler SocksProxyUpdated;
+
+        #endregion
+
         #region variables
 
         public static Uri[] DefaultTrackerURIs
@@ -75,6 +83,10 @@ namespace BitChatClient
         IPEndPoint[] _bootstrapDhtNodes;
         bool _enableUPnP;
 
+        IPEndPoint _proxyEP;
+        NetworkCredential _proxyCredentials;
+        SocksClient _proxy;
+
         byte[] _clientData;
 
         #endregion
@@ -91,6 +103,7 @@ namespace BitChatClient
             _checkCertificateRevocationList = true;
             _bootstrapDhtNodes = new IPEndPoint[] { };
             _enableUPnP = true;
+            _proxyEP = new IPEndPoint(IPAddress.Loopback, 1080);
         }
 
         public BitChatProfile(CertificateStore localCertStore, int localPort, string downloadFolder, Uri[] trackerURIs, string password)
@@ -116,6 +129,88 @@ namespace BitChatClient
 
         #endregion
 
+        #region registration
+
+        private static string GetUserAgent()
+        {
+            OperatingSystem OS = Environment.OSVersion;
+
+            string operatingSystem;
+
+            switch (OS.Platform)
+            {
+                case PlatformID.Win32NT:
+                    operatingSystem = "Windows NT";
+                    break;
+
+                default:
+                    operatingSystem = OS.Platform.ToString();
+                    break;
+            }
+
+            operatingSystem += " " + OS.Version.Major + "." + OS.Version.Minor;
+
+            return "Mozilla/5.0 (" + operatingSystem + ")";
+        }
+
+        public void Register(Uri apiUri)
+        {
+            //verify self signed cert
+            _localCertStore.Certificate.Verify(new Certificate[] { _localCertStore.Certificate });
+
+            using (WebClientEx client = new WebClientEx())
+            {
+                client.SocksProxy = GetSocksProxy();
+                client.UserAgent = GetUserAgent();
+
+                byte[] data = client.UploadData(apiUri.AbsoluteUri + "?cmd=reg", _localCertStore.Certificate.ToArray());
+
+                using (BinaryReader bR = new BinaryReader(new MemoryStream(data)))
+                {
+                    int errorCode = bR.ReadInt32();
+                    if (errorCode != 0)
+                    {
+                        string message = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadInt32()));
+                        string remoteStackTrace = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadInt32()));
+
+                        throw new Exception(message);
+                    }
+                }
+            }
+        }
+
+        public void DownloadSignedCertificate(Uri apiUri)
+        {
+            using (WebClientEx client = new WebClientEx())
+            {
+                client.SocksProxy = GetSocksProxy();
+                client.UserAgent = GetUserAgent();
+
+                byte[] data = client.DownloadData(apiUri.AbsoluteUri + "?cmd=dlc&email=" + _localCertStore.Certificate.IssuedTo.EmailAddress.Address);
+
+                using (BinaryReader bR = new BinaryReader(new MemoryStream(data)))
+                {
+                    int errorCode = bR.ReadInt32();
+                    if (errorCode != 0)
+                    {
+                        string message = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadInt32()));
+                        string remoteStackTrace = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadInt32()));
+
+                        throw new BitChatException(message);
+                    }
+
+                    Certificate cert = new Certificate(bR);
+
+                    if (!cert.IssuedTo.EmailAddress.Equals(_localCertStore.Certificate.IssuedTo.EmailAddress) || (cert.PublicKeyEncryptionAlgorithm != _localCertStore.PrivateKey.Algorithm) || (cert.PublicKeyXML != _localCertStore.PrivateKey.GetPublicKey()))
+                        throw new BitChatException("Invalid signed certificate received. Please try again.");
+
+                    _localCertStore = new CertificateStore(cert, _localCertStore.PrivateKey);
+                }
+            }
+        }
+
+        #endregion
+
         #region private
 
         protected override void ReadPlainTextFrom(BinaryReader bR)
@@ -137,7 +232,8 @@ namespace BitChatClient
                     break;
 
                 case 4:
-                    ReadSettingsVersion4(bR);
+                case 5:
+                    ReadSettingsVersion4And5(version, bR);
                     break;
 
                 default:
@@ -158,12 +254,16 @@ namespace BitChatClient
             IPEndPoint localEP = new IPEndPoint(new IPAddress(bR.ReadBytes(bR.ReadByte())), bR.ReadInt32());
             _localPort = localEP.Port;
 
+            _downloadFolder = @"C:\";
+
             //default tracker urls
             _trackerURIs = DefaultTrackerURIs;
 
+            _bitChatInfoList = new BitChatInfo[] { };
             _checkCertificateRevocationList = true;
             _bootstrapDhtNodes = new IPEndPoint[] { };
             _enableUPnP = true;
+            _proxyEP = new IPEndPoint(IPAddress.Loopback, 1080);
         }
 
         private void ReadSettingsVersion2And3(byte version, BinaryReader bR)
@@ -208,9 +308,10 @@ namespace BitChatClient
 
             _bootstrapDhtNodes = new IPEndPoint[] { };
             _enableUPnP = true;
+            _proxyEP = new IPEndPoint(IPAddress.Loopback, 1080);
         }
 
-        private void ReadSettingsVersion4(BinaryReader bR)
+        private void ReadSettingsVersion4And5(byte version, BinaryReader bR)
         {
             //local cert store
             if (bR.ReadByte() == 1)
@@ -245,6 +346,33 @@ namespace BitChatClient
             //upnp enabled
             _enableUPnP = bR.ReadBoolean();
 
+            if (version > 4)
+            {
+                //socks proxy enabled
+                bool proxyEnabled = bR.ReadBoolean();
+
+                //socks proxy ep
+                _proxyEP = IPEndPointParser.Parse(bR);
+
+                //socks proxy credentials
+                bool auth = bR.ReadBoolean();
+
+                if (auth)
+                {
+                    string username = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
+                    string password = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
+
+                    _proxyCredentials = new NetworkCredential(username, password);
+                }
+
+                if (proxyEnabled)
+                    _proxy = new SocksClient(_proxyEP, _proxyCredentials);
+            }
+            else
+            {
+                _proxyEP = new IPEndPoint(IPAddress.Loopback, 1080);
+            }
+
             //generic client data
             int dataCount = bR.ReadInt32();
             if (dataCount > 0)
@@ -254,7 +382,7 @@ namespace BitChatClient
         protected override void WritePlainTextTo(BinaryWriter bW)
         {
             bW.Write(Encoding.ASCII.GetBytes("BP"));
-            bW.Write((byte)4);
+            bW.Write((byte)5);
 
             //local cert store
             if (_localCertStore == null)
@@ -303,6 +431,34 @@ namespace BitChatClient
             //upnp enabled
             bW.Write(_enableUPnP);
 
+            //socks proxy enabled
+            bW.Write(this.ProxyEnabled);
+
+            //socks proxy ep
+            IPEndPointParser.WriteTo(_proxyEP, bW);
+
+            //socks proxy credentials
+            if (_proxyCredentials == null)
+            {
+                bW.Write(false);
+            }
+            else
+            {
+                bW.Write(true);
+
+                {
+                    byte[] buffer = Encoding.UTF8.GetBytes(_proxyCredentials.UserName);
+                    bW.Write((byte)buffer.Length);
+                    bW.Write(buffer);
+                }
+
+                {
+                    byte[] buffer = Encoding.UTF8.GetBytes(_proxyCredentials.Password);
+                    bW.Write((byte)buffer.Length);
+                    bW.Write(buffer);
+                }
+            }
+
             //generic client data
             if ((_clientData == null) || (_clientData.Length == 0))
             {
@@ -317,12 +473,39 @@ namespace BitChatClient
 
         #endregion
 
+        #region public
+
+        public SocksClient GetSocksProxy()
+        {
+            return _proxy;
+        }
+
+        public void EnableSocksProxy(IPEndPoint proxyEP, NetworkCredential proxyCredentials)
+        {
+            _proxyEP = proxyEP;
+            _proxyCredentials = proxyCredentials;
+
+            _proxy = new SocksClient(_proxyEP, _proxyCredentials);
+
+            if (SocksProxyUpdated != null)
+                SocksProxyUpdated(this, EventArgs.Empty);
+        }
+
+        public void DisableSocksProxy()
+        {
+            _proxy = null;
+
+            if (SocksProxyUpdated != null)
+                SocksProxyUpdated(this, EventArgs.Empty);
+        }
+
+        #endregion
+
         #region properties
 
         public CertificateStore LocalCertificateStore
         {
             get { return _localCertStore; }
-            set { _localCertStore = value; }
         }
 
         public int LocalPort
@@ -371,6 +554,21 @@ namespace BitChatClient
         {
             get { return _enableUPnP; }
             set { _enableUPnP = value; }
+        }
+
+        public bool ProxyEnabled
+        {
+            get { return (_proxy != null); }
+        }
+
+        public IPEndPoint ProxyEndPoint
+        {
+            get { return _proxyEP; }
+        }
+
+        public NetworkCredential ProxyCredentials
+        {
+            get { return _proxyCredentials; }
         }
 
         #endregion
