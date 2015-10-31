@@ -498,11 +498,17 @@ namespace BitChatClient.Network.PeerDiscovery
             {
                 if (!_disposed)
                 {
-                    if (disposing)
+                    if (_networkWatcher != null)
                     {
-                        _udpListener.Close();
-                        _listeningThread.Abort();
+                        _networkWatcher.Dispose();
+                        _networkWatcher = null;
                     }
+
+                    if (_udpListener != null)
+                        _udpListener.Dispose();
+
+                    if (_listeningThread != null)
+                        _listeningThread.Abort();
 
                     _disposed = true;
                 }
@@ -547,9 +553,7 @@ namespace BitChatClient.Network.PeerDiscovery
                 finally
                 {
                     if (_networkWatcher != null)
-                    {
                         _networkWatcher.Change(NETWORK_WATCHER_INTERVAL, Timeout.Infinite);
-                    }
                 }
             }
 
