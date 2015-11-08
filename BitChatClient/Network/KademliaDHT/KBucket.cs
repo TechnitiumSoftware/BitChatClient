@@ -31,7 +31,6 @@ namespace BitChatClient.Network.KademliaDHT
         const int HEALTH_PING_MAX_RETRIES = 2;
         const int BUCKET_STALE_TIMEOUT_SECONDS = 900; //15mins timeout before declaring node stale
 
-        int _k;
         BinaryID _bucketID;
         int _bucketDepth;
         bool _bucketContainsCurrentNode;
@@ -55,9 +54,8 @@ namespace BitChatClient.Network.KademliaDHT
 
         #region constructor
 
-        public KBucket(int k, NodeContact currentNode)
+        public KBucket(NodeContact currentNode)
         {
-            _k = k;
             _bucketDepth = 0;
 
             _contacts = new Dictionary<BinaryID, NodeContact>();
@@ -70,9 +68,8 @@ namespace BitChatClient.Network.KademliaDHT
             _lock = new ReaderWriterLockSlim();
         }
 
-        private KBucket(KBucket parentBucket, bool left, int k)
+        private KBucket(KBucket parentBucket, bool left)
         {
-            _k = k;
             _bucketDepth = parentBucket._bucketDepth + 1;
 
             _parentBucket = parentBucket;
@@ -205,12 +202,11 @@ namespace BitChatClient.Network.KademliaDHT
         private static void SplitBucket(KBucket bucket)
         {
             KBucket currentBucket = bucket;
-            int k = bucket._k;
 
             while (true)
             {
-                KBucket leftBucket = new KBucket(currentBucket, true, k);
-                KBucket rightBucket = new KBucket(currentBucket, false, k);
+                KBucket leftBucket = new KBucket(currentBucket, true);
+                KBucket rightBucket = new KBucket(currentBucket, false);
 
                 foreach (KeyValuePair<BinaryID, NodeContact> nodeItem in currentBucket._contacts)
                 {
@@ -240,11 +236,11 @@ namespace BitChatClient.Network.KademliaDHT
                 currentBucket._leftBucket = leftBucket;
                 currentBucket._rightBucket = rightBucket;
 
-                if (leftBucket._contacts.Count > k)
+                if (leftBucket._contacts.Count > DhtClient.KADEMLIA_K)
                 {
                     currentBucket = leftBucket;
                 }
-                else if (rightBucket._contacts.Count > k)
+                else if (rightBucket._contacts.Count > DhtClient.KADEMLIA_K)
                 {
                     currentBucket = rightBucket;
                 }
@@ -350,7 +346,7 @@ namespace BitChatClient.Network.KademliaDHT
         {
             object[] param = state as object[];
 
-            DhtRpcQueryManager queryManager = param[0] as DhtRpcQueryManager;
+            DhtClient dhtClient = param[0] as DhtClient;
             NodeContact contact = param[1] as NodeContact;
             int retries = 0;
 
@@ -358,7 +354,7 @@ namespace BitChatClient.Network.KademliaDHT
             {
                 try
                 {
-                    if (queryManager.Ping(contact))
+                    if (dhtClient.Ping(contact))
                         return; //contact replied; do nothing.
                 }
                 catch
@@ -381,7 +377,7 @@ namespace BitChatClient.Network.KademliaDHT
         {
             try
             {
-                DhtRpcQueryManager queryManager = state as DhtRpcQueryManager;
+                DhtClient dhtClient = state as DhtClient;
 
                 //get random node ID in the bucket range
                 BinaryID randomNodeID = (BinaryID.GenerateRandomID160() << _bucketDepth) | _bucketID;
@@ -390,7 +386,7 @@ namespace BitChatClient.Network.KademliaDHT
                 NodeContact[] initialContacts = GetKClosestContacts(randomNodeID);
 
                 if (initialContacts.Length > 0)
-                    queryManager.QueryFindNode(initialContacts, randomNodeID); //query manager auto add contacts that respond
+                    dhtClient.QueryFindNode(initialContacts, randomNodeID); //query manager auto add contacts that respond
             }
             catch
             { }
@@ -414,7 +410,7 @@ namespace BitChatClient.Network.KademliaDHT
                     return true;
                 }
 
-                if (_contacts.Count < _k)
+                if (_contacts.Count < DhtClient.KADEMLIA_K)
                 {
                     _contacts.Add(contact.NodeID, contact);
                     IncrementContactCount();
@@ -467,7 +463,7 @@ namespace BitChatClient.Network.KademliaDHT
                     return true;
                 }
 
-                if (_replacementContacts.Count < _k)
+                if (_replacementContacts.Count < DhtClient.KADEMLIA_K)
                 {
                     //keep the current node contact in replacement cache
                     _replacementContacts.Add(contact.NodeID, contact);
@@ -553,7 +549,7 @@ namespace BitChatClient.Network.KademliaDHT
                     KBucket parentBucket = this._parentBucket;
                     ReaderWriterLockSlim currentLock;
 
-                    while ((parentBucket != null) && (parentBucket._totalContacts <= _k))
+                    while ((parentBucket != null) && (parentBucket._totalContacts <= DhtClient.KADEMLIA_K))
                     {
                         currentLock = parentBucket._lock;
 
@@ -626,13 +622,13 @@ namespace BitChatClient.Network.KademliaDHT
             NodeContact[] contacts = null;
             KBucket closestBucket = FindClosestBucket(networkID);
 
-            if (closestBucket._totalContacts >= _k)
+            if (closestBucket._totalContacts >= DhtClient.KADEMLIA_K)
             {
                 contacts = closestBucket.GetAllContacts(false);
 
-                if (contacts.Length > _k)
-                    return GetClosestContacts(contacts, networkID, _k);
-                else if (contacts.Length == _k)
+                if (contacts.Length > DhtClient.KADEMLIA_K)
+                    return GetClosestContacts(contacts, networkID, DhtClient.KADEMLIA_K);
+                else if (contacts.Length == DhtClient.KADEMLIA_K)
                     return contacts;
                 else if (closestBucket._parentBucket == null)
                     return contacts;
@@ -644,13 +640,13 @@ namespace BitChatClient.Network.KademliaDHT
             {
                 KBucket parentBucket = closestBucket._parentBucket;
 
-                if (parentBucket._totalContacts >= _k)
+                if (parentBucket._totalContacts >= DhtClient.KADEMLIA_K)
                 {
                     contacts = parentBucket.GetAllContacts(false);
 
-                    if (contacts.Length > _k)
-                        return GetClosestContacts(contacts, networkID, _k);
-                    else if (contacts.Length == _k)
+                    if (contacts.Length > DhtClient.KADEMLIA_K)
+                        return GetClosestContacts(contacts, networkID, DhtClient.KADEMLIA_K);
+                    else if (contacts.Length == DhtClient.KADEMLIA_K)
                         return contacts;
                 }
 
@@ -726,9 +722,9 @@ namespace BitChatClient.Network.KademliaDHT
                 return false; //bucket containing current node is never full
 
             if (includeReplacementCache)
-                return (_totalContacts + _totalReplacementContacts) >= (_k * 2);
+                return (_totalContacts + _totalReplacementContacts) >= (DhtClient.KADEMLIA_K * 2);
 
-            return _totalContacts >= _k;
+            return _totalContacts >= DhtClient.KADEMLIA_K;
         }
 
         public NodeContact FindContactInCurrentBucket(BinaryID nodeID)
@@ -788,22 +784,22 @@ namespace BitChatClient.Network.KademliaDHT
             }
         }
 
-        public void CheckContactHealth(DhtRpcQueryManager queryManager)
+        public void CheckContactHealth(DhtClient dhtClient)
         {
             _lock.TryEnterReadLock(LOCK_TIMEOUT);
             try
             {
                 if (_contacts == null)
                 {
-                    _leftBucket.CheckContactHealth(queryManager);
-                    _rightBucket.CheckContactHealth(queryManager);
+                    _leftBucket.CheckContactHealth(dhtClient);
+                    _rightBucket.CheckContactHealth(dhtClient);
                 }
                 else
                 {
                     foreach (NodeContact contact in _contacts.Values)
                     {
                         if (contact.IsStale())
-                            ThreadPool.QueueUserWorkItem(CheckContactHealthAsync, new object[] { queryManager, contact });
+                            ThreadPool.QueueUserWorkItem(CheckContactHealthAsync, new object[] { dhtClient, contact });
                     }
                 }
             }
@@ -813,20 +809,20 @@ namespace BitChatClient.Network.KademliaDHT
             }
         }
 
-        public void RefreshBucket(DhtRpcQueryManager queryManager)
+        public void RefreshBucket(DhtClient dhtClient)
         {
             _lock.TryEnterReadLock(LOCK_TIMEOUT);
             try
             {
                 if (_contacts == null)
                 {
-                    _leftBucket.RefreshBucket(queryManager);
-                    _rightBucket.RefreshBucket(queryManager);
+                    _leftBucket.RefreshBucket(dhtClient);
+                    _rightBucket.RefreshBucket(dhtClient);
                 }
                 else
                 {
                     if ((DateTime.UtcNow - _lastChanged).TotalSeconds > BUCKET_STALE_TIMEOUT_SECONDS)
-                        ThreadPool.QueueUserWorkItem(RefreshBucketAsync, queryManager);
+                        ThreadPool.QueueUserWorkItem(RefreshBucketAsync, dhtClient);
                 }
             }
             finally
