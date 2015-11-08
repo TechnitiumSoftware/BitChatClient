@@ -56,7 +56,7 @@ namespace AutomaticUpdate.Client
         DateTime _lastUpdateCheckedOn;
         DateTime _lastModifiedGMT;
 
-        SocksClient _proxy;
+        NetProxy _proxy;
 
         UpdateInfo _updateInfo;
 
@@ -186,7 +186,7 @@ namespace AutomaticUpdate.Client
             {
                 using (WebClientEx client = new WebClientEx())
                 {
-                    client.SocksProxy = _proxy;
+                    client.Proxy = _proxy;
                     client.UserAgent = GetUserAgent();
                     client.IfModifiedSince = _lastModifiedGMT;
 
@@ -274,7 +274,7 @@ namespace AutomaticUpdate.Client
 
                     using (WebClientEx client = new WebClientEx())
                     {
-                        client.SocksProxy = _proxy;
+                        client.Proxy = _proxy;
                         client.UserAgent = GetUserAgent();
                         client.DownloadFile(_updateInfo.DownloadURI, tmpGZFile);
                     }
@@ -418,7 +418,7 @@ namespace AutomaticUpdate.Client
         public DateTime LastModifiedGMT
         { get { return _lastModifiedGMT; } }
 
-        public SocksClient SocksProxy
+        public NetProxy Proxy
         {
             get { return _proxy; }
             set { _proxy = value; }
