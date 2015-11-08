@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 using BitChatClient.Network.Connections;
+using BitChatClient.Network.KademliaDHT;
 using System;
 using System.Collections.Generic;
 using System.Net;
@@ -25,29 +26,29 @@ using TechnitiumLibrary.Net.Proxy;
 
 namespace BitChatClient.Network
 {
-    class ProxyNetwork : IDisposable
+    class TcpRelayNetwork : IDisposable
     {
         #region variables
 
-        static Dictionary<BinaryID, ProxyNetwork> _proxyNetworks = new Dictionary<BinaryID, ProxyNetwork>(2);
+        static Dictionary<BinaryID, TcpRelayNetwork> _relayNetworks = new Dictionary<BinaryID, TcpRelayNetwork>(2);
 
         TrackerManager _trackerManager;
-        Dictionary<BinaryID, Connection> _proxyConnections = new Dictionary<BinaryID, Connection>(2);
+        Dictionary<BinaryID, Connection> _relayConnections = new Dictionary<BinaryID, Connection>(2);
 
         #endregion
 
         #region constructor
 
-        private ProxyNetwork(BinaryID networkID, int servicePort)
+        private TcpRelayNetwork(BinaryID networkID, int servicePort, DhtClient dhtClient)
         {
-            _trackerManager = new TrackerManager(networkID, servicePort);
+            _trackerManager = new TrackerManager(networkID, servicePort, dhtClient);
         }
 
         #endregion
 
         #region IDisposable
 
-        ~ProxyNetwork()
+        ~TcpRelayNetwork()
         {
             Dispose(false);
         }
@@ -75,46 +76,46 @@ namespace BitChatClient.Network
 
         #region static
 
-        public static ProxyNetwork JoinProxyNetwork(BinaryID networkID, int servicePort, Connection connection, SocksClient proxy)
+        public static TcpRelayNetwork JoinRelayNetwork(BinaryID networkID, int servicePort, Connection connection, DhtClient dhtClient, NetProxy proxy)
         {
-            lock (_proxyNetworks)
+            lock (_relayNetworks)
             {
-                if (_proxyNetworks.ContainsKey(networkID))
+                if (_relayNetworks.ContainsKey(networkID))
                 {
-                    ProxyNetwork proxyNetwork = _proxyNetworks[networkID];
+                    TcpRelayNetwork relayNetwork = _relayNetworks[networkID];
 
-                    proxyNetwork._proxyConnections.Add(connection.RemotePeerID, connection);
+                    relayNetwork._relayConnections.Add(connection.RemotePeerID, connection);
 
-                    return proxyNetwork;
+                    return relayNetwork;
                 }
                 else
                 {
-                    ProxyNetwork proxyNetwork = new ProxyNetwork(networkID, servicePort);
-                    proxyNetwork.SocksProxy = proxy;
+                    TcpRelayNetwork relayNetwork = new TcpRelayNetwork(networkID, servicePort, dhtClient);
+                    relayNetwork.Proxy = proxy;
 
-                    _proxyNetworks.Add(networkID, proxyNetwork);
+                    _relayNetworks.Add(networkID, relayNetwork);
 
-                    proxyNetwork._proxyConnections.Add(connection.RemotePeerID, connection);
+                    relayNetwork._relayConnections.Add(connection.RemotePeerID, connection);
 
-                    return proxyNetwork;
+                    return relayNetwork;
                 }
             }
         }
 
-        public static List<IPEndPoint> GetProxyNetworkPeers(BinaryID channelName, Connection requestingConnection)
+        public static List<IPEndPoint> GetRelayNetworkPeers(BinaryID channelName, Connection requestingConnection)
         {
             BinaryID localPeerID = requestingConnection.LocalPeerID;
             BinaryID remotePeerID = requestingConnection.RemotePeerID;
 
-            lock (_proxyNetworks)
+            lock (_relayNetworks)
             {
-                foreach (KeyValuePair<BinaryID, ProxyNetwork> itemProxyNetwork in _proxyNetworks)
+                foreach (KeyValuePair<BinaryID, TcpRelayNetwork> itemRelayNetwork in _relayNetworks)
                 {
-                    BinaryID computedChannelName = Connection.GetChannelName(localPeerID, remotePeerID, itemProxyNetwork.Key);
+                    BinaryID computedChannelName = Connection.GetChannelName(localPeerID, remotePeerID, itemRelayNetwork.Key);
 
                     if (computedChannelName.Equals(channelName))
                     {
-                        Dictionary<BinaryID, Connection> proxyConnections = itemProxyNetwork.Value._proxyConnections;
+                        Dictionary<BinaryID, Connection> proxyConnections = itemRelayNetwork.Value._relayConnections;
                         List<IPEndPoint> peerEPs = new List<IPEndPoint>(proxyConnections.Count);
 
                         foreach (KeyValuePair<BinaryID, Connection> itemProxyConnection in proxyConnections)
@@ -130,12 +131,12 @@ namespace BitChatClient.Network
             return null;
         }
 
-        public static void UpdateSocksProxy(SocksClient proxy)
+        public static void UpdateSocksProxy(NetProxy proxy)
         {
-            lock (_proxyNetworks)
+            lock (_relayNetworks)
             {
-                foreach (ProxyNetwork proxyNetwork in _proxyNetworks.Values)
-                    proxyNetwork.SocksProxy = proxy;
+                foreach (TcpRelayNetwork relayNetwork in _relayNetworks.Values)
+                    relayNetwork.Proxy = proxy;
             }
         }
 
@@ -160,13 +161,13 @@ namespace BitChatClient.Network
 
         public void LeaveNetwork(Connection connection)
         {
-            lock (_proxyNetworks)
+            lock (_relayNetworks)
             {
-                _proxyConnections.Remove(connection.RemotePeerID);
+                _relayConnections.Remove(connection.RemotePeerID);
 
-                if (_proxyConnections.Count < 1)
+                if (_relayConnections.Count < 1)
                 {
-                    _proxyNetworks.Remove(_trackerManager.NetworkID);
+                    _relayNetworks.Remove(_trackerManager.NetworkID);
                     _trackerManager.StopTracking();
                 }
             }
@@ -179,10 +180,10 @@ namespace BitChatClient.Network
         public BinaryID NetworkID
         { get { return _trackerManager.NetworkID; } }
 
-        public SocksClient SocksProxy
+        public NetProxy Proxy
         {
-            get { return _trackerManager.SocksClient; }
-            set { _trackerManager.SocksClient = value; }
+            get { return _trackerManager.Proxy; }
+            set { _trackerManager.Proxy = value; }
         }
 
         #endregion
