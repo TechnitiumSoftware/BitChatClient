@@ -89,33 +89,40 @@ namespace BitChatAppMono
                     {
                         TrackerClient tracker = item.Tag as TrackerClient;
 
+                        TimeSpan updateIn;
+                        Exception lastException;
+                        int peerCount;
+
                         if (tracker == null)
                         {
-                            item.SubItems[1].Text = "working";
-                            item.SubItems[2].Text = "";
-                            item.SubItems[3].Text = _chat.GetTotalDhtPeers().ToString();
+                            updateIn = _chat.DhtNextUpdateIn();
+                            lastException = _chat.DhtLastException();
+                            peerCount = _chat.DhtGetTotalPeers();
                         }
                         else
                         {
-                            string strUpdateIn = "updating...";
-                            TimeSpan updateIn = tracker.NextUpdateIn();
-
-                            if (updateIn.TotalSeconds > 1)
-                            {
-                                strUpdateIn = "";
-                                if (updateIn.Hours > 0)
-                                    strUpdateIn = updateIn.Hours + "h ";
-
-                                if (updateIn.Minutes > 0)
-                                    strUpdateIn += updateIn.Minutes + "m ";
-
-                                strUpdateIn += updateIn.Seconds + "s";
-                            }
-
-                            item.SubItems[1].Text = tracker.LastException == null ? "working" : tracker.LastException.Message;
-                            item.SubItems[2].Text = strUpdateIn;
-                            item.SubItems[3].Text = tracker.Peers.Count.ToString();
+                            updateIn = tracker.NextUpdateIn();
+                            lastException = tracker.LastException;
+                            peerCount = tracker.Peers.Count;
                         }
+
+                        string strUpdateIn = "updating...";
+
+                        if (updateIn.TotalSeconds > 1)
+                        {
+                            strUpdateIn = "";
+                            if (updateIn.Hours > 0)
+                                strUpdateIn = updateIn.Hours + "h ";
+
+                            if (updateIn.Minutes > 0)
+                                strUpdateIn += updateIn.Minutes + "m ";
+
+                            strUpdateIn += updateIn.Seconds + "s";
+                        }
+
+                        item.SubItems[1].Text = lastException == null ? "working" : lastException.Message;
+                        item.SubItems[2].Text = strUpdateIn;
+                        item.SubItems[3].Text = peerCount.ToString();
                     }
                     else
                     {
@@ -143,13 +150,11 @@ namespace BitChatAppMono
 
             if ((lstTrackerInfo.SelectedItems.Count > 0) && (lstTrackerInfo.SelectedItems[0].Text != "DHT"))
             {
-                updateTrackerToolStripMenuItem.Enabled = true;
                 removeTrackerToolStripMenuItem.Enabled = true;
                 copyTrackerToolStripMenuItem.Enabled = true;
             }
             else
             {
-                updateTrackerToolStripMenuItem.Enabled = false;
                 removeTrackerToolStripMenuItem.Enabled = false;
                 copyTrackerToolStripMenuItem.Enabled = false;
             }
@@ -164,7 +169,7 @@ namespace BitChatAppMono
                 IEnumerable<IPEndPoint> peerEPs;
 
                 if (tracker == null)
-                    peerEPs = _chat.GetDhtPeers();
+                    peerEPs = _chat.DhtGetPeers();
                 else
                     peerEPs = tracker.Peers;
 
@@ -190,7 +195,9 @@ namespace BitChatAppMono
                 {
                     TrackerClient tracker = item.Tag as TrackerClient;
 
-                    if (tracker != null)
+                    if (tracker == null)
+                        _chat.DhtUpdate();
+                    else
                         tracker.ScheduleUpdateNow();
                 }
             }
