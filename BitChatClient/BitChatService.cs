@@ -123,7 +123,7 @@ namespace BitChatClient
 
                 foreach (Certificate cert in certificates)
                 {
-                    cert.VerifyRevocationList(_profile.GetSocksProxy());
+                    cert.VerifyRevocationList(_profile.Proxy);
                 }
             }
             catch (InvalidCertificateException ex)
@@ -231,12 +231,12 @@ namespace BitChatClient
             LocalPeerDiscoveryIPv4 _localDiscovery;
             Dictionary<BinaryID, BitChatNetwork> _networks = new Dictionary<BinaryID, BitChatNetwork>();
 
-            //proxy nodes
-            const int PROXY_NODE_MAX_CONNECTIONS = 5;
-            const int PROXY_NODE_CHECK_INTERVAL = 30000; //30sec
+            //relay nodes
+            const int TCP_RELAY_MAX_CONNECTIONS = 3;
+            const int TCP_RELAY_CHECK_INTERVAL = 30000; //30sec
 
-            Dictionary<IPEndPoint, Connection> _proxyNodeConnections = new Dictionary<IPEndPoint, Connection>();
-            Timer _proxyNodeCheckTimer;
+            Dictionary<IPEndPoint, Connection> _relayConnections = new Dictionary<IPEndPoint, Connection>();
+            Timer _relayConnectionCheckTimer;
 
             const int RE_NEGOTIATE_AFTER_BYTES_SENT = 104857600; //100mb
             const int RE_NEGOTIATE_AFTER_SECONDS = 3600; //1hr
@@ -252,7 +252,7 @@ namespace BitChatClient
                 _trustedRootCertificates = trustedRootCertificates;
                 _supportedCryptoOptions = supportedCryptoOptions;
 
-                _connectionManager = new ConnectionManager(_profile, BitChatNetworkChannelRequest, ProxyNetworkPeersAvailable);
+                _connectionManager = new ConnectionManager(_profile, BitChatNetworkChannelRequest, RelayNetworkPeersAvailable);
                 _connectionManager.InternetConnectivityStatusChanged += ConnectionManager_InternetConnectivityStatusChanged;
 
                 LocalPeerDiscoveryIPv4.StartListener(41733);
@@ -281,10 +281,10 @@ namespace BitChatClient
             {
                 if (!_disposed)
                 {
-                    if (_proxyNodeCheckTimer != null)
+                    if (_relayConnectionCheckTimer != null)
                     {
-                        _proxyNodeCheckTimer.Dispose();
-                        _proxyNodeCheckTimer = null;
+                        _relayConnectionCheckTimer.Dispose();
+                        _relayConnectionCheckTimer = null;
                     }
 
                     if (_connectionManager != null)
@@ -299,7 +299,7 @@ namespace BitChatClient
 
             #endregion
 
-            #region Proxy Connection
+            #region Tcp Relay Connection
 
             private void ConnectionManager_InternetConnectivityStatusChanged(object sender, EventArgs e)
             {
@@ -307,84 +307,84 @@ namespace BitChatClient
 
                 if (externalEP == null)
                 {
-                    //no incoming connection possible; setup proxy network
-                    AddProxyNodes();
+                    //no incoming connection possible; setup relay network
+                    AddRelayNodes();
 
-                    if (_proxyNodeCheckTimer == null)
-                        _proxyNodeCheckTimer = new Timer(ProxyConnectionCheckTimerCallback, null, PROXY_NODE_CHECK_INTERVAL, Timeout.Infinite);
+                    if (_relayConnectionCheckTimer == null)
+                        _relayConnectionCheckTimer = new Timer(RelayConnectionCheckTimerCallback, null, TCP_RELAY_CHECK_INTERVAL, Timeout.Infinite);
                 }
                 else
                 {
-                    //can receive incoming connection; no need for setting up proxy network;
-                    if (_proxyNodeCheckTimer != null)
+                    //can receive incoming connection; no need for setting up relay network;
+                    if (_relayConnectionCheckTimer != null)
                     {
-                        _proxyNodeCheckTimer.Dispose();
-                        _proxyNodeCheckTimer = null;
+                        _relayConnectionCheckTimer.Dispose();
+                        _relayConnectionCheckTimer = null;
 
                         BinaryID[] networkIDs = new BinaryID[_networks.Keys.Count];
                         _networks.Keys.CopyTo(networkIDs, 0);
 
-                        lock (_proxyNodeConnections)
+                        lock (_relayConnections)
                         {
-                            foreach (Connection connection in _proxyNodeConnections.Values)
+                            foreach (Connection connection in _relayConnections.Values)
                             {
-                                ThreadPool.QueueUserWorkItem(RemoveProxyNetworksFromConnectionAsync, new object[] { connection, networkIDs });
+                                ThreadPool.QueueUserWorkItem(RemoveRelayNetworksFromConnectionAsync, new object[] { connection, networkIDs });
                             }
 
-                            _proxyNodeConnections.Clear();
+                            _relayConnections.Clear();
                         }
                     }
                 }
             }
 
-            private void AddProxyNodes()
+            private void AddRelayNodes()
             {
-                //if less number of proxy node connections, try to find new proxy nodes
+                //if less number of relay node connections, try to find new relay nodes
 
-                bool addProxyNodes;
+                bool addRelayNodes;
 
-                lock (_proxyNodeConnections)
+                lock (_relayConnections)
                 {
-                    addProxyNodes = (_proxyNodeConnections.Count < PROXY_NODE_MAX_CONNECTIONS);
+                    addRelayNodes = (_relayConnections.Count < TCP_RELAY_MAX_CONNECTIONS);
                 }
 
-                if (addProxyNodes)
+                if (addRelayNodes)
                 {
                     IPEndPoint[] nodeEPs = _connectionManager.DhtClient.GetAllNodes();
 
-                    foreach (IPEndPoint proxyNodeEP in nodeEPs)
+                    foreach (IPEndPoint relayNodeEP in nodeEPs)
                     {
-                        lock (_proxyNodeConnections)
+                        lock (_relayConnections)
                         {
-                            if (_proxyNodeConnections.Count >= PROXY_NODE_MAX_CONNECTIONS)
+                            if (_relayConnections.Count >= TCP_RELAY_MAX_CONNECTIONS)
                                 return;
 
-                            if (_proxyNodeConnections.ContainsKey(proxyNodeEP))
+                            if (_relayConnections.ContainsKey(relayNodeEP))
                                 continue;
 
-                            if (NetUtilities.IsPrivateIPv4(proxyNodeEP.Address))
+                            if (NetUtilities.IsPrivateIPv4(relayNodeEP.Address))
                                 continue;
                         }
 
-                        ThreadPool.QueueUserWorkItem(AddProxyNodeAsync, proxyNodeEP);
+                        ThreadPool.QueueUserWorkItem(AddRelayNodeAsync, relayNodeEP);
                     }
                 }
             }
 
-            private void AddProxyNodeAsync(object state)
+            private void AddRelayNodeAsync(object state)
             {
-                IPEndPoint proxyPeerEP = state as IPEndPoint;
+                IPEndPoint relayNodeEP = state as IPEndPoint;
 
                 try
                 {
-                    Connection viaConnection = _connectionManager.MakeConnection(proxyPeerEP);
+                    Connection viaConnection = _connectionManager.MakeConnection(relayNodeEP);
 
-                    lock (_proxyNodeConnections)
+                    lock (_relayConnections)
                     {
-                        if (_proxyNodeConnections.Count < PROXY_NODE_MAX_CONNECTIONS)
+                        if (_relayConnections.Count < TCP_RELAY_MAX_CONNECTIONS)
                         {
-                            viaConnection.Disposed += ProxyNodeConnection_Disposed;
-                            _proxyNodeConnections.Add(proxyPeerEP, viaConnection);
+                            viaConnection.Disposed += RelayConnection_Disposed;
+                            _relayConnections.Add(relayNodeEP, viaConnection);
                         }
                         else
                         {
@@ -395,55 +395,58 @@ namespace BitChatClient
                     BinaryID[] networkIDs = new BinaryID[_networks.Keys.Count];
                     _networks.Keys.CopyTo(networkIDs, 0);
 
-                    if (!viaConnection.RequestStartProxyNetwork(networkIDs, _profile.TrackerURIs))
+                    if (!viaConnection.RequestStartRelayNetwork(networkIDs, _profile.TrackerURIs))
                     {
-                        lock (_proxyNodeConnections)
+                        lock (_relayConnections)
                         {
-                            _proxyNodeConnections.Remove(proxyPeerEP);
+                            _relayConnections.Remove(relayNodeEP);
                         }
                     }
                 }
                 catch
                 {
-                    lock (_proxyNodeConnections)
+                    lock (_relayConnections)
                     {
-                        _proxyNodeConnections.Remove(proxyPeerEP);
+                        _relayConnections.Remove(relayNodeEP);
                     }
                 }
             }
 
-            private void ProxyConnectionCheckTimerCallback(object state)
+            private void RelayConnectionCheckTimerCallback(object state)
             {
                 try
                 {
-                    AddProxyNodes();
+                    AddRelayNodes();
 
                     //send noop to all connections
-                    foreach (Connection connection in _proxyNodeConnections.Values)
+                    lock (_relayConnections)
                     {
-                        connection.SendNOOP();
+                        foreach (Connection connection in _relayConnections.Values)
+                        {
+                            connection.SendNOOP();
+                        }
                     }
                 }
                 catch
                 { }
                 finally
                 {
-                    if (_proxyNodeCheckTimer != null)
-                        _proxyNodeCheckTimer.Change(PROXY_NODE_CHECK_INTERVAL, Timeout.Infinite);
+                    if (_relayConnectionCheckTimer != null)
+                        _relayConnectionCheckTimer.Change(TCP_RELAY_CHECK_INTERVAL, Timeout.Infinite);
                 }
             }
 
-            private void ProxyNodeConnection_Disposed(object sender, EventArgs e)
+            private void RelayConnection_Disposed(object sender, EventArgs e)
             {
-                Connection proxyNodeConnection = sender as Connection;
+                Connection relayConnection = sender as Connection;
 
-                lock (_proxyNodeConnections)
+                lock (_relayConnections)
                 {
-                    _proxyNodeConnections.Remove(proxyNodeConnection.RemotePeerEP);
+                    _relayConnections.Remove(relayConnection.RemotePeerEP);
                 }
             }
 
-            private void SetupProxyNetworkOnConnectionAsync(object state)
+            private void SetupRelayNetworkOnConnectionAsync(object state)
             {
                 try
                 {
@@ -453,13 +456,13 @@ namespace BitChatClient
                     BinaryID networkID = parameters[1] as BinaryID;
                     Uri[] trackerURIs = parameters[2] as Uri[];
 
-                    viaConnection.RequestStartProxyNetwork(new BinaryID[] { networkID }, trackerURIs);
+                    viaConnection.RequestStartRelayNetwork(new BinaryID[] { networkID }, trackerURIs);
                 }
                 catch
                 { }
             }
 
-            private void RemoveProxyNetworksFromConnectionAsync(object state)
+            private void RemoveRelayNetworksFromConnectionAsync(object state)
             {
                 try
                 {
@@ -468,7 +471,7 @@ namespace BitChatClient
                     Connection viaConnection = parameters[0] as Connection;
                     BinaryID[] networkIDs = parameters[1] as BinaryID[];
 
-                    viaConnection.RequestStopProxyNetwork(networkIDs);
+                    viaConnection.RequestStopRelayNetwork(networkIDs);
                 }
                 catch
                 { }
@@ -495,11 +498,11 @@ namespace BitChatClient
 
                 if (trackerURIs.Length > 0)
                 {
-                    lock (_proxyNodeConnections)
+                    lock (_relayConnections)
                     {
-                        foreach (Connection connection in _proxyNodeConnections.Values)
+                        foreach (Connection connection in _relayConnections.Values)
                         {
-                            ThreadPool.QueueUserWorkItem(SetupProxyNetworkOnConnectionAsync, new object[] { connection, networkID, trackerURIs });
+                            ThreadPool.QueueUserWorkItem(SetupRelayNetworkOnConnectionAsync, new object[] { connection, networkID, trackerURIs });
                         }
                     }
                 }
@@ -524,11 +527,11 @@ namespace BitChatClient
 
                 if (trackerURIs.Length > 0)
                 {
-                    lock (_proxyNodeConnections)
+                    lock (_relayConnections)
                     {
-                        foreach (Connection connection in _proxyNodeConnections.Values)
+                        foreach (Connection connection in _relayConnections.Values)
                         {
-                            ThreadPool.QueueUserWorkItem(SetupProxyNetworkOnConnectionAsync, new object[] { connection, networkID, trackerURIs });
+                            ThreadPool.QueueUserWorkItem(SetupRelayNetworkOnConnectionAsync, new object[] { connection, networkID, trackerURIs });
                         }
                     }
                 }
@@ -568,11 +571,11 @@ namespace BitChatClient
                     _service._bitChats.Remove(chat);
                 }
 
-                lock (_proxyNodeConnections)
+                lock (_relayConnections)
                 {
-                    foreach (Connection connection in _proxyNodeConnections.Values)
+                    foreach (Connection connection in _relayConnections.Values)
                     {
-                        ThreadPool.QueueUserWorkItem(RemoveProxyNetworksFromConnectionAsync, new object[] { connection, new BinaryID[] { chat.NetworkID } });
+                        ThreadPool.QueueUserWorkItem(RemoveRelayNetworksFromConnectionAsync, new object[] { connection, new BinaryID[] { chat.NetworkID } });
                     }
                 }
             }
@@ -649,9 +652,9 @@ namespace BitChatClient
                 }
             }
 
-            public SocksClient GetSocksProxy()
+            public NetProxy GetProxy()
             {
-                return _profile.GetSocksProxy();
+                return _profile.Proxy;
             }
 
             #endregion
@@ -694,7 +697,7 @@ namespace BitChatClient
                 }
             }
 
-            private void ProxyNetworkPeersAvailable(Connection viaConnection, BinaryID channelName, IEnumerable<IPEndPoint> peerEPs)
+            private void RelayNetworkPeersAvailable(Connection viaConnection, BinaryID channelName, IEnumerable<IPEndPoint> peerEPs)
             {
                 try
                 {
@@ -756,23 +759,20 @@ namespace BitChatClient
 
             public IPAddress UPnPExternalIP
             { get { return _connectionManager.UPnPExternalIP; } }
-
-            public IPEndPoint SocksProxyEndPoint
-            { get { return _connectionManager.SocksProxyEndPoint; } }
-
+            
             public IPEndPoint ExternalEndPoint
             { get { return _connectionManager.ExternalEndPoint; } }
 
-            public IPEndPoint[] ProxyNodes
+            public IPEndPoint[] TcpRelayNodes
             {
                 get
                 {
-                    lock (_proxyNodeConnections)
+                    lock (_relayConnections)
                     {
-                        IPEndPoint[] proxyNodes = new IPEndPoint[_proxyNodeConnections.Count];
-                        _proxyNodeConnections.Keys.CopyTo(proxyNodes, 0);
+                        IPEndPoint[] relayNodeEPs = new IPEndPoint[_relayConnections.Count];
+                        _relayConnections.Keys.CopyTo(relayNodeEPs, 0);
 
-                        return proxyNodes;
+                        return relayNodeEPs;
                     }
                 }
             }

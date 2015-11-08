@@ -246,8 +246,11 @@ namespace BitChatClient.Network
             }
             catch (SecureChannelException ex)
             {
-                if (VirtualPeerSecureChannelException != null)
-                    VirtualPeerSecureChannelException(this, ex);
+                if (ex.Code != SecureChannelCode.EndOfStream)
+                {
+                    if (VirtualPeerSecureChannelException != null)
+                        VirtualPeerSecureChannelException(this, ex);
+                }
 
                 channel.Dispose();
             }
@@ -280,7 +283,7 @@ namespace BitChatClient.Network
             {
                 stream = state as SecureChannelStream;
 
-                stream.RemotePeerCertificate.VerifyRevocationList(_networkManager.GetSocksProxy());
+                stream.RemotePeerCertificate.VerifyRevocationList(_networkManager.GetProxy());
             }
             catch (InvalidCertificateException ex)
             {

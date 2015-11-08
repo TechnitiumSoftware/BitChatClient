@@ -42,10 +42,8 @@ namespace BitChatClient.Network
 
         IPAddress UPnPExternalIP { get; }
 
-        IPEndPoint SocksProxyEndPoint { get; }
-
         IPEndPoint ExternalEndPoint { get; }
 
-        IPEndPoint[] ProxyNodes { get; }
+        IPEndPoint[] TcpRelayNodes { get; }
     }
 }

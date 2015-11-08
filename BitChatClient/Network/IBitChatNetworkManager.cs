@@ -45,6 +45,6 @@ namespace BitChatClient.Network
 
         void RemoveNetwork(BitChatNetwork network);
 
-        SocksClient GetSocksProxy();
+        NetProxy GetProxy();
     }
 }

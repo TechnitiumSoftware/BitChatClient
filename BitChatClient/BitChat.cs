@@ -104,7 +104,7 @@ namespace BitChatClient
             _manager = manager;
 
             _profile = profile;
-            _profile.SocksProxyUpdated += profile_SocksProxyUpdated;
+            _profile.ProxyUpdated += profile_ProxyUpdated;
 
             _network = network;
             _network.VirtualPeerAdded += network_VirtualPeerAdded;
@@ -135,7 +135,7 @@ namespace BitChatClient
             _manager.StartLocalTracking(_network.NetworkID);
             _dhtClient = connectionManager.DhtClient;
             _trackerManager = new TrackerManager(_network.NetworkID, connectionManager.LocalPort, _dhtClient);
-            _trackerManager.SocksClient = _profile.GetSocksProxy();
+            _trackerManager.Proxy = _profile.Proxy;
             _trackerManager.DiscoveredPeers += trackerManager_DiscoveredPeers;
             _enableTracking = enableTracking;
 
@@ -466,9 +466,9 @@ namespace BitChatClient
             _network.WritePacketBroadcast(packetData, 0, packetData.Length);
         }
 
-        private void profile_SocksProxyUpdated(object sender, EventArgs e)
+        private void profile_ProxyUpdated(object sender, EventArgs e)
         {
-            _trackerManager.SocksClient = _profile.GetSocksProxy();
+            _trackerManager.Proxy = _profile.Proxy;
         }
 
         #endregion
@@ -743,14 +743,29 @@ namespace BitChatClient
             return _trackerManager.GetTrackers();
         }
 
-        public int GetTotalDhtPeers()
+        public int DhtGetTotalPeers()
         {
-            return _trackerManager.GetTotalDhtPeers();
+            return _trackerManager.DhtGetTotalPeers();
         }
 
-        public IPEndPoint[] GetDhtPeers()
+        public IPEndPoint[] DhtGetPeers()
         {
-            return _trackerManager.GetDhtPeers();
+            return _trackerManager.DhtGetPeers();
+        }
+
+        public void DhtUpdate()
+        {
+            _trackerManager.DhtUpdate();
+        }
+
+        public TimeSpan DhtNextUpdateIn()
+        {
+            return _trackerManager.DhtNextUpdateIn();
+        }
+
+        public Exception DhtLastException()
+        {
+            return _trackerManager.DhtLastException();
         }
 
         public TrackerClient AddTracker(Uri trackerURI)
