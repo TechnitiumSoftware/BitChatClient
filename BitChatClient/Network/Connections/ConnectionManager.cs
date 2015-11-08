@@ -35,9 +35,10 @@ namespace BitChatClient.Network.Connections
         Identifying = 0,
         NoInternetConnection = 1,
         DirectInternetConnection = 2,
-        Socks5ProxyInternetConnection = 3,
-        NatInternetConnectionViaUPnPRouter = 4,
-        NatInternetConnection = 5
+        HttpProxyInternetConnection = 3,
+        Socks5ProxyInternetConnection = 4,
+        NatInternetConnectionViaUPnPRouter = 5,
+        NatInternetConnection = 6
     }
 
     public enum UPnPDeviceStatus
@@ -68,7 +69,7 @@ namespace BitChatClient.Network.Connections
 
         BinaryID _localPeerID;
         BitChatNetworkChannelRequest _channelRequestHandler;
-        ProxyNetworkPeersAvailable _proxyNetworkPeersHandler;
+        RelayNetworkPeersAvailable _relayNetworkPeersHandler;
 
         Dictionary<IPEndPoint, object> _makeConnectionList = new Dictionary<IPEndPoint, object>();
         Dictionary<IPEndPoint, object> _makeVirtualConnectionList = new Dictionary<IPEndPoint, object>();
@@ -103,7 +104,7 @@ namespace BitChatClient.Network.Connections
 
         #region constructor
 
-        public ConnectionManager(BitChatProfile profile, BitChatNetworkChannelRequest channelRequestHandler, ProxyNetworkPeersAvailable proxyNetworkPeersHandler)
+        public ConnectionManager(BitChatProfile profile, BitChatNetworkChannelRequest channelRequestHandler, RelayNetworkPeersAvailable relayNetworkPeersHandler)
         {
             try
             {
@@ -117,21 +118,22 @@ namespace BitChatClient.Network.Connections
             }
 
             _profile = profile;
-            _profile.SocksProxyUpdated += profile_SocksProxyUpdated;
+            _profile.ProxyUpdated += profile_ProxyUpdated;
 
             _localPort = ((IPEndPoint)_tcpListener.LocalEndpoint).Port;
             _localPeerID = BinaryID.GenerateRandomID160();
             _channelRequestHandler = channelRequestHandler;
-            _proxyNetworkPeersHandler = proxyNetworkPeersHandler;
+            _relayNetworkPeersHandler = relayNetworkPeersHandler;
 
             //start dht
-            _dhtClient = new DhtClient(_localPort, profile.BootstrapDhtNodes);
-            _dhtClient.SocksProxy = _profile.GetSocksProxy();
+            _dhtClient = new DhtClient(_localPort, this);
+            _dhtClient.ProxyEnabled = (_profile.Proxy != null);
+            _dhtClient.AddNode(profile.BootstrapDhtNodes);
 
             //setup dht seeding tracker
-            _dhtSeedingTracker = new TrackerManager(_dhtSeedingNetworkID, _localPort);
-            _dhtSeedingTracker.SocksClient = _profile.GetSocksProxy();
-            _dhtSeedingTracker.DiscoveredPeers += _dhtSeedingTracker_DiscoveredPeers;
+            _dhtSeedingTracker = new TrackerManager(_dhtSeedingNetworkID, _localPort, null);
+            _dhtSeedingTracker.Proxy = _profile.Proxy;
+            _dhtSeedingTracker.DiscoveredPeers += dhtSeedingTracker_DiscoveredPeers;
             _dhtSeedingTracker.StartTracking(profile.TrackerURIs);
 
             //start accepting connections
@@ -302,7 +304,7 @@ namespace BitChatClient.Network.Connections
                 }
 
                 //add connection
-                Connection connection = new Connection(networkStream, remotePeerID, remotePeerEP, this, _channelRequestHandler, _proxyNetworkPeersHandler);
+                Connection connection = new Connection(networkStream, remotePeerID, remotePeerEP, this, _channelRequestHandler, _relayNetworkPeersHandler, ProcessDhtPacketDataAsync);
                 _connectionListByConnectionID.Add(remotePeerEP, connection);
                 _connectionListByPeerID.Add(remotePeerID, connection);
 
@@ -511,20 +513,33 @@ namespace BitChatClient.Network.Connections
             }
         }
 
-        private void _dhtSeedingTracker_DiscoveredPeers(TrackerManager sender, IEnumerable<IPEndPoint> peerEPs)
+        private void dhtSeedingTracker_DiscoveredPeers(TrackerManager sender, IEnumerable<IPEndPoint> peerEPs)
         {
             if (_dhtClient != null)
                 _dhtClient.AddNode(peerEPs);
         }
 
-        private void profile_SocksProxyUpdated(object sender, EventArgs e)
+        private void profile_ProxyUpdated(object sender, EventArgs e)
         {
-            SocksClient proxy = _profile.GetSocksProxy();
+            NetProxy proxy = _profile.Proxy;
 
-            _dhtClient.SocksProxy = proxy;
-            _dhtSeedingTracker.SocksClient = proxy;
+            _dhtClient.ProxyEnabled = (proxy != null);
+            _dhtSeedingTracker.Proxy = proxy;
 
-            ProxyNetwork.UpdateSocksProxy(proxy);
+            TcpRelayNetwork.UpdateSocksProxy(proxy);
+        }
+
+        public void ProcessDhtPacketDataAsync(Connection viaConnection, byte[] dhtPacketData)
+        {
+            try
+            {
+                byte[] response = _dhtClient.ProcessPacket(dhtPacketData, viaConnection.RemotePeerEP);
+
+                if (response != null)
+                    viaConnection.SendDhtPacket(response, 0, response.Length);
+            }
+            catch
+            { }
         }
 
         #endregion
@@ -546,9 +561,22 @@ namespace BitChatClient.Network.Connections
 
             try
             {
-                if (_profile.ProxyEnabled)
+                if (_profile.Proxy != null)
                 {
-                    newInternetStatus = InternetConnectivityStatus.Socks5ProxyInternetConnection;
+                    switch (_profile.Proxy.Type)
+                    {
+                        case NetProxyType.Http:
+                            newInternetStatus = InternetConnectivityStatus.HttpProxyInternetConnection;
+                            break;
+
+                        case NetProxyType.Socks5:
+                            newInternetStatus = InternetConnectivityStatus.Socks5ProxyInternetConnection;
+                            break;
+
+                        default:
+                            throw new NotSupportedException("Proxy type not supported.");
+                    }
+
                     newUPnPStatus = UPnPDeviceStatus.Disabled;
                     return;
                 }
@@ -640,8 +668,9 @@ namespace BitChatClient.Network.Connections
                                 _connectivityCheckExternalEP = null;
                                 break;
 
+                            case InternetConnectivityStatus.HttpProxyInternetConnection:
                             case InternetConnectivityStatus.Socks5ProxyInternetConnection:
-                                if (!_profile.GetSocksProxy().IsProxyAvailable())
+                                if (!_profile.Proxy.IsProxyAvailable())
                                     newInternetStatus = InternetConnectivityStatus.NoInternetConnection;
 
                                 _localLiveIP = null;
@@ -748,7 +777,7 @@ namespace BitChatClient.Network.Connections
             {
                 using (WebClientEx client = new WebClientEx())
                 {
-                    client.SocksProxy = _profile.GetSocksProxy();
+                    client.Proxy = _profile.Proxy;
                     client.QueryString.Add("port", externalPort.ToString());
 
                     using (MemoryStream mS = new MemoryStream(client.DownloadData(CONNECTIVITY_CHECK_WEB_SERVICE)))
@@ -842,11 +871,24 @@ namespace BitChatClient.Network.Connections
 
                     Stream connectionStream;
 
-                    if (_profile.ProxyEnabled)
+                    if (_profile.Proxy != null)
                     {
-                        SocksConnectRequestHandler requestHandler = _profile.GetSocksProxy().Connect(remotePeerEP);
+                        switch (_profile.Proxy.Type)
+                        {
+                            case NetProxyType.Http:
+                                connectionStream = new NetworkStream(_profile.Proxy.HttpProxy.Connect(remotePeerEP));
+                                break;
 
-                        connectionStream = new NetworkStream(requestHandler.GetSocket());
+                            case NetProxyType.Socks5:
+                                using (SocksConnectRequestHandler requestHandler = _profile.Proxy.SocksProxy.Connect(remotePeerEP))
+                                {
+                                    connectionStream = new NetworkStream(requestHandler.GetSocket());
+                                }
+                                break;
+
+                            default:
+                                throw new NotSupportedException("Proxy type not supported.");
+                        }
                     }
                     else
                     {
@@ -947,17 +989,6 @@ namespace BitChatClient.Network.Connections
             {
                 if (_internetStatus == InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter)
                     return _upnpExternalIP;
-                else
-                    return null;
-            }
-        }
-
-        public IPEndPoint SocksProxyEndPoint
-        {
-            get
-            {
-                if (_internetStatus == InternetConnectivityStatus.Socks5ProxyInternetConnection)
-                    return _profile.ProxyEndPoint;
                 else
                     return null;
             }
