@@ -42,7 +42,7 @@ namespace BitChatAppMono
         List<Uri> _trackers = new List<Uri>();
         ushort _port = 0;
 
-        IPAddress _proxyIP;
+        string _proxyAddress;
         ushort _proxyPort = 0;
 
         #endregion
@@ -67,14 +67,18 @@ namespace BitChatAppMono
             txtPort.Text = profile.LocalPort.ToString();
             chkUseCRL.Checked = profile.CheckCertificateRevocationList;
             chkUPnP.Checked = profile.EnableUPnP;
-            chkProxy.Checked = profile.ProxyEnabled;
 
-            btnCheckProxy.Enabled = chkProxy.Checked;
-            txtProxyIP.Text = profile.ProxyEndPoint.Address.ToString();
-            txtProxyPort.Text = profile.ProxyEndPoint.Port.ToString();
-            txtProxyIP.Enabled = chkProxy.Checked;
-            txtProxyPort.Enabled = chkProxy.Checked;
-            chkProxyAuth.Enabled = chkProxy.Checked;
+            if (profile.Proxy == null)
+                cmbProxy.SelectedIndex = 0;
+            else
+                cmbProxy.SelectedIndex = (int)profile.Proxy.Type;
+
+            btnCheckProxy.Enabled = (cmbProxy.SelectedIndex != 0);
+            txtProxyAddress.Text = profile.ProxyAddress;
+            txtProxyPort.Text = profile.ProxyPort.ToString();
+            txtProxyAddress.Enabled = btnCheckProxy.Enabled;
+            txtProxyPort.Enabled = btnCheckProxy.Enabled;
+            chkProxyAuth.Enabled = btnCheckProxy.Enabled;
 
             if (profile.ProxyCredentials == null)
             {
@@ -151,18 +155,13 @@ namespace BitChatAppMono
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(txtProxyIP.Text))
+            if ((cmbProxy.SelectedIndex != 0) && (string.IsNullOrWhiteSpace(txtProxyAddress.Text)))
             {
-                _proxyIP = IPAddress.Loopback;
+                MessageBox.Show("The proxy address is missing. Please enter a valid proxy address.", "Proxy Address Missing!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
             }
-            else
-            {
-                if (!IPAddress.TryParse(txtProxyIP.Text, out _proxyIP))
-                {
-                    MessageBox.Show("The proxy IP address specified is invalid.", "Invalid Proxy IP Address Specified!", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-            }
+
+            _proxyAddress = txtProxyAddress.Text;
 
             if (!ushort.TryParse(txtProxyPort.Text, out _proxyPort))
             {
@@ -170,13 +169,10 @@ namespace BitChatAppMono
                 return;
             }
 
-            if (chkProxyAuth.Checked)
+            if ((chkProxyAuth.Checked) && (string.IsNullOrWhiteSpace(txtProxyUser.Text)))
             {
-                if (string.IsNullOrWhiteSpace(txtProxyUser.Text))
-                {
-                    MessageBox.Show("The proxy username is missing. Please enter a username.", "Proxy Username Missing!", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
+                MessageBox.Show("The proxy username is missing. Please enter a username.", "Proxy Username Missing!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
             }
 
             this.DialogResult = System.Windows.Forms.DialogResult.OK;
@@ -194,12 +190,12 @@ namespace BitChatAppMono
             System.Diagnostics.Process.Start(@"http://go.technitium.com/?id=3");
         }
 
-        private void chkProxy_CheckedChanged(object sender, EventArgs e)
+        private void cmbProxy_SelectedIndexChanged(object sender, EventArgs e)
         {
-            btnCheckProxy.Enabled = chkProxy.Checked;
-            txtProxyIP.Enabled = chkProxy.Checked;
-            txtProxyPort.Enabled = chkProxy.Checked;
-            chkProxyAuth.Enabled = chkProxy.Checked;
+            btnCheckProxy.Enabled = (cmbProxy.SelectedIndex != 0);
+            txtProxyAddress.Enabled = btnCheckProxy.Enabled;
+            txtProxyPort.Enabled = btnCheckProxy.Enabled;
+            chkProxyAuth.Enabled = btnCheckProxy.Enabled;
             txtProxyUser.Enabled = chkProxyAuth.Enabled && chkProxyAuth.Checked;
             txtProxyPass.Enabled = chkProxyAuth.Enabled && chkProxyAuth.Checked;
         }
@@ -214,16 +210,30 @@ namespace BitChatAppMono
         {
             try
             {
+                NetProxyType proxyType = (NetProxyType)cmbProxy.SelectedIndex;
+                NetProxy proxy;
                 NetworkCredential credentials = null;
 
                 if (chkProxyAuth.Checked)
                     credentials = new NetworkCredential(txtProxyUser.Text, txtProxyPass.Text);
 
-                SocksClient proxy = new SocksClient(new IPEndPoint(IPAddress.Parse(txtProxyIP.Text), int.Parse(txtProxyPort.Text)), credentials);
+                switch (proxyType)
+                {
+                    case NetProxyType.Http:
+                        proxy = new NetProxy(new WebProxyEx(new Uri("http://" + txtProxyAddress.Text + ":" + int.Parse(txtProxyPort.Text)), false, new string[] { }, credentials));
+                        break;
+
+                    case NetProxyType.Socks5:
+                        proxy = new NetProxy(new SocksClient(txtProxyAddress.Text, int.Parse(txtProxyPort.Text), credentials));
+                        break;
+
+                    default:
+                        return;
+                }
 
                 proxy.CheckProxyAccess();
 
-                MessageBox.Show("Proxy check was successful. Bit Chat was able to connect to the proxy server successfully.", "Proxy Check Success!", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                MessageBox.Show("Bit Chat was able to connect to the proxy server successfully.", "Proxy Check Success!", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {
@@ -256,11 +266,17 @@ namespace BitChatAppMono
         public bool EnableUPnP
         { get { return chkUPnP.Checked; } }
 
-        public bool EnableSocksProxy
-        { get { return chkProxy.Checked; } }
+        public bool EnableProxy
+        { get { return cmbProxy.SelectedIndex != 0; } }
 
-        public IPEndPoint ProxyEndPoint
-        { get { return new IPEndPoint(_proxyIP, _proxyPort); } }
+        public NetProxyType ProxyType
+        { get { return (NetProxyType)cmbProxy.SelectedIndex; } }
+
+        public string ProxyAddress
+        { get { return _proxyAddress; } }
+
+        public int ProxyPort
+        { get { return _proxyPort; } }
 
         public NetworkCredential ProxyCredentials
         {
