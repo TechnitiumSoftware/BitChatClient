@@ -64,6 +64,9 @@ namespace BitChatClient.Network.SecureChannel
                         ProtocolV4(stream, serverCredentials, trustedRootCertificates, manager, preSharedKey, supportedOptions);
                         break;
 
+                    case -1:
+                        throw new SecureChannelException(SecureChannelCode.EndOfStream, _remotePeerEP, _remotePeerCert, "SecureChannel base stream closed.");
+
                     default:
                         throw new SecureChannelException(SecureChannelCode.ProtocolVersionNotSupported, _remotePeerEP, _remotePeerCert, "SecureChannel protocol version '" + _version + "' not supported.");
                 }
