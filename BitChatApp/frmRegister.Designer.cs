@@ -76,6 +76,7 @@
             this.label18 = new System.Windows.Forms.Label();
             this.panel1 = new System.Windows.Forms.Panel();
             this.pictureBox2 = new System.Windows.Forms.PictureBox();
+            this.label16 = new System.Windows.Forms.Label();
             this.pnlRegister.SuspendLayout();
             this.pnlMessages.SuspendLayout();
             this.pnlDownloadCert.SuspendLayout();
@@ -85,6 +86,7 @@
             // 
             // pnlRegister
             // 
+            this.pnlRegister.Controls.Add(this.label16);
             this.pnlRegister.Controls.Add(this.chkEnableProxy);
             this.pnlRegister.Controls.Add(this.rbImportRSA);
             this.pnlRegister.Controls.Add(this.rbAutoGenRSA);
@@ -160,7 +162,7 @@
             // linkLabel1
             // 
             this.linkLabel1.AutoSize = true;
-            this.linkLabel1.Location = new System.Drawing.Point(356, 337);
+            this.linkLabel1.Location = new System.Drawing.Point(356, 340);
             this.linkLabel1.Name = "linkLabel1";
             this.linkLabel1.Size = new System.Drawing.Size(224, 13);
             this.linkLabel1.TabIndex = 40;
@@ -172,7 +174,7 @@
             // 
             this.chkAccept.AutoSize = true;
             this.chkAccept.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
-            this.chkAccept.Location = new System.Drawing.Point(359, 317);
+            this.chkAccept.Location = new System.Drawing.Point(359, 320);
             this.chkAccept.Name = "chkAccept";
             this.chkAccept.Size = new System.Drawing.Size(178, 17);
             this.chkAccept.TabIndex = 39;
@@ -183,7 +185,7 @@
             // label15
             // 
             this.label15.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
-            this.label15.Location = new System.Drawing.Point(356, 237);
+            this.label15.Location = new System.Drawing.Point(356, 242);
             this.label15.Name = "label15";
             this.label15.Size = new System.Drawing.Size(302, 71);
             this.label15.TabIndex = 39;
@@ -772,6 +774,17 @@
             this.pictureBox2.TabIndex = 12;
             this.pictureBox2.TabStop = false;
             // 
+            // label16
+            // 
+            this.label16.AutoSize = true;
+            this.label16.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.label16.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
+            this.label16.Location = new System.Drawing.Point(356, 218);
+            this.label16.Name = "label16";
+            this.label16.Size = new System.Drawing.Size(248, 15);
+            this.label16.TabIndex = 43;
+            this.label16.Text = "Note! Email address alias is not supported.";
+            // 
             // frmRegister
             // 
             this.AcceptButton = this.btnRegister;
@@ -851,5 +864,6 @@
         private System.Windows.Forms.RadioButton rbImportRSA;
         private System.Windows.Forms.RadioButton rbAutoGenRSA;
         private System.Windows.Forms.CheckBox chkEnableProxy;
+        private System.Windows.Forms.Label label16;
     }
 }

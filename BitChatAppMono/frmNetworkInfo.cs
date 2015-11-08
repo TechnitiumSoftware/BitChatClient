@@ -77,6 +77,7 @@ namespace BitChatAppMono
                     break;
 
                 case BitChatClient.Network.Connections.InternetConnectivityStatus.Identifying:
+                case BitChatClient.Network.Connections.InternetConnectivityStatus.NoInternetConnection:
                     listView1.Items[9].SubItems[1].Text = "";
                     listView1.Items[10].SubItems[1].Text = "";
                     break;
