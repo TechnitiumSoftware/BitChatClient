@@ -49,14 +49,7 @@ namespace BitChatAppMono
 
             _localAppData = localAppData;
 
-            //find & list profiles
-            string[] profiles = Directory.GetFiles(_localAppData, "*.profile", SearchOption.TopDirectoryOnly);
-
-            foreach (string profile in profiles)
-            {
-                if (profile.EndsWith(".profile"))
-                    lstProfiles.Items.Add(Path.GetFileNameWithoutExtension(profile));
-            }
+            RefreshProfileList();
 
             _loaded = loaded;
         }
@@ -64,6 +57,19 @@ namespace BitChatAppMono
         #endregion
 
         #region private
+
+        private void RefreshProfileList()
+        {
+            string[] profiles = Directory.GetFiles(_localAppData, "*.profile", SearchOption.TopDirectoryOnly);
+
+            lstProfiles.Items.Clear();
+
+            foreach (string profile in profiles)
+            {
+                if (profile.EndsWith(".profile"))
+                    lstProfiles.Items.Add(Path.GetFileNameWithoutExtension(profile));
+            }
+        }
 
         private void frmProfileManager_Load(object sender, EventArgs e)
         {
@@ -149,27 +155,30 @@ namespace BitChatAppMono
                 {
                     _profile = frm.Profile;
 
-                    //check for profile certificate expiry
-                    double daysToExpire = (_profile.LocalCertificateStore.Certificate.ExpiresOnUTC - DateTime.UtcNow).TotalDays;
-
-                    if (daysToExpire < 0.0)
+                    if (_profile.LocalCertificateStore.Certificate.Type == TechnitiumLibrary.Security.Cryptography.CertificateType.Normal)
                     {
-                        //cert already expired
+                        //check for profile certificate expiry
+                        double daysToExpire = (_profile.LocalCertificateStore.Certificate.ExpiresOnUTC - DateTime.UtcNow).TotalDays;
 
-                        if (MessageBox.Show("Your profile certificate '" + _profile.LocalCertificateStore.Certificate.SerialNumber + "' issued to '" + _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address + "' has expired on " + _profile.LocalCertificateStore.Certificate.ExpiresOnUTC.ToString() + ".\r\n\r\nDo you want to reissue the certificate now?", "Profile Certificate Expired! Reissue Now?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
+                        if (daysToExpire < 0.0)
                         {
-                            btnReIssueProfile_Click(null, null);
-                        }
+                            //cert already expired
 
-                        return;
-                    }
-                    else if (daysToExpire < 30.0)
-                    {
-                        //cert to expire in 30 days
-                        if (MessageBox.Show("Your profile certificate '" + _profile.LocalCertificateStore.Certificate.SerialNumber + "' issued to '" + _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address + "' will expire in " + Convert.ToInt32(daysToExpire) + " days on " + _profile.LocalCertificateStore.Certificate.ExpiresOnUTC.ToString() + ".\r\n\r\nDo you want to reissue the certificate now?", "Profile Certificate About To Expire! Reissue Now?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
-                        {
-                            btnReIssueProfile_Click(null, null);
+                            if (MessageBox.Show("Your profile certificate '" + _profile.LocalCertificateStore.Certificate.SerialNumber + "' issued to '" + _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address + "' has expired on " + _profile.LocalCertificateStore.Certificate.ExpiresOnUTC.ToString() + ".\r\n\r\nDo you want to reissue the certificate now?", "Profile Certificate Expired! Reissue Now?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
+                            {
+                                btnReIssueProfile_Click(null, null);
+                            }
+
                             return;
+                        }
+                        else if (daysToExpire < 30.0)
+                        {
+                            //cert to expire in 30 days
+                            if (MessageBox.Show("Your profile certificate '" + _profile.LocalCertificateStore.Certificate.SerialNumber + "' issued to '" + _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address + "' will expire in " + Convert.ToInt32(daysToExpire) + " days on " + _profile.LocalCertificateStore.Certificate.ExpiresOnUTC.ToString() + ".\r\n\r\nDo you want to reissue the certificate now?", "Profile Certificate About To Expire! Reissue Now?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
+                            {
+                                btnReIssueProfile_Click(null, null);
+                                return;
+                            }
                         }
                     }
 
@@ -203,6 +212,7 @@ namespace BitChatAppMono
                 }
             }
 
+            RefreshProfileList();
             this.Show();
         }
 
@@ -234,6 +244,7 @@ namespace BitChatAppMono
                     }
                 }
 
+                RefreshProfileList();
                 this.Show();
             }
         }

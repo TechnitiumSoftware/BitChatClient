@@ -20,20 +20,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using AutomaticUpdate.Client;
 using BitChatAppMono.UserControls;
 using BitChatClient;
-using TechnitiumLibrary.IO;
-using TechnitiumLibrary.Net;
-using TechnitiumLibrary.Net.BitTorrent;
-using TechnitiumLibrary.Security.Cryptography;
+using BitChatClient.Network.SecureChannel;
 using System;
-using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Media;
-using System.Net;
-using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using BitChatClient.Network.SecureChannel;
+using TechnitiumLibrary.IO;
+using TechnitiumLibrary.Net;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatAppMono
 {
@@ -137,7 +132,7 @@ namespace BitChatAppMono
 
             //start automatic update client
             _updateClient = new AutomaticUpdateClient(Program.MUTEX_NAME, Application.ProductVersion, Program.UPDATE_URI, Program.UPDATE_CHECK_INTERVAL_DAYS, Program.TRUSTED_CERTIFICATES, _lastUpdateCheckedOn, _lastModifiedGMT);
-            _updateClient.SocksProxy = _profile.GetSocksProxy();
+            _updateClient.Proxy = _profile.Proxy;
             _updateClient.ExitApplication += _updateClient_ExitApplication;
             _updateClient.UpdateAvailable += _updateClient_UpdateAvailable;
             _updateClient.NoUpdateAvailable += _updateClient_NoUpdateAvailable;
@@ -395,15 +390,15 @@ namespace BitChatAppMono
                     _profile.CheckCertificateRevocationList = frm.CheckCertificateRevocationList;
                     _profile.EnableUPnP = frm.EnableUPnP;
 
-                    if (frm.EnableSocksProxy)
-                        _profile.EnableSocksProxy(frm.ProxyEndPoint, frm.ProxyCredentials);
+                    if (frm.EnableProxy)
+                        _profile.ConfigureProxy(frm.ProxyType, frm.ProxyAddress, frm.ProxyPort, frm.ProxyCredentials);
                     else
-                        _profile.DisableSocksProxy();
+                        _profile.DisableProxy();
 
                     SaveProfile();
 
                     //set proxy
-                    _updateClient.SocksProxy = _profile.GetSocksProxy();
+                    _updateClient.Proxy = _profile.Proxy;
                 }
             }
         }
