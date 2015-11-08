@@ -30,6 +30,7 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmRegister));
             this.pnlRegister = new System.Windows.Forms.Panel();
+            this.chkEnableProxy = new System.Windows.Forms.CheckBox();
             this.rbImportRSA = new System.Windows.Forms.RadioButton();
             this.rbAutoGenRSA = new System.Windows.Forms.RadioButton();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
@@ -75,7 +76,6 @@
             this.label18 = new System.Windows.Forms.Label();
             this.panel1 = new System.Windows.Forms.Panel();
             this.pictureBox2 = new System.Windows.Forms.PictureBox();
-            this.chkEnableSocksProxy = new System.Windows.Forms.CheckBox();
             this.pnlRegister.SuspendLayout();
             this.pnlMessages.SuspendLayout();
             this.pnlDownloadCert.SuspendLayout();
@@ -85,7 +85,7 @@
             // 
             // pnlRegister
             // 
-            this.pnlRegister.Controls.Add(this.chkEnableSocksProxy);
+            this.pnlRegister.Controls.Add(this.chkEnableProxy);
             this.pnlRegister.Controls.Add(this.rbImportRSA);
             this.pnlRegister.Controls.Add(this.rbAutoGenRSA);
             this.pnlRegister.Controls.Add(this.linkLabel1);
@@ -122,6 +122,17 @@
             this.pnlRegister.Name = "pnlRegister";
             this.pnlRegister.Size = new System.Drawing.Size(660, 387);
             this.pnlRegister.TabIndex = 6;
+            // 
+            // chkEnableProxy
+            // 
+            this.chkEnableProxy.AutoSize = true;
+            this.chkEnableProxy.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
+            this.chkEnableProxy.Location = new System.Drawing.Point(30, 244);
+            this.chkEnableProxy.Name = "chkEnableProxy";
+            this.chkEnableProxy.Size = new System.Drawing.Size(88, 17);
+            this.chkEnableProxy.TabIndex = 36;
+            this.chkEnableProxy.Text = "Enable Proxy";
+            this.chkEnableProxy.UseVisualStyleBackColor = true;
             // 
             // rbImportRSA
             // 
@@ -762,17 +773,6 @@
             this.pictureBox2.TabIndex = 12;
             this.pictureBox2.TabStop = false;
             // 
-            // chkEnableSocksProxy
-            // 
-            this.chkEnableSocksProxy.AutoSize = true;
-            this.chkEnableSocksProxy.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
-            this.chkEnableSocksProxy.Location = new System.Drawing.Point(30, 244);
-            this.chkEnableSocksProxy.Name = "chkEnableSocksProxy";
-            this.chkEnableSocksProxy.Size = new System.Drawing.Size(130, 17);
-            this.chkEnableSocksProxy.TabIndex = 36;
-            this.chkEnableSocksProxy.Text = "Enable Socks 5 Proxy";
-            this.chkEnableSocksProxy.UseVisualStyleBackColor = true;
-            // 
             // frmRegister
             // 
             this.AcceptButton = this.btnRegister;
@@ -850,6 +850,6 @@
         private System.Windows.Forms.Label lblRegisteredEmail;
         private System.Windows.Forms.RadioButton rbImportRSA;
         private System.Windows.Forms.RadioButton rbAutoGenRSA;
-        private System.Windows.Forms.CheckBox chkEnableSocksProxy;
+        private System.Windows.Forms.CheckBox chkEnableProxy;
     }
 }
