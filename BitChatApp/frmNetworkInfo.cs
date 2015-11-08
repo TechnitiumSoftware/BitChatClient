@@ -36,17 +36,17 @@ namespace BitChatApp
             listView1.Items.Add("UPnP Status").SubItems.Add("Loading...");
             listView1.Items.Add("UPnP Device IP").SubItems.Add("Loading...");
             listView1.Items.Add("UPnP External IP").SubItems.Add("Loading...");
-            listView1.Items.Add("Socks Proxy IP").SubItems.Add("Loading...");
+            listView1.Items.Add("Proxy Server").SubItems.Add("Loading...");
             listView1.Items.Add("External End Point").SubItems.Add("Loading...");
-            listView1.Items.Add("Proxy Nodes").SubItems.Add("Loading...");
+            listView1.Items.Add("Tcp Relays").SubItems.Add("Loading...");
 
             _updateTimer = new Timer();
             _updateTimer.Interval = 2000;
-            _updateTimer.Tick += _updateTimer_Tick;
+            _updateTimer.Tick += updateTimer_Tick;
             _updateTimer.Start();
         }
 
-        private void _updateTimer_Tick(object sender, EventArgs e)
+        private void updateTimer_Tick(object sender, EventArgs e)
         {
             INetworkInfo info = _service.NetworkInfo;
 
@@ -68,21 +68,34 @@ namespace BitChatApp
             else
                 listView1.Items[8].SubItems[1].Text = info.UPnPExternalIP.ToString();
 
-            if (info.SocksProxyEndPoint == null)
-                listView1.Items[9].SubItems[1].Text = "";
-            else
-                listView1.Items[9].SubItems[1].Text = info.SocksProxyEndPoint.ToString();
+            switch (info.InternetStatus)
+            {
+                case BitChatClient.Network.Connections.InternetConnectivityStatus.HttpProxyInternetConnection:
+                case BitChatClient.Network.Connections.InternetConnectivityStatus.Socks5ProxyInternetConnection:
+                    listView1.Items[9].SubItems[1].Text = _service.Profile.ProxyAddress + ":" + _service.Profile.ProxyPort;
+                    listView1.Items[10].SubItems[1].Text = "Incoming connections blocked by proxy";
+                    break;
 
-            if (info.ExternalEndPoint == null)
-                listView1.Items[10].SubItems[1].Text = "";
-            else
-                listView1.Items[10].SubItems[1].Text = info.ExternalEndPoint.ToString();
+                case BitChatClient.Network.Connections.InternetConnectivityStatus.Identifying:
+                    listView1.Items[9].SubItems[1].Text = "";
+                    listView1.Items[10].SubItems[1].Text = "";
+                    break;
 
-            if (info.ProxyNodes.Length > 0)
+                default:
+                    listView1.Items[9].SubItems[1].Text = "";
+
+                    if (info.ExternalEndPoint == null)
+                        listView1.Items[10].SubItems[1].Text = "Incoming connections blocked by NAT/Firewall";
+                    else
+                        listView1.Items[10].SubItems[1].Text = info.ExternalEndPoint.ToString();
+                    break;
+            }
+
+            if (info.TcpRelayNodes.Length > 0)
             {
                 string tmp = "";
 
-                foreach (IPEndPoint proxyNodeEP in info.ProxyNodes)
+                foreach (IPEndPoint proxyNodeEP in info.TcpRelayNodes)
                     tmp += ", " + proxyNodeEP.ToString();
 
                 listView1.Items[11].SubItems[1].Text = tmp.Substring(2);
