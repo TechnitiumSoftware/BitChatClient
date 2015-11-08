@@ -35,7 +35,7 @@ namespace BitChatClient
     {
         #region event
 
-        public event EventHandler SocksProxyUpdated;
+        public event EventHandler ProxyUpdated;
 
         #endregion
 
@@ -75,17 +75,20 @@ namespace BitChatClient
             };
 
         CertificateStore _localCertStore;
+
         int _localPort;
         string _downloadFolder;
         Uri[] _trackerURIs;
-        BitChatInfo[] _bitChatInfoList;
-        bool _checkCertificateRevocationList;
-        IPEndPoint[] _bootstrapDhtNodes;
-        bool _enableUPnP;
 
-        IPEndPoint _proxyEP;
+        BitChatInfo[] _bitChatInfoList = new BitChatInfo[] { };
+        bool _checkCertificateRevocationList = true;
+        IPEndPoint[] _bootstrapDhtNodes = new IPEndPoint[] { };
+        bool _enableUPnP = true;
+
+        string _proxyAddress = "127.0.0.1";
+        int _proxyPort = 0;
         NetworkCredential _proxyCredentials;
-        SocksClient _proxy;
+        NetProxy _proxy;
 
         byte[] _clientData;
 
@@ -93,30 +96,11 @@ namespace BitChatClient
 
         #region constructor
 
-        public BitChatProfile(CertificateStore localCertStore, int localPort, string downloadFolder, Uri[] trackerURIs)
+        public BitChatProfile(int localPort, string downloadFolder, Uri[] trackerURIs)
         {
-            _localCertStore = localCertStore;
             _localPort = localPort;
             _downloadFolder = downloadFolder;
-            _bitChatInfoList = new BitChatInfo[] { };
             _trackerURIs = trackerURIs;
-            _checkCertificateRevocationList = true;
-            _bootstrapDhtNodes = new IPEndPoint[] { };
-            _enableUPnP = true;
-            _proxyEP = new IPEndPoint(IPAddress.Loopback, 1080);
-        }
-
-        public BitChatProfile(CertificateStore localCertStore, int localPort, string downloadFolder, Uri[] trackerURIs, string password)
-            : base(SymmetricEncryptionAlgorithm.Rijndael, 256, password)
-        {
-            _localCertStore = localCertStore;
-            _localPort = localPort;
-            _downloadFolder = downloadFolder;
-            _bitChatInfoList = new BitChatInfo[] { };
-            _trackerURIs = trackerURIs;
-            _checkCertificateRevocationList = true;
-            _bootstrapDhtNodes = new IPEndPoint[] { };
-            _enableUPnP = true;
         }
 
         public BitChatProfile(Stream s, string password)
@@ -153,14 +137,16 @@ namespace BitChatClient
             return "Mozilla/5.0 (" + operatingSystem + ")";
         }
 
-        public void Register(Uri apiUri)
+        public void Register(Uri apiUri, CertificateStore localCertStore)
         {
+            _localCertStore = localCertStore;
+
             //verify self signed cert
             _localCertStore.Certificate.Verify(new Certificate[] { _localCertStore.Certificate });
 
             using (WebClientEx client = new WebClientEx())
             {
-                client.SocksProxy = GetSocksProxy();
+                client.Proxy = _proxy;
                 client.UserAgent = GetUserAgent();
 
                 byte[] data = client.UploadData(apiUri.AbsoluteUri + "?cmd=reg", _localCertStore.Certificate.ToArray());
@@ -183,7 +169,7 @@ namespace BitChatClient
         {
             using (WebClientEx client = new WebClientEx())
             {
-                client.SocksProxy = GetSocksProxy();
+                client.Proxy = _proxy;
                 client.UserAgent = GetUserAgent();
 
                 byte[] data = client.DownloadData(apiUri.AbsoluteUri + "?cmd=dlc&email=" + _localCertStore.Certificate.IssuedTo.EmailAddress.Address);
@@ -236,6 +222,10 @@ namespace BitChatClient
                     ReadSettingsVersion4And5(version, bR);
                     break;
 
+                case 6:
+                    ReadSettingsVersion6(bR);
+                    break;
+
                 default:
                     throw new BitChatException("BitChatProfile data version not supported.");
             }
@@ -258,12 +248,6 @@ namespace BitChatClient
 
             //default tracker urls
             _trackerURIs = DefaultTrackerURIs;
-
-            _bitChatInfoList = new BitChatInfo[] { };
-            _checkCertificateRevocationList = true;
-            _bootstrapDhtNodes = new IPEndPoint[] { };
-            _enableUPnP = true;
-            _proxyEP = new IPEndPoint(IPAddress.Loopback, 1080);
         }
 
         private void ReadSettingsVersion2And3(byte version, BinaryReader bR)
@@ -305,10 +289,6 @@ namespace BitChatClient
             int dataCount = bR.ReadInt32();
             if (dataCount > 0)
                 _clientData = bR.ReadBytes(dataCount);
-
-            _bootstrapDhtNodes = new IPEndPoint[] { };
-            _enableUPnP = true;
-            _proxyEP = new IPEndPoint(IPAddress.Loopback, 1080);
         }
 
         private void ReadSettingsVersion4And5(byte version, BinaryReader bR)
@@ -348,30 +328,97 @@ namespace BitChatClient
 
             if (version > 4)
             {
+                NetProxyType proxyType;
+
                 //socks proxy enabled
                 bool proxyEnabled = bR.ReadBoolean();
 
+                if (proxyEnabled)
+                    proxyType = NetProxyType.Socks5;
+                else
+                    proxyType = NetProxyType.None;
+
                 //socks proxy ep
-                _proxyEP = IPEndPointParser.Parse(bR);
+                IPEndPoint socksEP = IPEndPointParser.Parse(bR);
+                string proxyAddress = socksEP.Address.ToString();
+                int proxyPort = socksEP.Port;
 
                 //socks proxy credentials
+                NetworkCredential proxyCredentials = null;
                 bool auth = bR.ReadBoolean();
-
                 if (auth)
                 {
                     string username = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
                     string password = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
 
-                    _proxyCredentials = new NetworkCredential(username, password);
+                    proxyCredentials = new NetworkCredential(username, password);
                 }
 
-                if (proxyEnabled)
-                    _proxy = new SocksClient(_proxyEP, _proxyCredentials);
+                ConfigureProxy(proxyType, proxyAddress, proxyPort, proxyCredentials);
             }
-            else
+
+            //generic client data
+            int dataCount = bR.ReadInt32();
+            if (dataCount > 0)
+                _clientData = bR.ReadBytes(dataCount);
+        }
+
+        private void ReadSettingsVersion6(BinaryReader bR)
+        {
+            //local cert store
+            if (bR.ReadByte() == 1)
+                _localCertStore = new CertificateStore(bR);
+
+            //bitchat local port
+            _localPort = bR.ReadInt32();
+
+            //download folder
+            _downloadFolder = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadUInt16()));
+            if (_downloadFolder == null)
+                _downloadFolder = @"C:\";
+
+            //load tracker urls
+            _trackerURIs = new Uri[bR.ReadByte()];
+            for (int i = 0; i < _trackerURIs.Length; i++)
+                _trackerURIs[i] = new Uri(Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte())));
+
+            //load bitchat info
+            _bitChatInfoList = new BitChatInfo[bR.ReadByte()];
+            for (int i = 0; i < _bitChatInfoList.Length; i++)
+                _bitChatInfoList[i] = new BitChatInfo(bR);
+
+            //check CertificateRevocationList
+            _checkCertificateRevocationList = bR.ReadBoolean();
+
+            //bootstrap dht nodes
+            _bootstrapDhtNodes = new IPEndPoint[bR.ReadInt32()];
+            for (int i = 0; i < _bootstrapDhtNodes.Length; i++)
+                _bootstrapDhtNodes[i] = IPEndPointParser.Parse(bR);
+
+            //upnp enabled
+            _enableUPnP = bR.ReadBoolean();
+
+            //proxy type
+            NetProxyType proxyType = (NetProxyType)bR.ReadByte();
+
+            //proxy address
+            string proxyAddress = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
+
+            //proxy port
+            int proxyPort = bR.ReadInt32();
+
+            //proxy credentials
+            NetworkCredential proxyCredentials = null;
+            bool auth = bR.ReadBoolean();
+            if (auth)
             {
-                _proxyEP = new IPEndPoint(IPAddress.Loopback, 1080);
+                string username = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
+                string password = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
+
+                proxyCredentials = new NetworkCredential(username, password);
             }
+
+            ConfigureProxy(proxyType, proxyAddress, proxyPort, proxyCredentials);
 
             //generic client data
             int dataCount = bR.ReadInt32();
@@ -382,7 +429,7 @@ namespace BitChatClient
         protected override void WritePlainTextTo(BinaryWriter bW)
         {
             bW.Write(Encoding.ASCII.GetBytes("BP"));
-            bW.Write((byte)5);
+            bW.Write((byte)6);
 
             //local cert store
             if (_localCertStore == null)
@@ -402,7 +449,7 @@ namespace BitChatClient
             else
             {
                 byte[] buffer = Encoding.UTF8.GetBytes(_downloadFolder);
-                bW.Write((ushort)buffer.Length);
+                bW.Write(Convert.ToUInt16(buffer.Length));
                 bW.Write(buffer, 0, buffer.Length);
             }
 
@@ -411,7 +458,7 @@ namespace BitChatClient
             foreach (Uri trackerURI in _trackerURIs)
             {
                 byte[] buffer = Encoding.UTF8.GetBytes(trackerURI.AbsoluteUri);
-                bW.Write((byte)buffer.Length);
+                bW.Write(Convert.ToByte(buffer.Length));
                 bW.Write(buffer);
             }
 
@@ -431,13 +478,23 @@ namespace BitChatClient
             //upnp enabled
             bW.Write(_enableUPnP);
 
-            //socks proxy enabled
-            bW.Write(this.ProxyEnabled);
+            //proxy type
+            if (_proxy == null)
+                bW.Write((byte)0);
+            else
+                bW.Write((byte)_proxy.Type);
 
-            //socks proxy ep
-            IPEndPointParser.WriteTo(_proxyEP, bW);
+            //proxy address
+            {
+                byte[] buffer = Encoding.UTF8.GetBytes(_proxyAddress);
+                bW.Write(Convert.ToByte(buffer.Length));
+                bW.Write(buffer);
+            }
 
-            //socks proxy credentials
+            //proxy port
+            bW.Write(_proxyPort);
+
+            //proxy credentials
             if (_proxyCredentials == null)
             {
                 bW.Write(false);
@@ -448,13 +505,13 @@ namespace BitChatClient
 
                 {
                     byte[] buffer = Encoding.UTF8.GetBytes(_proxyCredentials.UserName);
-                    bW.Write((byte)buffer.Length);
+                    bW.Write(Convert.ToByte(buffer.Length));
                     bW.Write(buffer);
                 }
 
                 {
                     byte[] buffer = Encoding.UTF8.GetBytes(_proxyCredentials.Password);
-                    bW.Write((byte)buffer.Length);
+                    bW.Write(Convert.ToByte(buffer.Length));
                     bW.Write(buffer);
                 }
             }
@@ -475,28 +532,37 @@ namespace BitChatClient
 
         #region public
 
-        public SocksClient GetSocksProxy()
+        public void ConfigureProxy(NetProxyType proxyType, string proxyAddress, int proxyPort, NetworkCredential proxyCredentials)
         {
-            return _proxy;
-        }
-
-        public void EnableSocksProxy(IPEndPoint proxyEP, NetworkCredential proxyCredentials)
-        {
-            _proxyEP = proxyEP;
+            _proxyAddress = proxyAddress;
+            _proxyPort = proxyPort;
             _proxyCredentials = proxyCredentials;
 
-            _proxy = new SocksClient(_proxyEP, _proxyCredentials);
+            switch (proxyType)
+            {
+                case NetProxyType.Http:
+                    _proxy = new NetProxy(new WebProxyEx(new Uri("http://" + _proxyAddress + ":" + _proxyPort), false, new string[] { }, _proxyCredentials));
+                    break;
 
-            if (SocksProxyUpdated != null)
-                SocksProxyUpdated(this, EventArgs.Empty);
+                case NetProxyType.Socks5:
+                    _proxy = new NetProxy(new SocksClient(_proxyAddress, _proxyPort, _proxyCredentials));
+                    break;
+
+                default:
+                    _proxy = null;
+                    break;
+            }
+
+            if (ProxyUpdated != null)
+                ProxyUpdated(this, EventArgs.Empty);
         }
 
-        public void DisableSocksProxy()
+        public void DisableProxy()
         {
             _proxy = null;
 
-            if (SocksProxyUpdated != null)
-                SocksProxyUpdated(this, EventArgs.Empty);
+            if (ProxyUpdated != null)
+                ProxyUpdated(this, EventArgs.Empty);
         }
 
         #endregion
@@ -556,14 +622,19 @@ namespace BitChatClient
             set { _enableUPnP = value; }
         }
 
-        public bool ProxyEnabled
+        public NetProxy Proxy
         {
-            get { return (_proxy != null); }
+            get { return _proxy; }
         }
 
-        public IPEndPoint ProxyEndPoint
+        public string ProxyAddress
         {
-            get { return _proxyEP; }
+            get { return _proxyAddress; }
+        }
+
+        public int ProxyPort
+        {
+            get { return _proxyPort; }
         }
 
         public NetworkCredential ProxyCredentials
