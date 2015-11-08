@@ -78,7 +78,6 @@
     <Compile Include="Network\KademliaDHT\KBucket.cs" />
     <Compile Include="Network\KademliaDHT\DhtRpcPacket.cs" />
     <Compile Include="Network\KademliaDHT\PeerEndPoint.cs" />
-    <Compile Include="Network\KademliaDHT\DhtRpcQueryManager.cs" />
     <Compile Include="Network\PeerDiscovery\LocalPeerDiscoveryIPv4.cs" />
     <Compile Include="Network\Connections\ConnectionManager.cs" />
     <Compile Include="Network\BitChatNetwork.cs" />
@@ -88,7 +87,7 @@
     <Compile Include="Network\TrackerManager.cs" />
     <Compile Include="PeerInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Network\ProxyNetwork.cs" />
+    <Compile Include="Network\TcpRelayNetwork.cs" />
     <Compile Include="Network\SecureChannel\ISecureChannelManager.cs" />
     <Compile Include="Network\SecureChannel\SecureChannelStream.cs" />
     <Compile Include="Network\SecureChannel\SecureChannelClientStream.cs" />

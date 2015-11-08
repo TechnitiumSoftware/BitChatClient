@@ -141,11 +141,11 @@
     <Compile Include="frmProfileManager.Designer.cs">
       <DependentUpon>frmProfileManager.cs</DependentUpon>
     </Compile>
-    <Compile Include="frmSocksProxyConfig.cs">
+    <Compile Include="frmProxyConfig.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="frmSocksProxyConfig.Designer.cs">
-      <DependentUpon>frmSocksProxyConfig.cs</DependentUpon>
+    <Compile Include="frmProxyConfig.Designer.cs">
+      <DependentUpon>frmProxyConfig.cs</DependentUpon>
     </Compile>
     <Compile Include="frmViewCertificate.cs">
       <SubType>Form</SubType>
@@ -287,8 +287,8 @@
     <EmbeddedResource Include="frmProfileManager.resx">
       <DependentUpon>frmProfileManager.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="frmSocksProxyConfig.resx">
-      <DependentUpon>frmSocksProxyConfig.cs</DependentUpon>
+    <EmbeddedResource Include="frmProxyConfig.resx">
+      <DependentUpon>frmProxyConfig.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmViewCertificate.resx">
       <DependentUpon>frmViewCertificate.cs</DependentUpon>

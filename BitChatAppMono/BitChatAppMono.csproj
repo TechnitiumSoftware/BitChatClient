@@ -113,6 +113,12 @@
     <Compile Include="frmProfileManager.Designer.cs">
       <DependentUpon>frmProfileManager.cs</DependentUpon>
     </Compile>
+    <Compile Include="frmProxyConfig.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmProxyConfig.Designer.cs">
+      <DependentUpon>frmProxyConfig.cs</DependentUpon>
+    </Compile>
     <Compile Include="frmRegister.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -124,12 +130,6 @@
     </Compile>
     <Compile Include="frmSettings.Designer.cs">
       <DependentUpon>frmSettings.cs</DependentUpon>
-    </Compile>
-    <Compile Include="frmSocksProxyConfig.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="frmSocksProxyConfig.Designer.cs">
-      <DependentUpon>frmSocksProxyConfig.cs</DependentUpon>
     </Compile>
     <Compile Include="frmViewCertificate.cs">
       <SubType>Form</SubType>
@@ -248,14 +248,14 @@
     <EmbeddedResource Include="frmProfileManager.resx">
       <DependentUpon>frmProfileManager.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="frmProxyConfig.resx">
+      <DependentUpon>frmProxyConfig.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="frmRegister.resx">
       <DependentUpon>frmRegister.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmSettings.resx">
       <DependentUpon>frmSettings.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="frmSocksProxyConfig.resx">
-      <DependentUpon>frmSocksProxyConfig.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmViewCertificate.resx">
       <DependentUpon>frmViewCertificate.cs</DependentUpon>
