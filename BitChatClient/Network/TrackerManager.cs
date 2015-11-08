@@ -44,12 +44,13 @@ namespace BitChatClient.Network
         BinaryID _networkID;
         int _servicePort;
         DhtClient _dhtClient;
-        bool _lookupOnly;
+        bool _lookupOnly = false;
 
-        SocksClient _proxy;
+        NetProxy _proxy;
 
         List<IPEndPoint> _dhtPeers = new List<IPEndPoint>();
         DateTime _dhtLastUpdated;
+        Exception _dhtLastException;
 
         const int _TRACKER_TIMER_CHECK_INTERVAL = 10000;
         List<TrackerClient> _trackers = new List<TrackerClient>();
@@ -59,12 +60,11 @@ namespace BitChatClient.Network
 
         #region constructor
 
-        public TrackerManager(BinaryID networkID, int servicePort, DhtClient dhtClient = null, bool lookupOnly = false)
+        public TrackerManager(BinaryID networkID, int servicePort, DhtClient dhtClient)
         {
             _networkID = networkID;
             _servicePort = servicePort;
             _dhtClient = dhtClient;
-            _lookupOnly = lookupOnly;
         }
 
         #endregion
@@ -208,8 +208,10 @@ namespace BitChatClient.Network
                         DiscoveredPeers(this, peers);
                 }
             }
-            catch
-            { }
+            catch (Exception ex)
+            {
+                _dhtLastException = ex;
+            }
         }
 
         #endregion
@@ -227,7 +229,7 @@ namespace BitChatClient.Network
                     foreach (Uri trackerURI in trackerURIs)
                     {
                         TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID());
-                        tracker.SocksProxy = _proxy;
+                        tracker.Proxy = _proxy;
 
                         _trackers.Add(tracker);
                     }
@@ -304,7 +306,7 @@ namespace BitChatClient.Network
 
                 {
                     TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID());
-                    tracker.SocksProxy = _proxy;
+                    tracker.Proxy = _proxy;
 
                     _trackers.Add(tracker);
                     return tracker;
@@ -332,7 +334,7 @@ namespace BitChatClient.Network
                     if (!trackerExists)
                     {
                         TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID());
-                        tracker.SocksProxy = _proxy;
+                        tracker.Proxy = _proxy;
 
                         _trackers.Add(tracker);
                     }
@@ -348,7 +350,7 @@ namespace BitChatClient.Network
             }
         }
 
-        public int GetTotalDhtPeers()
+        public int DhtGetTotalPeers()
         {
             lock (_dhtPeers)
             {
@@ -356,12 +358,28 @@ namespace BitChatClient.Network
             }
         }
 
-        public IPEndPoint[] GetDhtPeers()
+        public IPEndPoint[] DhtGetPeers()
         {
             lock (_dhtPeers)
             {
                 return _dhtPeers.ToArray();
             }
+        }
+
+        public void DhtUpdate()
+        {
+            ThreadPool.QueueUserWorkItem(UpdateDhtAsync, new IPEndPoint(IPAddress.Any, _servicePort));
+            _dhtLastUpdated = DateTime.UtcNow.AddSeconds(DHT_UPDATE_INTERVAL_SECONDS * -1);
+        }
+
+        public TimeSpan DhtNextUpdateIn()
+        {
+            return _dhtLastUpdated.AddSeconds(DHT_UPDATE_INTERVAL_SECONDS) - DateTime.UtcNow;
+        }
+
+        public Exception DhtLastException()
+        {
+            return _dhtLastException;
         }
 
         #endregion
@@ -380,7 +398,7 @@ namespace BitChatClient.Network
             set { _lookupOnly = value; }
         }
 
-        public SocksClient SocksClient
+        public NetProxy Proxy
         {
             get { return _proxy; }
             set
@@ -391,7 +409,7 @@ namespace BitChatClient.Network
                 {
                     foreach (TrackerClient tracker in _trackers)
                     {
-                        tracker.SocksProxy = _proxy;
+                        tracker.Proxy = _proxy;
                     }
                 }
             }
