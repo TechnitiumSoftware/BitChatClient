@@ -78,7 +78,7 @@
     <Compile Include="Network\KademliaDHT\KBucket.cs" />
     <Compile Include="Network\KademliaDHT\DhtRpcPacket.cs" />
     <Compile Include="Network\KademliaDHT\PeerEndPoint.cs" />
-    <Compile Include="Network\PeerDiscovery\LocalPeerDiscoveryIPv4.cs" />
+    <Compile Include="Network\LocalPeerDiscovery.cs" />
     <Compile Include="Network\Connections\ConnectionManager.cs" />
     <Compile Include="Network\BitChatNetwork.cs" />
     <Compile Include="BitChatService.cs" />

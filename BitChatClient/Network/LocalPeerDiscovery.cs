@@ -46,11 +46,11 @@ using TechnitiumLibrary.Net;
 
 */
 
-namespace BitChatClient.Network.PeerDiscovery
+namespace BitChatClient.Network
 {
-    public delegate void DiscoveredPeerInfo(LocalPeerDiscoveryIPv4 sender, IPEndPoint peerEP, BinaryID networkID);
+    public delegate void DiscoveredPeerInfo(LocalPeerDiscovery sender, IPEndPoint peerEP, BinaryID networkID);
 
-    public class LocalPeerDiscoveryIPv4 : IDisposable
+    public class LocalPeerDiscovery : IDisposable
     {
         #region events
 
@@ -85,7 +85,7 @@ namespace BitChatClient.Network.PeerDiscovery
 
         #region constructor
 
-        public LocalPeerDiscoveryIPv4(int announcePort)
+        public LocalPeerDiscovery(int announcePort)
         {
             _announcePort = Convert.ToUInt16(announcePort);
 
@@ -99,7 +99,7 @@ namespace BitChatClient.Network.PeerDiscovery
 
         #region IDisposable
 
-        ~LocalPeerDiscoveryIPv4()
+        ~LocalPeerDiscovery()
         {
             Dispose(false);
         }
@@ -474,7 +474,7 @@ namespace BitChatClient.Network.PeerDiscovery
                 _udpListener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
                 _udpListener.Bind(new IPEndPoint(IPAddress.Any, listenerPort));
 
-                _networks = NetUtilities.GetNetworkInfo();
+                _networks = NetUtilities.GetNetworkInfo(AddressFamily.InterNetwork);
 
                 _listeningThread = new Thread(RecvDataAsync);
                 _listeningThread.IsBackground = true;
@@ -528,7 +528,7 @@ namespace BitChatClient.Network.PeerDiscovery
             {
                 try
                 {
-                    List<NetworkInfo> currentNetworks = NetUtilities.GetNetworkInfo();
+                    List<NetworkInfo> currentNetworks = NetUtilities.GetNetworkInfo(AddressFamily.InterNetwork);
                     List<NetworkInfo> newNetworks = new List<NetworkInfo>();
 
                     lock (_networks)
