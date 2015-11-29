@@ -51,7 +51,7 @@ namespace BitChatClient
                     break;
 
                 default:
-                    throw new Exception("AddressFamily not supported.");
+                    throw new NotSupportedException("AddressFamily not supported.");
             }
 
             return new IPEndPoint(new IPAddress(address), BitConverter.ToUInt16(port, 0));
@@ -77,7 +77,7 @@ namespace BitChatClient
                     break;
 
                 default:
-                    throw new Exception("AddressFamily not supported.");
+                    throw new NotSupportedException("AddressFamily not supported.");
             }
 
             bW.Write(ep.Address.GetAddressBytes());
