@@ -64,8 +64,11 @@ namespace BitChatClient.Network.KademliaDHT
         ConnectionManager _connectionManager;
         bool _proxyEnabled = false;
 
-        Socket _udpListener;
-        Thread _readQueryThread;
+        Socket _udpListenerIPv4;
+        Thread _udpListenerIPv4Thread;
+
+        Socket _udpListenerIPv6;
+        Thread _udpListenerIPv6Thread;
 
         CurrentNode _currentNode;
         KBucket _routingTable;
@@ -78,8 +81,11 @@ namespace BitChatClient.Network.KademliaDHT
         HashAlgorithm _previousSecretHmac;
 
         //query manager
-        Socket _udpClient;
-        Thread _readResponseThread;
+        Socket _udpClientIPv4;
+        Thread _udpClientIPv4Thread;
+
+        Socket _udpClientIPv6;
+        Thread _udpClientIPv6Thread;
 
         FixMemoryStream _sendBufferStream = new FixMemoryStream(BUFFER_MAX_SIZE);
 
@@ -94,34 +100,63 @@ namespace BitChatClient.Network.KademliaDHT
             _connectionManager = connectionManager;
 
             //bind udp dht port
-            _udpListener = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            _udpListenerIPv4 = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+
+            if (Socket.OSSupportsIPv6)
+                _udpListenerIPv6 = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
 
             try
             {
-                _udpListener.Bind(new IPEndPoint(IPAddress.Any, udpDhtPort));
+                _udpListenerIPv4.Bind(new IPEndPoint(IPAddress.Any, udpDhtPort));
+
+                if (Socket.OSSupportsIPv6)
+                    _udpListenerIPv6.Bind(new IPEndPoint(IPAddress.IPv6Any, udpDhtPort));
             }
             catch
             {
-                _udpListener.Bind(new IPEndPoint(IPAddress.Any, 0));
+                _udpListenerIPv4.Bind(new IPEndPoint(IPAddress.Any, 0));
+
+                if (Socket.OSSupportsIPv6)
+                    _udpListenerIPv6.Bind(new IPEndPoint(IPAddress.IPv6Any, (_udpListenerIPv4.LocalEndPoint as IPEndPoint).Port));
             }
 
             //init routing table
-            _currentNode = new CurrentNode((_udpListener.LocalEndPoint as IPEndPoint).Port);
+            _currentNode = new CurrentNode((_udpListenerIPv4.LocalEndPoint as IPEndPoint).Port);
             _routingTable = new KBucket(_currentNode);
 
             //bind udp client socket to random port
-            _udpClient = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            _udpClient.Bind(new IPEndPoint(IPAddress.Any, 0));
+            _udpClientIPv4 = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+            _udpClientIPv4.Bind(new IPEndPoint(IPAddress.Any, 0));
+
+            if (Socket.OSSupportsIPv6)
+            {
+                _udpClientIPv6 = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
+                _udpClientIPv6.Bind(new IPEndPoint(IPAddress.IPv6Any, 0));
+            }
 
             //start reading udp response packets
-            _readResponseThread = new Thread(ReadResponsePacketsAsync);
-            _readResponseThread.IsBackground = true;
-            _readResponseThread.Start();
+            _udpClientIPv4Thread = new Thread(ReadResponsePacketsAsync);
+            _udpClientIPv4Thread.IsBackground = true;
+            _udpClientIPv4Thread.Start(_udpClientIPv4);
+
+            if (Socket.OSSupportsIPv6)
+            {
+                _udpClientIPv6Thread = new Thread(ReadResponsePacketsAsync);
+                _udpClientIPv6Thread.IsBackground = true;
+                _udpClientIPv6Thread.Start(_udpClientIPv6);
+            }
 
             //start reading udp query packets
-            _readQueryThread = new Thread(ReadQueryPacketsAsync);
-            _readQueryThread.IsBackground = true;
-            _readQueryThread.Start();
+            _udpListenerIPv4Thread = new Thread(ReadQueryPacketsAsync);
+            _udpListenerIPv4Thread.IsBackground = true;
+            _udpListenerIPv4Thread.Start(_udpListenerIPv4);
+
+            if (Socket.OSSupportsIPv6)
+            {
+                _udpListenerIPv6Thread = new Thread(ReadQueryPacketsAsync);
+                _udpListenerIPv6Thread.IsBackground = true;
+                _udpListenerIPv6Thread.Start(_udpListenerIPv6);
+            }
 
             //start health timer
             _healthTimer = new Timer(HealthTimerCallback, null, QUERY_TIMEOUT, Timeout.Infinite);
@@ -148,17 +183,29 @@ namespace BitChatClient.Network.KademliaDHT
         {
             if (!_disposed)
             {
-                if (_udpListener != null)
-                    _udpListener.Dispose();
+                if (_udpListenerIPv4 != null)
+                    _udpListenerIPv4.Dispose();
 
-                if (_readQueryThread != null)
-                    _readQueryThread.Abort();
+                if (_udpListenerIPv4Thread != null)
+                    _udpListenerIPv4Thread.Abort();
 
-                if (_udpClient != null)
-                    _udpClient.Dispose();
+                if (_udpListenerIPv6 != null)
+                    _udpListenerIPv6.Dispose();
 
-                if (_readResponseThread != null)
-                    _readResponseThread.Abort();
+                if (_udpListenerIPv6Thread != null)
+                    _udpListenerIPv6Thread.Abort();
+
+                if (_udpClientIPv4 != null)
+                    _udpClientIPv4.Dispose();
+
+                if (_udpClientIPv4Thread != null)
+                    _udpClientIPv4Thread.Abort();
+
+                if (_udpClientIPv6 != null)
+                    _udpClientIPv6.Dispose();
+
+                if (_udpClientIPv6Thread != null)
+                    _udpClientIPv6Thread.Abort();
 
                 if (_sendBufferStream != null)
                     _sendBufferStream.Dispose();
@@ -198,7 +245,10 @@ namespace BitChatClient.Network.KademliaDHT
                 _secretUpdatedOn = DateTime.UtcNow;
             }
 
-            return new BinaryID(_secretHmac.ComputeHash(nodeIP.GetAddressBytes()));
+            lock (_secretHmac)
+            {
+                return new BinaryID(_secretHmac.ComputeHash(nodeIP.GetAddressBytes()));
+            }
         }
 
         private BinaryID GetOldToken(IPAddress nodeIP)
@@ -206,7 +256,10 @@ namespace BitChatClient.Network.KademliaDHT
             if (_previousSecretHmac == null)
                 return null;
 
-            return new BinaryID(_previousSecretHmac.ComputeHash(nodeIP.GetAddressBytes()));
+            lock (_previousSecretHmac)
+            {
+                return new BinaryID(_previousSecretHmac.ComputeHash(nodeIP.GetAddressBytes()));
+            }
         }
 
         private bool IsTokenValid(BinaryID token, IPAddress nodeIP)
@@ -359,8 +412,10 @@ namespace BitChatClient.Network.KademliaDHT
             return null;
         }
 
-        private void ReadQueryPacketsAsync(object state)
+        private void ReadQueryPacketsAsync(object parameter)
         {
+            Socket udpListener = parameter as Socket;
+
             EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
             FixMemoryStream recvBufferStream = new FixMemoryStream(BUFFER_MAX_SIZE);
             FixMemoryStream sendBufferStream = new FixMemoryStream(BUFFER_MAX_SIZE);
@@ -370,7 +425,7 @@ namespace BitChatClient.Network.KademliaDHT
             {
                 while (true)
                 {
-                    bytesRecv = _udpListener.ReceiveFrom(recvBufferStream.Buffer, ref remoteEP);
+                    bytesRecv = udpListener.ReceiveFrom(recvBufferStream.Buffer, ref remoteEP);
 
                     if (bytesRecv > 0)
                     {
@@ -387,7 +442,7 @@ namespace BitChatClient.Network.KademliaDHT
                         {
                             sendBufferStream.Position = 0;
                             response.WriteTo(sendBufferStream);
-                            _udpListener.SendTo(sendBufferStream.Buffer, 0, (int)sendBufferStream.Position, SocketFlags.None, remoteEP);
+                            udpListener.SendTo(sendBufferStream.Buffer, 0, (int)sendBufferStream.Position, SocketFlags.None, remoteEP);
                         }
 
                         //if contact doesnt exists then add contact else update last seen time
@@ -411,8 +466,10 @@ namespace BitChatClient.Network.KademliaDHT
             { }
         }
 
-        private void ReadResponsePacketsAsync(object state)
+        private void ReadResponsePacketsAsync(object parameter)
         {
+            Socket udpClient = parameter as Socket;
+
             EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
             FixMemoryStream recvStream = new FixMemoryStream(BUFFER_MAX_SIZE);
             byte[] bufferRecv = recvStream.Buffer;
@@ -424,7 +481,7 @@ namespace BitChatClient.Network.KademliaDHT
                 {
                     while (true)
                     {
-                        bytesRecv = _udpClient.ReceiveFrom(bufferRecv, ref remoteEP);
+                        bytesRecv = udpClient.ReceiveFrom(bufferRecv, ref remoteEP);
 
                         if (bytesRecv > 0)
                         {
@@ -480,7 +537,10 @@ namespace BitChatClient.Network.KademliaDHT
                         }
                         else
                         {
-                            _udpClient.SendTo(_sendBufferStream.Buffer, 0, (int)_sendBufferStream.Position, SocketFlags.None, remoteNodeEP);
+                            if (remoteNodeEP.AddressFamily == AddressFamily.InterNetwork)
+                                _udpClientIPv4.SendTo(_sendBufferStream.Buffer, 0, (int)_sendBufferStream.Position, SocketFlags.None, remoteNodeEP);
+                            else
+                                _udpClientIPv6.SendTo(_sendBufferStream.Buffer, 0, (int)_sendBufferStream.Position, SocketFlags.None, remoteNodeEP);
                         }
                     }
 
@@ -912,7 +972,7 @@ namespace BitChatClient.Network.KademliaDHT
         { get { return _currentNode.NodeID; } }
 
         public int LocalPort
-        { get { return ((IPEndPoint)_udpListener.LocalEndPoint).Port; } }
+        { get { return ((IPEndPoint)_udpListenerIPv4.LocalEndPoint).Port; } }
 
         public bool ProxyEnabled
         {
@@ -926,7 +986,7 @@ namespace BitChatClient.Network.KademliaDHT
         {
             #region variables
 
-            const int MAX_PEERS_TO_RETURN = 50;
+            const int MAX_PEERS_TO_RETURN = 30;
 
             Dictionary<BinaryID, List<PeerEndPoint>> _data = new Dictionary<BinaryID, List<PeerEndPoint>>();
 
