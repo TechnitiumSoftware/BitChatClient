@@ -63,11 +63,12 @@ namespace BitChatApp.UserControls
             _chat = chat;
             _chatItem = chatItem;
 
-            _chat.MessageReceived += _chat_MessageReceived;
-            _chat.PeerAdded += _chat_PeerAdded;
-            _chat.PeerTyping += _chat_PeerTyping;
-            _chat.PeerHasRevokedCertificate += _chat_PeerHasRevokedCertificate;
-            _chat.PeerSecureChannelException += _chat_PeerSecureChannelException;
+            _chat.MessageReceived += chat_MessageReceived;
+            _chat.PeerAdded += chat_PeerAdded;
+            _chat.PeerTyping += chat_PeerTyping;
+            _chat.PeerHasRevokedCertificate += chat_PeerHasRevokedCertificate;
+            _chat.PeerSecureChannelException += chat_PeerSecureChannelException;
+            _chat.PeerHasChangedCertificate += chat_PeerHasChangedCertificate;
 
             if (_chat.NetworkType == BitChatClient.Network.BitChatNetworkType.PrivateChat)
             {
@@ -109,7 +110,19 @@ namespace BitChatApp.UserControls
             }
         }
 
-        private void _chat_PeerAdded(BitChat sender, BitChat.Peer peer)
+        private void chat_MessageReceived(BitChat.Peer sender, string message)
+        {
+            bool myMessage = sender.PeerCertificate.IssuedTo.EmailAddress.Address.Equals(_chat.LocalCertificate.IssuedTo.EmailAddress.Address);
+
+            AddMessage(new ChatMessageItem(sender, message, DateTime.Now, myMessage));
+
+            if (!_chatItem.Selected)
+                _chatItem.SetNewMessage(sender.PeerCertificate.IssuedTo.Name + ": " + message);
+
+            ShowPeerTypingNotification(sender.PeerCertificate.IssuedTo.Name, false);
+        }
+
+        private void chat_PeerAdded(BitChat sender, BitChat.Peer peer)
         {
             AddMessage(new ChatMessageInfoItem(peer.PeerCertificate.IssuedTo.Name + " joined chat", DateTime.Now));
 
@@ -120,17 +133,17 @@ namespace BitChatApp.UserControls
             }
         }
 
-        private void _chat_PeerTyping(BitChat sender, BitChat.Peer peer)
+        private void chat_PeerTyping(BitChat sender, BitChat.Peer peer)
         {
             ShowPeerTypingNotification(peer.PeerCertificate.IssuedTo.Name, true);
         }
 
-        private void _chat_PeerHasRevokedCertificate(BitChat sender, InvalidCertificateException ex)
+        private void chat_PeerHasRevokedCertificate(BitChat sender, InvalidCertificateException ex)
         {
             AddMessage(new ChatMessageInfoItem(ex.Message));
         }
 
-        private void _chat_PeerSecureChannelException(BitChat sender, SecureChannelException ex)
+        private void chat_PeerSecureChannelException(BitChat sender, SecureChannelException ex)
         {
             string peerInfo;
 
@@ -149,16 +162,9 @@ namespace BitChatApp.UserControls
             AddMessage(new ChatMessageInfoItem("Secure channel with peer '" + peerInfo + "' encountered '" + desc + "' exception.", DateTime.Now));
         }
 
-        private void _chat_MessageReceived(BitChat.Peer sender, string message)
+        private void chat_PeerHasChangedCertificate(BitChat sender, Certificate cert)
         {
-            bool myMessage = sender.PeerCertificate.IssuedTo.EmailAddress.Address.Equals(_chat.LocalCertificate.IssuedTo.EmailAddress.Address);
-
-            AddMessage(new ChatMessageItem(sender, message, DateTime.Now, myMessage));
-
-            if (!_chatItem.Selected)
-                _chatItem.SetNewMessage(sender.PeerCertificate.IssuedTo.Name + ": " + message);
-
-            ShowPeerTypingNotification(sender.PeerCertificate.IssuedTo.Name, false);
+            AddMessage(new ChatMessageInfoItem("Warning! Peer '" + cert.IssuedTo.EmailAddress.Address + "' has changed his profile certificate [serial number: " + cert.SerialNumber + ", expires on: " + cert.ExpiresOnUTC.ToShortDateString() + "]", DateTime.Now));
         }
 
         #endregion
