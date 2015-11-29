@@ -1061,7 +1061,7 @@ namespace BitChatClient.Network.Connections
                         WriteDataFrame(data, 0, data.Length, channelName, ChannelType.RelayNetworkStart);
                     }
 
-                    return Monitor.Wait(lockObject, 10000);
+                    return Monitor.Wait(lockObject, 120000);
                 }
             }
             finally

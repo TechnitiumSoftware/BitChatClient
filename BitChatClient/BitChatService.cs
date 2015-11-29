@@ -19,7 +19,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using BitChatClient.Network;
 using BitChatClient.Network.Connections;
-using BitChatClient.Network.PeerDiscovery;
 using BitChatClient.Network.SecureChannel;
 using System;
 using System.Collections.Generic;
@@ -228,7 +227,7 @@ namespace BitChatClient
             SecureChannelCryptoOptionFlags _supportedCryptoOptions;
 
             ConnectionManager _connectionManager;
-            LocalPeerDiscoveryIPv4 _localDiscovery;
+            LocalPeerDiscovery _localDiscovery;
             Dictionary<BinaryID, BitChatNetwork> _networks = new Dictionary<BinaryID, BitChatNetwork>();
 
             //relay nodes
@@ -255,8 +254,8 @@ namespace BitChatClient
                 _connectionManager = new ConnectionManager(_profile, BitChatNetworkChannelRequest, RelayNetworkPeersAvailable);
                 _connectionManager.InternetConnectivityStatusChanged += ConnectionManager_InternetConnectivityStatusChanged;
 
-                LocalPeerDiscoveryIPv4.StartListener(41733);
-                _localDiscovery = new LocalPeerDiscoveryIPv4(_connectionManager.LocalPort);
+                LocalPeerDiscovery.StartListener(41733);
+                _localDiscovery = new LocalPeerDiscovery(_connectionManager.LocalPort);
                 _localDiscovery.PeerDiscovered += _localDiscovery_PeerDiscovered;
             }
 
@@ -308,7 +307,7 @@ namespace BitChatClient
                 if (externalEP == null)
                 {
                     //no incoming connection possible; setup relay network
-                    AddRelayNodes();
+                    AddTcpRelayNodes();
 
                     if (_relayConnectionCheckTimer == null)
                         _relayConnectionCheckTimer = new Timer(RelayConnectionCheckTimerCallback, null, TCP_RELAY_CHECK_INTERVAL, Timeout.Infinite);
@@ -321,8 +320,13 @@ namespace BitChatClient
                         _relayConnectionCheckTimer.Dispose();
                         _relayConnectionCheckTimer = null;
 
-                        BinaryID[] networkIDs = new BinaryID[_networks.Keys.Count];
-                        _networks.Keys.CopyTo(networkIDs, 0);
+                        BinaryID[] networkIDs;
+
+                        lock (_networks)
+                        {
+                            networkIDs = new BinaryID[_networks.Keys.Count];
+                            _networks.Keys.CopyTo(networkIDs, 0);
+                        }
 
                         lock (_relayConnections)
                         {
@@ -337,7 +341,7 @@ namespace BitChatClient
                 }
             }
 
-            private void AddRelayNodes()
+            private void AddTcpRelayNodes()
             {
                 //if less number of relay node connections, try to find new relay nodes
 
@@ -361,17 +365,17 @@ namespace BitChatClient
 
                             if (_relayConnections.ContainsKey(relayNodeEP))
                                 continue;
-
-                            if (NetUtilities.IsPrivateIPv4(relayNodeEP.Address))
-                                continue;
                         }
 
-                        ThreadPool.QueueUserWorkItem(AddRelayNodeAsync, relayNodeEP);
+                        if (NetUtilities.IsPrivateIP(relayNodeEP.Address))
+                            continue;
+
+                        ThreadPool.QueueUserWorkItem(AddTcpRelayNodeAsync, relayNodeEP);
                     }
                 }
             }
 
-            private void AddRelayNodeAsync(object state)
+            private void AddTcpRelayNodeAsync(object state)
             {
                 IPEndPoint relayNodeEP = state as IPEndPoint;
 
@@ -383,17 +387,26 @@ namespace BitChatClient
                     {
                         if (_relayConnections.Count < TCP_RELAY_MAX_CONNECTIONS)
                         {
-                            viaConnection.Disposed += RelayConnection_Disposed;
-                            _relayConnections.Add(relayNodeEP, viaConnection);
+                            if (!_relayConnections.ContainsKey(relayNodeEP))
+                            {
+                                //new tcp relay, add to list
+                                viaConnection.Disposed += RelayConnection_Disposed;
+                                _relayConnections.Add(relayNodeEP, viaConnection);
+                            }
                         }
                         else
                         {
-                            return;
+                            return; //have enough tcp relays
                         }
                     }
 
-                    BinaryID[] networkIDs = new BinaryID[_networks.Keys.Count];
-                    _networks.Keys.CopyTo(networkIDs, 0);
+                    BinaryID[] networkIDs;
+
+                    lock (_networks)
+                    {
+                        networkIDs = new BinaryID[_networks.Keys.Count];
+                        _networks.Keys.CopyTo(networkIDs, 0);
+                    }
 
                     if (!viaConnection.RequestStartRelayNetwork(networkIDs, _profile.TrackerURIs))
                     {
@@ -416,16 +429,21 @@ namespace BitChatClient
             {
                 try
                 {
-                    AddRelayNodes();
-
                     //send noop to all connections
                     lock (_relayConnections)
                     {
                         foreach (Connection connection in _relayConnections.Values)
                         {
-                            connection.SendNOOP();
+                            try
+                            {
+                                connection.SendNOOP();
+                            }
+                            catch
+                            { }
                         }
                     }
+
+                    AddTcpRelayNodes();
                 }
                 catch
                 { }
@@ -548,7 +566,7 @@ namespace BitChatClient
 
             #region LocalDiscovery support
 
-            private void _localDiscovery_PeerDiscovered(LocalPeerDiscoveryIPv4 sender, IPEndPoint peerEP, BinaryID networkID)
+            private void _localDiscovery_PeerDiscovered(LocalPeerDiscovery sender, IPEndPoint peerEP, BinaryID networkID)
             {
                 lock (_networks)
                 {
@@ -759,7 +777,7 @@ namespace BitChatClient
 
             public IPAddress UPnPExternalIP
             { get { return _connectionManager.UPnPExternalIP; } }
-            
+
             public IPEndPoint ExternalEndPoint
             { get { return _connectionManager.ExternalEndPoint; } }
 

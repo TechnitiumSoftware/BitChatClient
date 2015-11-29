@@ -115,10 +115,10 @@ namespace BitChatClient.Network
 
                     if (computedChannelName.Equals(channelName))
                     {
-                        Dictionary<BinaryID, Connection> proxyConnections = itemRelayNetwork.Value._relayConnections;
-                        List<IPEndPoint> peerEPs = new List<IPEndPoint>(proxyConnections.Count);
+                        Dictionary<BinaryID, Connection> relayConnections = itemRelayNetwork.Value._relayConnections;
+                        List<IPEndPoint> peerEPs = new List<IPEndPoint>(relayConnections.Count);
 
-                        foreach (KeyValuePair<BinaryID, Connection> itemProxyConnection in proxyConnections)
+                        foreach (KeyValuePair<BinaryID, Connection> itemProxyConnection in relayConnections)
                         {
                             peerEPs.Add(itemProxyConnection.Value.RemotePeerEP);
                         }
