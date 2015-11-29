@@ -40,6 +40,8 @@ namespace BitChatAppMono
             listView1.Items.Add("External End Point").SubItems.Add("Loading...");
             listView1.Items.Add("Tcp Relays").SubItems.Add("Loading...");
 
+            updateTimer_Tick(null, null);
+
             _updateTimer = new Timer();
             _updateTimer.Interval = 2000;
             _updateTimer.Tick += updateTimer_Tick;
