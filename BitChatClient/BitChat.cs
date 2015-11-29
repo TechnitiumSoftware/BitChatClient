@@ -39,6 +39,7 @@ namespace BitChatClient
     public delegate void MessageReceived(BitChat.Peer sender, string message);
     public delegate void FileAdded(BitChat sender, SharedFile sharedFile);
     public delegate void PeerSecureChannelException(BitChat sender, SecureChannelException ex);
+    public delegate void PeerHasChangedCertificate(BitChat sender, Certificate cert);
 
     public enum BitChatNetworkStatus
     {
@@ -55,6 +56,7 @@ namespace BitChatClient
         public event PeerNotification PeerTyping;
         public event PeerHasRevokedCertificate PeerHasRevokedCertificate;
         public event PeerSecureChannelException PeerSecureChannelException;
+        public event PeerHasChangedCertificate PeerHasChangedCertificate;
         public event MessageReceived MessageReceived;
         public event FileAdded FileAdded;
         public event EventHandler Leave;
@@ -110,7 +112,8 @@ namespace BitChatClient
             _network.VirtualPeerAdded += network_VirtualPeerAdded;
             _network.VirtualPeerHasRevokedCertificate += network_VirtualPeerHasRevokedCertificate;
             _network.VirtualPeerSecureChannelException += network_VirtualPeerSecureChannelException;
-            
+            _network.VirtualPeerHasChangedCertificate += network_VirtualPeerHasChangedCertificate;
+
             foreach (BitChatNetwork.VirtualPeer virtualPeer in _network.GetVirtualPeerList())
             {
                 Peer peer = new Peer(virtualPeer, this);
@@ -263,6 +266,20 @@ namespace BitChatClient
             try
             {
                 PeerSecureChannelException(this, state as SecureChannelException);
+            }
+            catch { }
+        }
+
+        private void RaiseEventPeerHasChangedCertificate(Certificate cert)
+        {
+            _syncCxt.Post(PeerHasChangedCertificateCallback, cert);
+        }
+
+        private void PeerHasChangedCertificateCallback(object state)
+        {
+            try
+            {
+                PeerHasChangedCertificate(this, state as Certificate);
             }
             catch { }
         }
@@ -458,6 +475,12 @@ namespace BitChatClient
         {
             if (PeerSecureChannelException != null)
                 RaiseEventPeerSecureChannelException(ex);
+        }
+
+        private void network_VirtualPeerHasChangedCertificate(BitChatNetwork sender, Certificate cert)
+        {
+            if (PeerHasChangedCertificate != null)
+                RaiseEventPeerHasChangedCertificate(cert);
         }
 
         private void SendFileAdvertisement(SharedFile sharedFile)

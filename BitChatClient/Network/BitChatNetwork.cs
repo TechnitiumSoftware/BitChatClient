@@ -36,6 +36,7 @@ namespace BitChatClient.Network
     delegate void VirtualPeerHasRevokedCertificate(BitChatNetwork sender, InvalidCertificateException ex);
     delegate void VirtualPeerPacketReceived(BitChatNetwork.VirtualPeer sender, Stream packetDataStream, IPEndPoint remotePeerEP);
     delegate void VirtualPeerSecureChannelException(BitChatNetwork sender, SecureChannelException ex);
+    delegate void VirtualPeerHasChangedCertificate(BitChatNetwork sender, Certificate cert);
 
     public enum BitChatNetworkType : byte
     {
@@ -50,6 +51,7 @@ namespace BitChatClient.Network
         public event VirtualPeerAdded VirtualPeerAdded;
         public event VirtualPeerHasRevokedCertificate VirtualPeerHasRevokedCertificate;
         public event VirtualPeerSecureChannelException VirtualPeerSecureChannelException;
+        public event VirtualPeerHasChangedCertificate VirtualPeerHasChangedCertificate;
 
         #endregion
 
@@ -366,7 +368,7 @@ namespace BitChatClient.Network
             if (_type == BitChatNetworkType.PrivateChat)
             {
                 if (!peerStream.RemotePeerCertificate.IssuedTo.EmailAddress.Equals(_peerEmailAddress))
-                    throw new BitChatException("User with another email address '" + peerStream.RemotePeerCertificate.IssuedTo.EmailAddress.Address + " [" + peerStream.RemotePeerEP.Address.ToString() + "]' trying to join private chat.");
+                    throw new BitChatException("User with email address '" + peerStream.RemotePeerCertificate.IssuedTo.EmailAddress.Address + " [" + peerStream.RemotePeerEP.Address.ToString() + "]' is trying to join this private chat.");
 
                 _peerName = peerStream.RemotePeerCertificate.IssuedTo.Name;
             }
@@ -588,6 +590,7 @@ namespace BitChatClient.Network
             private void ReadPacketAsync(object state)
             {
                 SecureChannelStream stream = state as SecureChannelStream;
+                bool doReconnect = false;
 
                 try
                 {
@@ -615,12 +618,26 @@ namespace BitChatClient.Network
                 }
                 catch (SecureChannelException ex)
                 {
-                    if (_network.VirtualPeerSecureChannelException != null)
-                        _network.VirtualPeerSecureChannelException(_network, ex);
+                    if (ex.Code == SecureChannelCode.EndOfStream)
+                    {
+                        //gracefull secure channel disconnection done; do nothing
+                    }
+                    else
+                    {
+                        if (_network.VirtualPeerSecureChannelException != null)
+                            _network.VirtualPeerSecureChannelException(_network, ex);
+                    }
+                }
+                catch (ThreadAbortException)
+                {
+                    //thread abort via Dispose()
                 }
                 catch (Exception ex)
                 {
                     Debug.Write("VirtualPeer.ReadPacketAsync", ex);
+
+                    //try reconnection due to unexpected channel closure
+                    doReconnect = true;
                 }
                 finally
                 {
@@ -649,7 +666,15 @@ namespace BitChatClient.Network
                         }
                     }
 
-                    stream.Dispose();
+                    try
+                    {
+                        stream.Dispose();
+                    }
+                    catch
+                    { }
+
+                    if (doReconnect)
+                        _network.MakeConnection(stream.RemotePeerEP);
                 }
             }
 
@@ -696,6 +721,12 @@ namespace BitChatClient.Network
                     }
                     else
                     {
+                        if (!_peerCert.Equals(stream.RemotePeerCertificate))
+                        {
+                            if (_network.VirtualPeerHasChangedCertificate != null)
+                                _network.VirtualPeerHasChangedCertificate(_network, stream.RemotePeerCertificate);
+                        }
+
                         _peerCert = stream.RemotePeerCertificate;
                     }
 
