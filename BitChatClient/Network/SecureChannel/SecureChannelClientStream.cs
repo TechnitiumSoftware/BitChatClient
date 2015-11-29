@@ -181,7 +181,7 @@ namespace BitChatClient.Network.SecureChannel
 
             #region 3. exchange & verify certificates & signatures
 
-            if (!_reNegotiating)
+            if (!IsReNegotiating())
             {
                 //send client certificate
                 SecureChannelPacket.WritePacket(this, clientCredentials.Certificate);

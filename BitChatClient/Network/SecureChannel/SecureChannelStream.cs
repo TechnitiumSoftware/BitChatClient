@@ -88,6 +88,7 @@ namespace BitChatClient.Network.SecureChannel
 
         const byte HEADER_FLAG_NONE = 0;
         const byte HEADER_FLAG_RENEGOTIATE = 1;
+        const byte HEADER_FLAG_CLOSE_CHANNEL = 2;
 
         protected static RandomNumberGenerator _rnd = new RNGCryptoServiceProvider();
         static RandomNumberGenerator _rndPadding = new RNGCryptoServiceProvider();
@@ -108,7 +109,7 @@ namespace BitChatClient.Network.SecureChannel
         //re-negotiation
         long _reNegotiateOnBytesSent;
         int _reNegotiateAfterSeconds;
-        protected bool _reNegotiating = false;
+        bool _reNegotiating = false;
         long _bytesSent = 0;
         DateTime _connectedOn;
         Timer _reNegotiationTimer;
@@ -132,6 +133,7 @@ namespace BitChatClient.Network.SecureChannel
         byte[] _readEncryptedData = new byte[BUFFER_SIZE];
 
         MemoryStream _reNegotiateReadBuffer;
+        bool _channelClosed = false;
 
         #endregion
 
@@ -156,8 +158,14 @@ namespace BitChatClient.Network.SecureChannel
 
                 _reNegotiationTimer.Dispose();
 
-                if (_reNegotiateReadBuffer != null)
-                    _reNegotiateReadBuffer.Dispose();
+                lock (_readLock)
+                {
+                    if (_reNegotiateReadBuffer != null)
+                    {
+                        _reNegotiateReadBuffer.Dispose();
+                        _reNegotiateReadBuffer = null;
+                    }
+                }
 
                 _cryptoEncryptor.Dispose();
                 _cryptoDecryptor.Dispose();
@@ -243,6 +251,9 @@ namespace BitChatClient.Network.SecureChannel
 
             lock (_writeLock)
             {
+                if (_channelClosed)
+                    return; //channel already closed
+
                 do
                 {
                     int bytesAvailable = BUFFER_SIZE - _writeBufferPosition - _authHMACSize;
@@ -256,7 +267,7 @@ namespace BitChatClient.Network.SecureChannel
                             count -= bytesAvailable;
                         }
 
-                        Flush();
+                        FlushBuffer(HEADER_FLAG_NONE);
                     }
                     else
                     {
@@ -273,7 +284,110 @@ namespace BitChatClient.Network.SecureChannel
         {
             lock (_writeLock)
             {
-                if ((_writeBufferPosition == 3) && !_reNegotiating)
+                if (_channelClosed)
+                    return; //channel already closed
+
+                FlushBuffer(HEADER_FLAG_NONE);
+            }
+        }
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (count < 1)
+                throw new IOException("Count must be atleast 1 byte.");
+
+            lock (_readLock)
+            {
+                int bytesAvailableForRead;
+
+                if (_reNegotiateReadBuffer == null)
+                    bytesAvailableForRead = _readBufferLength - _readBufferPosition;
+                else
+                    bytesAvailableForRead = Convert.ToInt32(_reNegotiateReadBuffer.Length - _reNegotiateReadBuffer.Position);
+
+                while (bytesAvailableForRead < 1)
+                {
+                    if (_channelClosed)
+                        throw new SecureChannelException(SecureChannelCode.EndOfStream, _remotePeerEP, _remotePeerCert);
+
+                    bytesAvailableForRead = ReadSecureChannelFrame();
+
+                    //check header flags
+                    switch (_readBufferData[2])
+                    {
+                        case HEADER_FLAG_RENEGOTIATE:
+                            //received re-negotiate flag
+                            lock (_writeLock)
+                            {
+                                _reNegotiating = true;
+                                FlushBuffer(HEADER_FLAG_RENEGOTIATE);
+
+                                StartReNegotiation();
+                                _reNegotiating = false;
+                            }
+                            break;
+
+                        case HEADER_FLAG_CLOSE_CHANNEL:
+                            //received close channel flag
+                            Close();
+                            break;
+
+                        default:
+                            break;
+                    }
+                }
+
+                {
+                    int bytesToRead = count;
+
+                    if (bytesToRead > bytesAvailableForRead)
+                        bytesToRead = bytesAvailableForRead;
+
+                    if (_reNegotiateReadBuffer == null)
+                    {
+                        Buffer.BlockCopy(_readBufferData, _readBufferPosition, buffer, offset, bytesToRead);
+                        _readBufferPosition += bytesToRead;
+                    }
+                    else
+                    {
+                        _reNegotiateReadBuffer.Read(buffer, offset, bytesToRead);
+
+                        if (_reNegotiateReadBuffer.Length == _reNegotiateReadBuffer.Position)
+                        {
+                            _reNegotiateReadBuffer.Dispose();
+                            _reNegotiateReadBuffer = null;
+                        }
+                    }
+
+                    return bytesToRead;
+                }
+            }
+        }
+
+        public override void Close()
+        {
+            lock (_writeLock)
+            {
+                if (_channelClosed)
+                    return; //channel already closed
+
+                FlushBuffer(HEADER_FLAG_CLOSE_CHANNEL);
+
+                _channelClosed = true;
+            }
+
+            base.Close();
+        }
+
+        #endregion
+
+        #region private
+
+        private void FlushBuffer(byte headerFlag)
+        {
+            lock (_writeLock)
+            {
+                if ((_writeBufferPosition == 3) && (headerFlag == HEADER_FLAG_NONE))
                     return;
 
                 _bytesSent += _writeBufferPosition - 3;
@@ -291,11 +405,7 @@ namespace BitChatClient.Network.SecureChannel
                 byte[] header = BitConverter.GetBytes(dataLength);
                 _writeBufferData[0] = header[0];
                 _writeBufferData[1] = header[1];
-
-                if (_reNegotiating)
-                    _writeBufferData[2] = HEADER_FLAG_RENEGOTIATE;
-                else
-                    _writeBufferData[2] = HEADER_FLAG_NONE;
+                _writeBufferData[2] = headerFlag;
 
                 //write padding
                 if (bytesPadding > 0)
@@ -329,70 +439,6 @@ namespace BitChatClient.Network.SecureChannel
                 _writeBufferPosition = 3;
             }
         }
-
-        public override int Read(byte[] buffer, int offset, int count)
-        {
-            if (count < 1)
-                throw new IOException("Count must be atleast 1 byte.");
-
-            lock (_readLock)
-            {
-                int bytesAvailableForRead;
-
-                if (_reNegotiateReadBuffer == null)
-                    bytesAvailableForRead = _readBufferLength - _readBufferPosition;
-                else
-                    bytesAvailableForRead = Convert.ToInt32(_reNegotiateReadBuffer.Length - _reNegotiateReadBuffer.Position);
-
-                while (bytesAvailableForRead < 1)
-                {
-                    bytesAvailableForRead = ReadSecureChannelFrame();
-
-                    //check header flags
-                    if (_readBufferData[2] == HEADER_FLAG_RENEGOTIATE)
-                    {
-                        //received re-negotiate flag
-                        lock (_writeLock)
-                        {
-                            _reNegotiating = true;
-                            this.Flush();
-
-                            StartReNegotiation();
-                            _reNegotiating = false;
-                        }
-                    }
-                }
-
-                {
-                    int bytesToRead = count;
-
-                    if (bytesToRead > bytesAvailableForRead)
-                        bytesToRead = bytesAvailableForRead;
-
-                    if (_reNegotiateReadBuffer == null)
-                    {
-                        Buffer.BlockCopy(_readBufferData, _readBufferPosition, buffer, offset, bytesToRead);
-                        _readBufferPosition += bytesToRead;
-                    }
-                    else
-                    {
-                        _reNegotiateReadBuffer.Read(buffer, offset, bytesToRead);
-
-                        if (_reNegotiateReadBuffer.Length == _reNegotiateReadBuffer.Position)
-                        {
-                            _reNegotiateReadBuffer.Dispose();
-                            _reNegotiateReadBuffer = null;
-                        }
-                    }
-
-                    return bytesToRead;
-                }
-            }
-        }
-
-        #endregion
-
-        #region private
 
         private int ReadSecureChannelFrame()
         {
@@ -483,10 +529,13 @@ namespace BitChatClient.Network.SecureChannel
                 if (_reNegotiateReadBuffer != null)
                     return; //read buffer from previous re-negotiation is still not empty to proceed
 
+                if (_channelClosed)
+                    return; //channel already closed
+
                 lock (_writeLock)
                 {
                     _reNegotiating = true;
-                    this.Flush();
+                    FlushBuffer(HEADER_FLAG_RENEGOTIATE);
 
                     //write available buffered data into special read buffer
                     int bytesAvailableForRead = _readBufferLength - _readBufferPosition;
@@ -529,6 +578,11 @@ namespace BitChatClient.Network.SecureChannel
         #region protected
 
         protected abstract void StartReNegotiation();
+
+        protected bool IsReNegotiating()
+        {
+            return _reNegotiating;
+        }
 
         protected byte[] GenerateMasterKey(SecureChannelPacket.Hello clientHello, SecureChannelPacket.Hello serverHello, string preSharedKey, KeyAgreement keyAgreement, string otherPartyPublicKeyXML)
         {

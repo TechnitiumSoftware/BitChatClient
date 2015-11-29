@@ -195,7 +195,7 @@ namespace BitChatClient.Network.SecureChannel
 
             #region 3. exchange & verify certificates & signatures
 
-            if (!_reNegotiating)
+            if (!IsReNegotiating())
             {
                 //read client certificate
                 _remotePeerCert = (new SecureChannelPacket(this)).GetCertificate();
@@ -232,7 +232,7 @@ namespace BitChatClient.Network.SecureChannel
                 throw new SecureChannelException(SecureChannelCode.SecurityManagerDeclinedAccess, _remotePeerEP, _remotePeerCert, "Security manager declined access.");
 
             //send server certificate
-            if (!_reNegotiating)
+            if (!IsReNegotiating())
                 SecureChannelPacket.WritePacket(this, serverCredentials.Certificate);
 
             #endregion
