@@ -164,7 +164,7 @@ namespace BitChatApp.UserControls
 
         private void chat_PeerHasChangedCertificate(BitChat sender, Certificate cert)
         {
-            AddMessage(new ChatMessageInfoItem("Warning! Peer '" + cert.IssuedTo.EmailAddress.Address + "' has changed his profile certificate [serial number: " + cert.SerialNumber + ", expires on: " + cert.ExpiresOnUTC.ToShortDateString() + "]", DateTime.Now));
+            AddMessage(new ChatMessageInfoItem("Warning! Peer '" + cert.IssuedTo.EmailAddress.Address + "' has changed profile certificate [serial number: " + cert.SerialNumber + ", issued on: " + cert.IssuedOnUTC.ToShortDateString() + "]", DateTime.Now));
         }
 
         #endregion
