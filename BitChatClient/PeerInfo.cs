@@ -21,7 +21,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
-using System.Net.Sockets;
 using System.Text;
 using TechnitiumLibrary.IO;
 
@@ -66,45 +65,7 @@ namespace BitChatClient
             _peerEPList = new List<IPEndPoint>(count);
 
             for (int i = 0; i < count; i++)
-            {
-                _peerEPList.Add(ReadIPEndPoint(bR));
-            }
-        }
-
-        private static void WriteIPEndPoint(BinaryWriter bW, IPEndPoint eP)
-        {
-            switch (eP.AddressFamily)
-            {
-                case AddressFamily.InterNetwork:
-                    bW.Write((byte)0);
-                    break;
-
-                case AddressFamily.InterNetworkV6:
-                    bW.Write((byte)1);
-                    break;
-
-                default:
-                    throw new Exception("AddressFamily not supported.");
-            }
-
-            bW.Write(eP.Address.GetAddressBytes());
-            bW.Write(Convert.ToUInt16(eP.Port));
-        }
-
-        private static IPEndPoint ReadIPEndPoint(BinaryReader bR)
-        {
-            byte type = bR.ReadByte();
-            switch (type)
-            {
-                case 0:
-                    return new IPEndPoint(new IPAddress(bR.ReadBytes(4)), bR.ReadUInt16());
-
-                case 1:
-                    return new IPEndPoint(new IPAddress(bR.ReadBytes(16)), bR.ReadUInt16());
-
-                default:
-                    throw new Exception("AddressFamily not supported: " + type);
-            }
+                _peerEPList.Add(IPEndPointParser.Parse(bR));
         }
 
         #endregion
@@ -122,7 +83,7 @@ namespace BitChatClient
 
             foreach (IPEndPoint peerEP in _peerEPList)
             {
-                WriteIPEndPoint(bW, peerEP);
+                IPEndPointParser.WriteTo(peerEP, bW);
             }
         }
 

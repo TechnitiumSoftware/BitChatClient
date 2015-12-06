@@ -35,26 +35,17 @@ namespace BitChatClient
 
         public static IPEndPoint Parse(BinaryReader bR)
         {
-            byte[] address;
-            byte[] port;
-
             switch (bR.ReadByte())
             {
                 case 0:
-                    address = bR.ReadBytes(4);
-                    port = bR.ReadBytes(2);
-                    break;
+                    return new IPEndPoint(new IPAddress(bR.ReadBytes(4)), bR.ReadUInt16());
 
                 case 1:
-                    address = bR.ReadBytes(16);
-                    port = bR.ReadBytes(2);
-                    break;
+                    return new IPEndPoint(new IPAddress(bR.ReadBytes(16)), bR.ReadUInt16());
 
                 default:
                     throw new NotSupportedException("AddressFamily not supported.");
             }
-
-            return new IPEndPoint(new IPAddress(address), BitConverter.ToUInt16(port, 0));
         }
 
         public static void WriteTo(IPEndPoint ep, Stream s)
@@ -81,7 +72,7 @@ namespace BitChatClient
             }
 
             bW.Write(ep.Address.GetAddressBytes());
-            bW.Write(BitConverter.GetBytes(Convert.ToUInt16(ep.Port)));
+            bW.Write(Convert.ToUInt16(ep.Port));
         }
 
         #endregion
