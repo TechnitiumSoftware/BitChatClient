@@ -39,7 +39,7 @@ namespace BitChatClient.Network
 
         #region variables
 
-        const int DHT_UPDATE_INTERVAL_SECONDS = 5 * 60; //5 min
+        const int DHT_UPDATE_INTERVAL_SECONDS = 2 * 60; //2 mins
 
         BinaryID _networkID;
         int _servicePort;
