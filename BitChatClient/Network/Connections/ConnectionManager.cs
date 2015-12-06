@@ -78,11 +78,8 @@ namespace BitChatClient.Network.Connections
         Dictionary<BinaryID, Connection> _connectionListByPeerID = new Dictionary<BinaryID, Connection>();
 
         //tcp listener
-        TcpListener _tcpListenerIPv4;
-        Thread _tcpListenerIPv4Thread;
-
-        TcpListener _tcpListenerIPv6;
-        Thread _tcpListenerIPv6Thread;
+        Socket _tcpListener;
+        Thread _tcpListenerThread;
 
         //dht
         DhtClient _dhtClient;
@@ -109,33 +106,63 @@ namespace BitChatClient.Network.Connections
 
         public ConnectionManager(BitChatProfile profile, BitChatNetworkChannelRequest channelRequestHandler, RelayNetworkPeersAvailable relayNetworkPeersHandler)
         {
+            IPEndPoint localEP;
+
+            switch (Environment.OSVersion.Platform)
+            {
+                case PlatformID.Win32NT:
+                    if (Environment.OSVersion.Version.Major < 6)
+                    {
+                        //below vista
+                        _tcpListener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                        localEP = new IPEndPoint(IPAddress.Any, profile.LocalPort);
+                    }
+                    else
+                    {
+                        //vista & above
+                        _tcpListener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
+                        _tcpListener.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
+                        localEP = new IPEndPoint(IPAddress.IPv6Any, profile.LocalPort);
+                    }
+                    break;
+
+                case PlatformID.Unix: //mono framework
+                    if (Socket.OSSupportsIPv6)
+                    {
+                        _tcpListener = new Socket(AddressFamily.InterNetworkV6, SocketType.Stream, ProtocolType.Tcp);
+                        localEP = new IPEndPoint(IPAddress.IPv6Any, profile.LocalPort);
+                    }
+                    else
+                    {
+                        _tcpListener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                        localEP = new IPEndPoint(IPAddress.Any, profile.LocalPort);
+                    }
+
+                    break;
+
+                default: //unknown
+                    _tcpListener = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+                    localEP = new IPEndPoint(IPAddress.Any, profile.LocalPort);
+                    break;
+            }
+
             try
             {
-                _tcpListenerIPv4 = new TcpListener(IPAddress.Any, profile.LocalPort);
-                _tcpListenerIPv4.Start(10);
-
-                if (Socket.OSSupportsIPv6)
-                {
-                    _tcpListenerIPv6 = new TcpListener(IPAddress.IPv6Any, profile.LocalPort);
-                    _tcpListenerIPv6.Start(10);
-                }
+                _tcpListener.Bind(localEP);
+                _tcpListener.Listen(10);
             }
             catch
             {
-                _tcpListenerIPv4 = new TcpListener(IPAddress.Any, 0);
-                _tcpListenerIPv4.Start(10);
+                localEP.Port = 0;
 
-                if (Socket.OSSupportsIPv6)
-                {
-                    _tcpListenerIPv6 = new TcpListener(IPAddress.IPv6Any, (_tcpListenerIPv4.LocalEndpoint as IPEndPoint).Port);
-                    _tcpListenerIPv6.Start(10);
-                }
+                _tcpListener.Bind(localEP);
+                _tcpListener.Listen(10);
             }
 
             _profile = profile;
             _profile.ProxyUpdated += profile_ProxyUpdated;
 
-            _localPort = (_tcpListenerIPv4.LocalEndpoint as IPEndPoint).Port;
+            _localPort = (_tcpListener.LocalEndPoint as IPEndPoint).Port;
             _localPeerID = BinaryID.GenerateRandomID160();
             _channelRequestHandler = channelRequestHandler;
             _relayNetworkPeersHandler = relayNetworkPeersHandler;
@@ -152,16 +179,9 @@ namespace BitChatClient.Network.Connections
             _dhtSeedingTracker.StartTracking(profile.TrackerURIs);
 
             //start accepting connections
-            _tcpListenerIPv4Thread = new Thread(AcceptTcpConnectionAsync);
-            _tcpListenerIPv4Thread.IsBackground = true;
-            _tcpListenerIPv4Thread.Start(_tcpListenerIPv4);
-
-            if (Socket.OSSupportsIPv6)
-            {
-                _tcpListenerIPv6Thread = new Thread(AcceptTcpConnectionAsync);
-                _tcpListenerIPv6Thread.IsBackground = true;
-                _tcpListenerIPv6Thread.Start(_tcpListenerIPv6);
-            }
+            _tcpListenerThread = new Thread(AcceptTcpConnectionAsync);
+            _tcpListenerThread.IsBackground = true;
+            _tcpListenerThread.Start(_tcpListener);
 
             //start upnp process
             _connectivityCheckTimer = new Timer(ConnectivityCheckTimerCallback, null, 1000, Timeout.Infinite);
@@ -189,17 +209,11 @@ namespace BitChatClient.Network.Connections
             if (!_disposed)
             {
                 //shutdown tcp
-                if (_tcpListenerIPv4 != null)
-                    _tcpListenerIPv4.Stop();
+                if (_tcpListener != null)
+                    _tcpListener.Dispose();
 
-                if (_tcpListenerIPv4Thread != null)
-                    _tcpListenerIPv4Thread.Abort();
-
-                if (_tcpListenerIPv6 != null)
-                    _tcpListenerIPv6.Stop();
-
-                if (_tcpListenerIPv6Thread != null)
-                    _tcpListenerIPv6Thread.Abort();
+                if (_tcpListenerThread != null)
+                    _tcpListenerThread.Abort();
 
                 //stop dht seeding tracker
                 if (_dhtSeedingTracker != null)
@@ -245,13 +259,13 @@ namespace BitChatClient.Network.Connections
 
         private void AcceptTcpConnectionAsync(object parameter)
         {
-            TcpListener tcpListener = parameter as TcpListener;
+            Socket tcpListener = parameter as Socket;
 
             try
             {
                 do
                 {
-                    Socket socket = tcpListener.AcceptSocket();
+                    Socket socket = tcpListener.Accept();
 
                     try
                     {
@@ -259,7 +273,12 @@ namespace BitChatClient.Network.Connections
                         socket.SendTimeout = SOCKET_SEND_TIMEOUT;
                         socket.ReceiveTimeout = SOCKET_RECV_TIMEOUT;
 
-                        AcceptConnectionInitiateProtocol(new NetworkStream(socket, true), socket.RemoteEndPoint as IPEndPoint);
+                        IPEndPoint remotePeerEP = socket.RemoteEndPoint as IPEndPoint;
+
+                        if (NetUtilities.IsIPv4MappedIPv6Address(remotePeerEP.Address))
+                            remotePeerEP = new IPEndPoint(NetUtilities.ConvertFromIPv4MappedIPv6Address(remotePeerEP.Address), remotePeerEP.Port);
+
+                        AcceptConnectionInitiateProtocol(new NetworkStream(socket, true), remotePeerEP);
                     }
                     catch
                     { }
@@ -272,6 +291,9 @@ namespace BitChatClient.Network.Connections
 
         private Connection AddConnection(Stream networkStream, BinaryID remotePeerID, IPEndPoint remotePeerEP)
         {
+            if ((remotePeerEP.AddressFamily == AddressFamily.InterNetworkV6) && (remotePeerEP.Address.ScopeId != 0))
+                remotePeerEP = new IPEndPoint(new IPAddress(remotePeerEP.Address.GetAddressBytes()), remotePeerEP.Port);
+
             lock (_connectionListByConnectionID)
             {
                 //check for self
@@ -355,6 +377,9 @@ namespace BitChatClient.Network.Connections
 
         internal bool IsPeerConnectionAvailable(IPEndPoint remotePeerEP)
         {
+            if ((remotePeerEP.AddressFamily == AddressFamily.InterNetworkV6) && (remotePeerEP.Address.ScopeId != 0))
+                remotePeerEP = new IPEndPoint(new IPAddress(remotePeerEP.Address.GetAddressBytes()), remotePeerEP.Port);
+
             lock (_connectionListByConnectionID)
             {
                 return _connectionListByConnectionID.ContainsKey(remotePeerEP);
@@ -363,6 +388,9 @@ namespace BitChatClient.Network.Connections
 
         internal Connection GetExistingConnection(IPEndPoint remotePeerEP)
         {
+            if ((remotePeerEP.AddressFamily == AddressFamily.InterNetworkV6) && (remotePeerEP.Address.ScopeId != 0))
+                remotePeerEP = new IPEndPoint(new IPAddress(remotePeerEP.Address.GetAddressBytes()), remotePeerEP.Port);
+
             lock (_connectionListByConnectionID)
             {
                 if (_connectionListByConnectionID.ContainsKey(remotePeerEP))
@@ -374,9 +402,14 @@ namespace BitChatClient.Network.Connections
 
         internal void RemoveConnection(Connection connection)
         {
+            IPEndPoint remotePeerEP = connection.RemotePeerEP;
+
+            if ((remotePeerEP.AddressFamily == AddressFamily.InterNetworkV6) && (remotePeerEP.Address.ScopeId != 0))
+                remotePeerEP = new IPEndPoint(new IPAddress(remotePeerEP.Address.GetAddressBytes()), remotePeerEP.Port);
+
             lock (_connectionListByConnectionID)
             {
-                _connectionListByConnectionID.Remove(connection.RemotePeerEP);
+                _connectionListByConnectionID.Remove(remotePeerEP);
                 _connectionListByPeerID.Remove(connection.RemotePeerID);
             }
         }
@@ -809,6 +842,7 @@ namespace BitChatClient.Network.Connections
                 {
                     client.Proxy = _profile.Proxy;
                     client.QueryString.Add("port", externalPort.ToString());
+                    client.Timeout = 30000;
 
                     using (MemoryStream mS = new MemoryStream(client.DownloadData(CONNECTIVITY_CHECK_WEB_SERVICE)))
                     {
@@ -875,6 +909,9 @@ namespace BitChatClient.Network.Connections
 
         public Connection MakeConnection(IPEndPoint remotePeerEP)
         {
+            if (NetUtilities.IsIPv4MappedIPv6Address(remotePeerEP.Address))
+                remotePeerEP = new IPEndPoint(NetUtilities.ConvertFromIPv4MappedIPv6Address(remotePeerEP.Address), remotePeerEP.Port);
+
             //prevent multiple connection requests to same remote end-point
             lock (_makeConnectionList)
             {
@@ -899,20 +936,20 @@ namespace BitChatClient.Network.Connections
                 {
                     //try new tcp connection
 
-                    Stream connectionStream;
+                    Socket client;
 
                     if (_profile.Proxy != null)
                     {
                         switch (_profile.Proxy.Type)
                         {
                             case NetProxyType.Http:
-                                connectionStream = new NetworkStream(_profile.Proxy.HttpProxy.Connect(remotePeerEP));
+                                client = _profile.Proxy.HttpProxy.Connect(remotePeerEP);
                                 break;
 
                             case NetProxyType.Socks5:
                                 using (SocksConnectRequestHandler requestHandler = _profile.Proxy.SocksProxy.Connect(remotePeerEP))
                                 {
-                                    connectionStream = new NetworkStream(requestHandler.GetSocket());
+                                    client = requestHandler.GetSocket();
                                 }
                                 break;
 
@@ -922,17 +959,15 @@ namespace BitChatClient.Network.Connections
                     }
                     else
                     {
-                        TcpClient client = new TcpClient();
+                        client = new Socket(remotePeerEP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
                         client.Connect(remotePeerEP);
-
-                        client.NoDelay = true;
-                        client.SendTimeout = SOCKET_SEND_TIMEOUT;
-                        client.ReceiveTimeout = SOCKET_RECV_TIMEOUT;
-
-                        connectionStream = new NetworkStream(client.Client, true);
                     }
 
-                    return MakeConnectionInitiateProtocol(connectionStream, remotePeerEP);
+                    client.NoDelay = true;
+                    client.SendTimeout = SOCKET_SEND_TIMEOUT;
+                    client.ReceiveTimeout = SOCKET_RECV_TIMEOUT;
+
+                    return MakeConnectionInitiateProtocol(new NetworkStream(client, true), remotePeerEP);
                 }
                 catch (SocketException)
                 {
@@ -951,6 +986,9 @@ namespace BitChatClient.Network.Connections
 
         public Connection MakeVirtualConnection(Connection viaConnection, IPEndPoint remotePeerEP)
         {
+            if (NetUtilities.IsIPv4MappedIPv6Address(remotePeerEP.Address))
+                remotePeerEP = new IPEndPoint(NetUtilities.ConvertFromIPv4MappedIPv6Address(remotePeerEP.Address), remotePeerEP.Port);
+
             //prevent multiple virtual connection requests to same remote end-point
             lock (_makeVirtualConnectionList)
             {
