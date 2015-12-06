@@ -32,10 +32,9 @@ namespace BitChatApp
     {
         #region variables
 
-        public const int APP_LINK_PORT = 48245;
         public const string MUTEX_NAME = "BitChatApp";
-        public static Uri SIGNUP_URI = new Uri("https://technitium.com/bitchat/api/signup.aspx");
-        public static Uri UPDATE_URI = new Uri("http://go.technitium.com/?id=12");
+        public readonly static Uri SIGNUP_URI = new Uri("https://technitium.com/bitchat/api/signup.aspx");
+        public readonly static Uri UPDATE_URI = new Uri("http://go.technitium.com/?id=12");
         public const int UPDATE_CHECK_INTERVAL_DAYS = 1;
 
         static string _rootCert = @"
@@ -68,13 +67,23 @@ xN9SGwJcanbJC8cP02Bq3bxTW+GHXU+dEr1LY2eBXej5lB2RFs8gJ5uP8cmjzwWMX/Ib6aNIs6IM
 NgEA
 ";
 
-        public static Certificate[] TRUSTED_CERTIFICATES;
+        public readonly static Certificate[] TRUSTED_CERTIFICATES;
 
-        static Mutex _app;
+        private static Mutex _app;
 
         #endregion
 
         #region public
+
+        static Program()
+        {
+            TRUSTED_CERTIFICATES = new Certificate[1];
+
+            using (MemoryStream mS = new MemoryStream(Convert.FromBase64String(_rootCert)))
+            {
+                TRUSTED_CERTIFICATES[0] = new Certificate(mS);
+            }
+        }
 
         [STAThread]
         public static void Main(string[] args)
@@ -92,18 +101,18 @@ NgEA
 
                 if (!createdNewMutex)
                 {
-                    AppLink.SendCommand(string.Join(" ", args), APP_LINK_PORT);
+                    MessageBox.Show("Bit Chat is already running. Please click on the Bit Chat system tray icon to open the chat window.", "Bit Chat Already Running!", MessageBoxButtons.OK, MessageBoxIcon.Information);
                     return;
                 }
 
                 #endregion
 
-                string appPath = Assembly.GetExecutingAssembly().CodeBase.Replace("file:///", "").Replace("/", "\\");
-
                 #region check for admin priviledge
 
                 if (!(new WindowsPrincipal(WindowsIdentity.GetCurrent())).IsInRole(WindowsBuiltInRole.Administrator))
                 {
+                    string appPath = Assembly.GetExecutingAssembly().CodeBase.Replace("file:///", "").Replace("/", "\\");
+
                     ProcessStartInfo processInfo = new ProcessStartInfo(appPath, string.Join(" ", args));
 
                     processInfo.UseShellExecute = true;
@@ -112,24 +121,10 @@ NgEA
                     try
                     {
                         Process.Start(processInfo);
+                        return;
                     }
-                    catch (Exception)
-                    {
-                        MessageBox.Show("Technitium Bit Chat requires administrative privileges to run. You will need to contact your system administrator to run this application.", "Cannot Start Bit Chat", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-
-                    return;
-                }
-
-                #endregion
-
-                #region load trusted certificates
-
-                TRUSTED_CERTIFICATES = new Certificate[1];
-
-                using (MemoryStream mS = new MemoryStream(Convert.FromBase64String(_rootCert)))
-                {
-                    TRUSTED_CERTIFICATES[0] = new Certificate(mS);
+                    catch
+                    { }
                 }
 
                 #endregion
@@ -164,7 +159,7 @@ NgEA
                                 }
                                 else
                                 {
-                                    using (frmRegister frm = new frmRegister(localAppData, mgr.Profile, mgr.ProfileFilePath, false))
+                                    using (frmRegister frm = new frmRegister(mgr.Profile, mgr.ProfileFilePath, false))
                                     {
                                         loadMainForm = (frm.ShowDialog() == DialogResult.OK);
                                     }

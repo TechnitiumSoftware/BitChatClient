@@ -60,15 +60,30 @@ namespace BitChatApp
 
         private void RefreshProfileList()
         {
-            string[] profiles = Directory.GetFiles(_localAppData, "*.profile", SearchOption.TopDirectoryOnly);
+            string[] profiles;
+
+            profiles = Directory.GetFiles(Environment.CurrentDirectory, "*.profile", SearchOption.TopDirectoryOnly);
+
+            if (profiles.Length > 0)
+                _localAppData = Environment.CurrentDirectory;
+            else
+                profiles = Directory.GetFiles(_localAppData, "*.profile", SearchOption.TopDirectoryOnly);
 
             lstProfiles.Items.Clear();
 
             foreach (string profile in profiles)
             {
                 if (profile.EndsWith(".profile"))
-                    lstProfiles.Items.Add(Path.GetFileNameWithoutExtension(profile));
+                {
+                    string profileName = Path.GetFileNameWithoutExtension(profile);
+
+                    if (!string.IsNullOrWhiteSpace(profileName))
+                        lstProfiles.Items.Add(profileName);
+                }
             }
+
+            if (lstProfiles.Items.Count > 0)
+                lstProfiles.SelectedIndex = 0;
         }
 
         private void frmProfileManager_Load(object sender, EventArgs e)
@@ -108,22 +123,7 @@ namespace BitChatApp
                 case 1:
                     _profileFilePath = Path.Combine(_localAppData, (lstProfiles.Items[0] as string) + ".profile");
 
-                    using (frmPassword frm = new frmPassword(_profileFilePath))
-                    {
-                        switch (frm.ShowDialog(this))
-                        {
-                            case System.Windows.Forms.DialogResult.OK:
-                                _profile = frm.Profile;
-
-                                this.DialogResult = System.Windows.Forms.DialogResult.OK;
-                                this.Close();
-                                break;
-
-                            case System.Windows.Forms.DialogResult.Yes:
-                                btnNewProfile_Click(null, null);
-                                break;
-                        }
-                    }
+                    Start();
                     break;
 
                 default:
@@ -149,43 +149,7 @@ namespace BitChatApp
         {
             _profileFilePath = Path.Combine(_localAppData, (lstProfiles.SelectedItem as string) + ".profile");
 
-            using (frmPassword frm = new frmPassword(_profileFilePath))
-            {
-                if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
-                {
-                    _profile = frm.Profile;
-
-                    if (_profile.LocalCertificateStore.Certificate.Type == TechnitiumLibrary.Security.Cryptography.CertificateType.Normal)
-                    {
-                        //check for profile certificate expiry
-                        double daysToExpire = (_profile.LocalCertificateStore.Certificate.ExpiresOnUTC - DateTime.UtcNow).TotalDays;
-
-                        if (daysToExpire < 0.0)
-                        {
-                            //cert already expired
-
-                            if (MessageBox.Show("Your profile certificate '" + _profile.LocalCertificateStore.Certificate.SerialNumber + "' issued to '" + _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address + "' has expired on " + _profile.LocalCertificateStore.Certificate.ExpiresOnUTC.ToString() + ".\r\n\r\nDo you want to reissue the certificate now?", "Profile Certificate Expired! Reissue Now?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
-                            {
-                                btnReIssueProfile_Click(null, null);
-                            }
-
-                            return;
-                        }
-                        else if (daysToExpire < 30.0)
-                        {
-                            //cert to expire in 30 days
-                            if (MessageBox.Show("Your profile certificate '" + _profile.LocalCertificateStore.Certificate.SerialNumber + "' issued to '" + _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address + "' will expire in " + Convert.ToInt32(daysToExpire) + " days on " + _profile.LocalCertificateStore.Certificate.ExpiresOnUTC.ToString() + ".\r\n\r\nDo you want to reissue the certificate now?", "Profile Certificate About To Expire! Reissue Now?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
-                            {
-                                btnReIssueProfile_Click(null, null);
-                                return;
-                            }
-                        }
-                    }
-
-                    this.DialogResult = System.Windows.Forms.DialogResult.OK;
-                    this.Close();
-                }
-            }
+            Start();
         }
 
         private void btnExit_Click(object sender, EventArgs e)
@@ -230,7 +194,7 @@ namespace BitChatApp
                     {
                         _profile = frm.Profile;
 
-                        using (frmRegister frmReg = new frmRegister(_localAppData, _profile, _profileFilePath, true))
+                        using (frmRegister frmReg = new frmRegister(_profile, _profileFilePath, true))
                         {
                             if (frmReg.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
                             {
@@ -331,6 +295,53 @@ namespace BitChatApp
         {
             if (e.KeyCode == Keys.Delete)
                 btnDeleteProfile_Click(null, null);
+        }
+
+        private void Start()
+        {
+            using (frmPassword frm = new frmPassword(_profileFilePath))
+            {
+                switch (frm.ShowDialog(this))
+                {
+                    case System.Windows.Forms.DialogResult.OK:
+                        _profile = frm.Profile;
+
+                        if (_profile.LocalCertificateStore.Certificate.Type == TechnitiumLibrary.Security.Cryptography.CertificateType.Normal)
+                        {
+                            //check for profile certificate expiry
+                            double daysToExpire = (_profile.LocalCertificateStore.Certificate.ExpiresOnUTC - DateTime.UtcNow).TotalDays;
+
+                            if (daysToExpire < 0.0)
+                            {
+                                //cert already expired
+
+                                if (MessageBox.Show("Your profile certificate '" + _profile.LocalCertificateStore.Certificate.SerialNumber + "' issued to '" + _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address + "' has expired on " + _profile.LocalCertificateStore.Certificate.ExpiresOnUTC.ToString() + ".\r\n\r\nDo you want to reissue the certificate now?", "Profile Certificate Expired! Reissue Now?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
+                                {
+                                    btnReIssueProfile_Click(null, null);
+                                }
+
+                                return;
+                            }
+                            else if (daysToExpire < 30.0)
+                            {
+                                //cert to expire in 30 days
+                                if (MessageBox.Show("Your profile certificate '" + _profile.LocalCertificateStore.Certificate.SerialNumber + "' issued to '" + _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address + "' will expire in " + Convert.ToInt32(daysToExpire) + " days on " + _profile.LocalCertificateStore.Certificate.ExpiresOnUTC.ToString() + ".\r\n\r\nDo you want to reissue the certificate now?", "Profile Certificate About To Expire! Reissue Now?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
+                                {
+                                    btnReIssueProfile_Click(null, null);
+                                    return;
+                                }
+                            }
+                        }
+
+                        this.DialogResult = System.Windows.Forms.DialogResult.OK;
+                        this.Close();
+                        break;
+
+                    case System.Windows.Forms.DialogResult.Yes:
+                        btnNewProfile_Click(null, null);
+                        break;
+                }
+            }
         }
 
         #endregion

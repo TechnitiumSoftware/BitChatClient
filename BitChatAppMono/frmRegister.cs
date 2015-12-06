@@ -58,9 +58,9 @@ namespace BitChatAppMono
             this.chkEnableProxy.CheckedChanged += new System.EventHandler(this.chkEnableProxy_CheckedChanged);
         }
 
-        public frmRegister(string localAppData, BitChatProfile profile, string profileFilePath, bool reissue)
+        public frmRegister(BitChatProfile profile, string profileFilePath, bool reissue)
         {
-            _localAppData = localAppData;
+            _localAppData = Path.GetDirectoryName(profileFilePath);
             _profile = profile;
             _profileFilePath = profileFilePath;
 
