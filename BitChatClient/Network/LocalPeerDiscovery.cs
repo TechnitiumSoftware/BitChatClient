@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using System.Threading;
@@ -89,8 +90,8 @@ namespace BitChatClient.Network
         {
             _announcePort = Convert.ToUInt16(announcePort);
 
-            _listener.ReceivedPacket += _listener_ReceivedPacket;
-            _listener.BroadcastNetworkDiscovered += _listener_BroadcastNetworkDiscovered;
+            _listener.ReceivedPacket += listener_ReceivedPacket;
+            _listener.BroadcastNetworkDiscovered += listener_BroadcastNetworkDiscovered;
 
             _announcementTimer = new Timer(AnnouncementTimerCallBack, null, ANNOUNCEMENT_INTERVAL, Timeout.Infinite);
         }
@@ -280,7 +281,7 @@ namespace BitChatClient.Network
                     {
                         foreach (NetworkInfo network in networks)
                         {
-                            _listener.SendTo(packet, 0, packet.Length, network.BroadcastIP);
+                            _listener.BroadcastTo(packet, 0, packet.Length, network);
                         }
                     }
                 }
@@ -325,7 +326,7 @@ namespace BitChatClient.Network
             }
         }
 
-        private void _listener_BroadcastNetworkDiscovered(NetworkInfo[] networks)
+        private void listener_BroadcastNetworkDiscovered(NetworkInfo[] networks)
         {
             try
             {
@@ -343,7 +344,7 @@ namespace BitChatClient.Network
             { }
         }
 
-        private void _listener_ReceivedPacket(DiscoveryPacket packet, IPAddress remotePeerIP)
+        private void listener_ReceivedPacket(DiscoveryPacket packet, IPAddress remotePeerIP)
         {
             if (packet.IsResponse)
             {
@@ -454,10 +455,12 @@ namespace BitChatClient.Network
 
             #region variables
 
+            const string IPV6_MULTICAST_IP = "FF12::1";
+
             int _listenerPort;
 
             Socket _udpListener;
-            Thread _listeningThread;
+            Thread _udpListenerThread;
 
             List<NetworkInfo> _networks;
             Timer _networkWatcher;
@@ -470,15 +473,64 @@ namespace BitChatClient.Network
             {
                 _listenerPort = listenerPort;
 
-                _udpListener = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-                _udpListener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
-                _udpListener.Bind(new IPEndPoint(IPAddress.Any, listenerPort));
+                switch (Environment.OSVersion.Platform)
+                {
+                    case PlatformID.Win32NT:
+                        if (Environment.OSVersion.Version.Major < 6)
+                        {
+                            //below vista
+                            _udpListener = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                        }
+                        else
+                        {
+                            //vista & above
+                            _udpListener = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
+                            _udpListener.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.IPv6Only, false);
+                        }
+                        break;
 
-                _networks = NetUtilities.GetNetworkInfo(AddressFamily.InterNetwork);
+                    case PlatformID.Unix: //mono framework
+                        if (Socket.OSSupportsIPv6)
+                            _udpListener = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
+                        else
+                            _udpListener = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
 
-                _listeningThread = new Thread(RecvDataAsync);
-                _listeningThread.IsBackground = true;
-                _listeningThread.Start();
+                        break;
+
+                    default: //unknown
+                        _udpListener = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
+                        break;
+                }
+
+                _udpListener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
+
+                if (_udpListener.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    _udpListener.Bind(new IPEndPoint(IPAddress.Any, listenerPort));
+                }
+                else
+                {
+                    _udpListener.Bind(new IPEndPoint(IPAddress.IPv6Any, listenerPort));
+
+                    foreach (NetworkInterface nic in NetworkInterface.GetAllNetworkInterfaces())
+                    {
+                        if ((nic.OperationalStatus == OperationalStatus.Up) && (nic.Supports(NetworkInterfaceComponent.IPv6)) && nic.SupportsMulticast)
+                        {
+                            try
+                            {
+                                _udpListener.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.AddMembership, new IPv6MulticastOption(IPAddress.Parse(IPV6_MULTICAST_IP), nic.GetIPProperties().GetIPv6Properties().Index));
+                            }
+                            catch
+                            { }
+                        }
+                    }
+                }
+
+                _networks = NetUtilities.GetNetworkInfo();
+
+                _udpListenerThread = new Thread(RecvDataAsync);
+                _udpListenerThread.IsBackground = true;
+                _udpListenerThread.Start(_udpListener);
 
                 _networkWatcher = new Timer(NetworkWatcher, null, NETWORK_WATCHER_INTERVAL, Timeout.Infinite);
             }
@@ -507,8 +559,8 @@ namespace BitChatClient.Network
                     if (_udpListener != null)
                         _udpListener.Dispose();
 
-                    if (_listeningThread != null)
-                        _listeningThread.Abort();
+                    if (_udpListenerThread != null)
+                        _udpListenerThread.Abort();
 
                     _disposed = true;
                 }
@@ -528,7 +580,7 @@ namespace BitChatClient.Network
             {
                 try
                 {
-                    List<NetworkInfo> currentNetworks = NetUtilities.GetNetworkInfo(AddressFamily.InterNetwork);
+                    List<NetworkInfo> currentNetworks = NetUtilities.GetNetworkInfo();
                     List<NetworkInfo> newNetworks = new List<NetworkInfo>();
 
                     lock (_networks)
@@ -557,22 +609,32 @@ namespace BitChatClient.Network
                 }
             }
 
-            private void RecvDataAsync()
+            private void RecvDataAsync(object parameter)
             {
-                EndPoint remoteEP = new IPEndPoint(IPAddress.Any, 0);
+                Socket udpListener = parameter as Socket;
+
+                EndPoint remoteEP = null;
                 FixMemoryStream dataRecv = new FixMemoryStream(BUFFER_MAX_SIZE);
                 int bytesRecv;
+
+                if (udpListener.AddressFamily == AddressFamily.InterNetwork)
+                    remoteEP = new IPEndPoint(IPAddress.Any, 0);
+                else
+                    remoteEP = new IPEndPoint(IPAddress.IPv6Any, 0);
 
                 while (true)
                 {
                     try
                     {
                         //receive message from remote
-                        bytesRecv = _udpListener.ReceiveFrom(dataRecv.Buffer, ref remoteEP);
+                        bytesRecv = udpListener.ReceiveFrom(dataRecv.Buffer, ref remoteEP);
 
                         if (bytesRecv > 0)
                         {
-                            IPEndPoint peerEP = remoteEP as IPEndPoint;
+                            IPAddress peerIP = (remoteEP as IPEndPoint).Address;
+
+                            if (NetUtilities.IsIPv4MappedIPv6Address(peerIP))
+                                peerIP = NetUtilities.ConvertFromIPv4MappedIPv6Address(peerIP);
 
                             bool isSelf = false;
 
@@ -580,7 +642,7 @@ namespace BitChatClient.Network
                             {
                                 foreach (NetworkInfo network in _networks)
                                 {
-                                    if (network.LocalIP.Equals(peerEP.Address))
+                                    if (network.LocalIP.Equals(peerIP))
                                     {
                                         isSelf = true;
                                         break;
@@ -594,7 +656,7 @@ namespace BitChatClient.Network
                             dataRecv.Position = 0;
                             dataRecv.SetLength(bytesRecv);
 
-                            ReceivedPacket(new DiscoveryPacket(dataRecv), peerEP.Address);
+                            ReceivedPacket(new DiscoveryPacket(dataRecv), peerIP);
                         }
                     }
                     catch (ThreadAbortException)
@@ -615,13 +677,56 @@ namespace BitChatClient.Network
                 _udpListener.SendTo(buffer, offset, count, SocketFlags.None, new IPEndPoint(remoteIP, _listenerPort));
             }
 
+            public void BroadcastTo(byte[] buffer, int offset, int count, NetworkInfo network)
+            {
+                if (network.LocalIP.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    try
+                    {
+                        _udpListener.SendTo(buffer, offset, count, SocketFlags.None, new IPEndPoint(network.BroadcastIP, _listenerPort));
+                    }
+                    catch
+                    { }
+                }
+                else
+                {
+                    try
+                    {
+                        _udpListener.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.MulticastInterface, network.Interface.GetIPProperties().GetIPv6Properties().Index);
+                        _udpListener.SendTo(buffer, offset, count, SocketFlags.None, new IPEndPoint(IPAddress.Parse(IPV6_MULTICAST_IP), _listenerPort));
+                    }
+                    catch
+                    { }
+                }
+            }
+
             public void Broadcast(byte[] buffer, int offset, int count)
             {
                 lock (_networks)
                 {
                     foreach (NetworkInfo network in _networks)
                     {
-                        _udpListener.SendTo(buffer, offset, count, SocketFlags.None, new IPEndPoint(network.BroadcastIP, _listenerPort));
+                        if (network.LocalIP.AddressFamily == AddressFamily.InterNetwork)
+                        {
+                            //do broadcast
+                            try
+                            {
+                                _udpListener.SendTo(buffer, offset, count, SocketFlags.None, new IPEndPoint(network.BroadcastIP, _listenerPort));
+                            }
+                            catch
+                            { }
+                        }
+                        else
+                        {
+                            //do multicast
+                            try
+                            {
+                                _udpListener.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.MulticastInterface, network.Interface.GetIPProperties().GetIPv6Properties().Index);
+                                _udpListener.SendTo(buffer, offset, count, SocketFlags.None, new IPEndPoint(IPAddress.Parse(IPV6_MULTICAST_IP), _listenerPort));
+                            }
+                            catch
+                            { }
+                        }
                     }
                 }
             }
