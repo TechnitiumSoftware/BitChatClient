@@ -618,10 +618,8 @@ namespace BitChatClient.FileSharing
             }
             catch (ThreadAbortException)
             { }
-            catch (Exception ex)
-            {
-                Debug.Write("SharedFile.DownloadMonitorAsync", ex);
-            }
+            catch
+            { }
         }
 
         private void DownloadMonitorAsync(object state)
@@ -644,8 +642,6 @@ namespace BitChatClient.FileSharing
                     {
                         if ((DateTime.UtcNow - download.LastResponse).TotalSeconds > DOWNLOAD_INACTIVE_INTERVAL_SECONDS)
                         {
-                            //Debug.Write("SharedFile.DownloadMonitorAsync", "InactiveBlock: " + download.BlockNumber);
-
                             if (!download.IsDownloadPeerSet())
                             {
                                 //add to inactive list
@@ -692,10 +688,8 @@ namespace BitChatClient.FileSharing
             {
                 _downloadMonitor = null;
             }
-            catch (Exception ex)
-            {
-                Debug.Write("SharedFile.DownloadMonitorAsync", ex);
-            }
+            catch
+            { }
             finally
             {
                 if (_downloadMonitor != null)
@@ -780,8 +774,6 @@ namespace BitChatClient.FileSharing
                     if (WriteBlock(downloadedBlock))
                     {
                         //block downloaded
-                        //Debug.Write("SharedFile.BlockDownloaded", "block: " + downloadedBlock.BlockNumber);
-
                         if (BlockDownloaded != null)
                             RaiseEventBlockDownloaded();
                     }
@@ -833,8 +825,6 @@ namespace BitChatClient.FileSharing
                         SendFileAdvertisement();
 
                         //notify event to UI
-                        //Debug.Write("SharedFile.BlockDownloaded", "COMPLETED!");
-
                         if (FileDownloaded != null)
                             RaiseEventFileDownloaded();
                     }

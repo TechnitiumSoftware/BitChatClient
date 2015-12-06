@@ -29,7 +29,6 @@ using System.Net;
 using System.Net.Mail;
 using System.Threading;
 using TechnitiumLibrary.Net.BitTorrent;
-using TechnitiumLibrary.Net.Proxy;
 using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatClient
@@ -628,7 +627,8 @@ namespace BitChatClient
                 {
                     networkStatus = BitChatNetworkStatus.PartialNetwork;
 
-                    _network.MakeConnection(disconnectedPeerList);
+                    foreach (PeerInfo peerInfo in disconnectedPeerList)
+                        _network.MakeConnection(peerInfo.PeerEPList);
                 }
                 else
                 {
@@ -890,8 +890,8 @@ namespace BitChatClient
 
                 _isSelfPeer = (_virtualPeer.PeerCertificate.IssuedTo.EmailAddress.Address == _bitchat._profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address);
 
-                _virtualPeer.PacketReceived += _virtualPeer_PacketReceived;
-                _virtualPeer.StreamStateChanged += _virtualPeer_StreamStateChanged;
+                _virtualPeer.PacketReceived += virtualPeer_PacketReceived;
+                _virtualPeer.StreamStateChanged += virtualPeer_StreamStateChanged;
             }
 
             #endregion
@@ -930,7 +930,7 @@ namespace BitChatClient
 
             #region private
 
-            private void _virtualPeer_StreamStateChanged(object sender, EventArgs args)
+            private void virtualPeer_StreamStateChanged(object sender, EventArgs args)
             {
                 //trigger peer exchange for entire network
                 _bitchat.DoPeerExchange();
@@ -970,7 +970,7 @@ namespace BitChatClient
                 }
             }
 
-            private void _virtualPeer_PacketReceived(BitChatNetwork.VirtualPeer sender, Stream packetDataStream, IPEndPoint remotePeerEP)
+            private void virtualPeer_PacketReceived(BitChatNetwork.VirtualPeer sender, Stream packetDataStream, IPEndPoint remotePeerEP)
             {
                 switch (BitChatMessage.ReadType(packetDataStream))
                 {
@@ -1192,14 +1192,11 @@ namespace BitChatClient
                             _connectedPeerList.AddRange(peerList);
                         }
 
-
                         foreach (PeerInfo peerInfo in peerList)
                         {
                             _bitchat._network.MakeConnection(peerInfo.PeerEPList);
                             _bitchat._dhtClient.AddNode(peerInfo.PeerEPList);
                         }
-
-                        _bitchat._network.MakeConnection(peerList);
 
                         //start network status check
                         _bitchat.TriggerUpdateNetworkStatus();
@@ -1208,7 +1205,6 @@ namespace BitChatClient
                         #endregion
 
                     case BitChatMessageType.NOOP:
-                        Debug.Write("Peer.PacketReceived", "NOOP received from: " + sender.PeerCertificate.IssuedTo.EmailAddress.Address + " [" + remotePeerEP.Address.ToString() + "]");
                         break;
                 }
             }

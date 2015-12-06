@@ -129,14 +129,13 @@ namespace BitChatClient.Network.Connections
         {
             lock (this)
             {
-                //Debug.Write("Connection.Dispose", _remotePeerEP.ToString());
-
                 if (!_disposed)
                 {
                     //stop read thread
                     try
                     {
-                        _readThread.Abort();
+                        if (_readThread != null)
+                            _readThread.Abort();
                     }
                     catch
                     { }
@@ -211,7 +210,7 @@ namespace BitChatClient.Network.Connections
 
         private void WriteSignalFrame(BinaryID channelName, byte signal)
         {
-            Debug.Write("Connection.WriteSignalFrame", _remotePeerEP.ToString() + "; channel:" + channelName.ToString() + "; signal:" + signal);
+            //Debug.Write("Connection.WriteSignalFrame", _remotePeerEP.ToString() + "; channel:" + channelName.ToString() + "; signal:" + signal);
 
             lock (_baseStream)
             {
@@ -229,8 +228,6 @@ namespace BitChatClient.Network.Connections
 
         private void WriteDataFrame(byte[] buffer, int offset, int count, BinaryID channelName, ChannelType type)
         {
-            //Debug.Write("Connection.WriteDataFrame", _remotePeerEP.ToString() + "; channel:" + channelName.ToString() + "; dataSize:" + count);
-
             if (count < 1)
                 return;
 
@@ -392,8 +389,6 @@ namespace BitChatClient.Network.Connections
                                                 }
 
                                                 WriteSignalFrame(channelName, SIGNAL_RELAY_NETWORK_SUCCESS);
-
-                                                Debug.Write("Connection.ReadDataAsync", "SIGNAL_DATA RelayNetworkStart; network: " + channelName.ToString());
                                             }
                                             break;
 
@@ -438,8 +433,6 @@ namespace BitChatClient.Network.Connections
                                                 }
 
                                                 WriteSignalFrame(channelName, SIGNAL_RELAY_NETWORK_SUCCESS);
-
-                                                Debug.Write("Connection.ReadDataAsync", "SIGNAL_DATA RelayNetworkStop; network: " + channelName.ToString());
                                             }
                                             break;
 
@@ -507,7 +500,7 @@ namespace BitChatClient.Network.Connections
                                         _bitChatNetworkChannels.Add(channelName, channel);
                                     }
 
-                                    Debug.Write("Connection.ReadDataAsync", "SIGNAL_CONNECT_BIT_CHAT_NETWORK; channel: " + channelName.ToString());
+                                    //Debug.Write("Connection.ReadDataAsync", "SIGNAL_CONNECT_BIT_CHAT_NETWORK; channel: " + channelName.ToString());
 
                                     _networkChannelRequestHandler.BeginInvoke(this, channelName.Clone(), channel, null, null);
                                 }
@@ -556,7 +549,7 @@ namespace BitChatClient.Network.Connections
                                     _bitChatNetworkChannels[channelName].Dispose();
                                 }
 
-                                Debug.Write("Connection.ReadDataAsync", "SIGNAL_DISCONNECT_BIT_CHAT_NETWORK; channel: " + channelName.ToString());
+                                //Debug.Write("Connection.ReadDataAsync", "SIGNAL_DISCONNECT_BIT_CHAT_NETWORK; channel: " + channelName.ToString());
                             }
                             catch
                             { }
@@ -572,7 +565,7 @@ namespace BitChatClient.Network.Connections
                                 if (_connectionManager.IsPeerConnectionAvailable(ConvertToIP(channelName.ID)))
                                     WriteSignalFrame(channelName, SIGNAL_PEER_STATUS_AVAILABLE);
 
-                                Debug.Write("Connection.ReadDataAsync", "SIGNAL_PEER_STATUS; peerIP: " + ConvertToIP(channelName.ID).ToString());
+                                //Debug.Write("Connection.ReadDataAsync", "SIGNAL_PEER_STATUS; peerIP: " + ConvertToIP(channelName.ID).ToString());
                             }
                             catch
                             { }
@@ -595,7 +588,7 @@ namespace BitChatClient.Network.Connections
                                     }
                                 }
 
-                                Debug.Write("Connection.ReadDataAsync", "SIGNAL_PEER_STATUS_AVAILABLE; peerIP: " + ConvertToIP(channelName.ID).ToString());
+                                //Debug.Write("Connection.ReadDataAsync", "SIGNAL_PEER_STATUS_AVAILABLE; peerIP: " + ConvertToIP(channelName.ID).ToString());
                             }
                             catch
                             { }
@@ -604,7 +597,7 @@ namespace BitChatClient.Network.Connections
                             #endregion
 
                         case SIGNAL_RELAY_NETWORK_SUCCESS:
-                            #region SIGNAL_PROXY_NETWORK_SUCCESS
+                            #region SIGNAL_RELAY_NETWORK_SUCCESS
 
                             try
                             {
@@ -618,7 +611,7 @@ namespace BitChatClient.Network.Connections
                                     }
                                 }
 
-                                Debug.Write("Connection.ReadDataAsync", "SIGNAL_PROXY_NETWORK_SUCCESS; network: " + channelName.ToString());
+                                //Debug.Write("Connection.ReadDataAsync", "SIGNAL_RELAY_NETWORK_SUCCESS; network: " + channelName.ToString());
                             }
                             catch
                             { }
@@ -662,7 +655,7 @@ namespace BitChatClient.Network.Connections
 
                                     joint.Start();
 
-                                    Debug.Write("Connection.ReadDataAsync", "SIGNAL_CONNECT_PROXY_TUNNEL; tunnel to peerIP: " + tunnelToPeerEP.ToString());
+                                    //Debug.Write("Connection.ReadDataAsync", "SIGNAL_CONNECT_PROXY_TUNNEL; tunnel to peerIP: " + tunnelToPeerEP.ToString());
                                 }
                                 catch
                                 {
@@ -687,7 +680,7 @@ namespace BitChatClient.Network.Connections
                                     _proxyTunnelChannels[channelName].Dispose();
                                 }
 
-                                Debug.Write("Connection.ReadDataAsync", "SIGNAL_DISCONNECT_PROXY_TUNNEL; channel: " + channelName.ToString());
+                                //Debug.Write("Connection.ReadDataAsync", "SIGNAL_DISCONNECT_PROXY_TUNNEL; channel: " + channelName.ToString());
                             }
                             catch
                             { }
@@ -712,7 +705,7 @@ namespace BitChatClient.Network.Connections
 
                                     IPEndPoint virtualRemotePeerEP = ConvertToIP(channelName.ID);
 
-                                    Debug.Write("Connection.ReadDataAsync", "SIGNAL_CONNECT_VIRTUAL_CONNECTION; tunnel from peerIP: " + virtualRemotePeerEP.ToString());
+                                    //Debug.Write("Connection.ReadDataAsync", "SIGNAL_CONNECT_VIRTUAL_CONNECTION; tunnel from peerIP: " + virtualRemotePeerEP.ToString());
 
                                     //pass channel as virtual connection async
                                     ThreadPool.QueueUserWorkItem(AcceptVirtualConnectionAsync, new object[] { channel, virtualRemotePeerEP });
@@ -737,7 +730,7 @@ namespace BitChatClient.Network.Connections
                                     _virtualConnectionChannels[channelName].Dispose();
                                 }
 
-                                Debug.Write("Connection.ReadDataAsync", "SIGNAL_DISCONNECT_VIRTUAL_CONNECTION; channel: " + channelName.ToString());
+                                //Debug.Write("Connection.ReadDataAsync", "SIGNAL_DISCONNECT_VIRTUAL_CONNECTION; channel: " + channelName.ToString());
                             }
                             catch
                             { }
@@ -760,25 +753,24 @@ namespace BitChatClient.Network.Connections
 
         private void AcceptVirtualConnectionAsync(object state)
         {
+            object[] parameters = state as object[];
+
+            ChannelStream channel = parameters[0] as ChannelStream;
+            IPEndPoint virtualRemotePeerEP = parameters[1] as IPEndPoint;
+
             try
             {
-                object[] parameters = state as object[];
-
-                ChannelStream channel = parameters[0] as ChannelStream;
-                IPEndPoint virtualRemotePeerEP = parameters[1] as IPEndPoint;
-
-                try
-                {
-                    Connection connection = _connectionManager.AcceptConnectionInitiateProtocol(channel, virtualRemotePeerEP);
-                }
-                catch
-                {
-                    if (channel != null)
-                        channel.Dispose();
-                }
+                Connection connection = _connectionManager.AcceptConnectionInitiateProtocol(channel, virtualRemotePeerEP);
             }
             catch
-            { }
+            {
+                try
+                {
+                    channel.Dispose();
+                }
+                catch
+                { }
+            }
         }
 
         private void joint_Disposed(object sender, EventArgs e)

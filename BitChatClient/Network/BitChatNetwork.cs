@@ -342,18 +342,6 @@ namespace BitChatClient.Network
             }
         }
 
-        public void MakeConnection(IEnumerable<PeerInfo> peerList)
-        {
-            foreach (PeerInfo peerInfo in peerList)
-            {
-                foreach (IPEndPoint peerEP in peerInfo.PeerEPList)
-                {
-                    if (!IsPeerConnected(peerEP))
-                        ThreadPool.QueueUserWorkItem(new WaitCallback(MakeConnectionAsync), peerEP);
-                }
-            }
-        }
-
         public void MakeConnection(Connection viaConnection, IEnumerable<IPEndPoint> peerEPs)
         {
             foreach (IPEndPoint peerEP in peerEPs)
@@ -632,10 +620,8 @@ namespace BitChatClient.Network
                 {
                     //thread abort via Dispose()
                 }
-                catch (Exception ex)
+                catch
                 {
-                    Debug.Write("VirtualPeer.ReadPacketAsync", ex);
-
                     //try reconnection due to unexpected channel closure
                     doReconnect = true;
                 }
@@ -699,10 +685,8 @@ namespace BitChatClient.Network
                             stream.Write(data, offset, count);
                             stream.Flush();
                         }
-                        catch (Exception ex)
-                        {
-                            Debug.Write("VirtualPeer.WritePacket", ex);
-                        }
+                        catch
+                        { }
                     }
                 }
             }

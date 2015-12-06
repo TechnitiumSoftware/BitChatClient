@@ -66,8 +66,6 @@ namespace BitChatClient
                 new Uri("udp://9.rarbg.to:2710/announce"),
                 new Uri("http://9.rarbg.com:2710/announce"),
                 new Uri("http://opensharing.org:2710/announce"),
-                new Uri("http://announce.torrentsmd.com:8080/announce.php"),
-                new Uri("http://announce.torrentsmd.com:6969/announce"),
                 new Uri("http://bt.careland.com.cn:6969/announce"),
                 new Uri("http://i.bandito.org/announce"),
                 new Uri("http://tracker.ex.ua/announce"),
