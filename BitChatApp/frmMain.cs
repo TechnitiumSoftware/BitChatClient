@@ -28,6 +28,7 @@ using System.IO;
 using System.Media;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Security.Principal;
 using System.Windows.Forms;
 using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Net;
@@ -39,8 +40,6 @@ namespace BitChatApp
     public partial class frmMain : Form, IDebug
     {
         #region variables
-
-        AppLink _link;
 
         BitChatProfile _profile;
         string _profileFilePath;
@@ -73,9 +72,18 @@ namespace BitChatApp
             {
                 case PlatformID.Win32NT:
                     if (Environment.OSVersion.Version.Major > 5)
+                    {
                         cryptoOptions = SecureChannelCryptoOptionFlags.ECDHE256_RSA_WITH_AES256_CBC_HMAC_SHA256 | SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256;
+
+                        AddWindowsFirewallEntryVista();
+                    }
                     else
+                    {
                         cryptoOptions = SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256;
+
+                        AddWindowsFirewallEntryXP();
+                    }
+
                     break;
 
                 default:
@@ -85,14 +93,6 @@ namespace BitChatApp
 
             //start bitchat service
             _service = new BitChatService(profile, Program.TRUSTED_CERTIFICATES, cryptoOptions, InvalidCertificateEvent);
-
-            //add firewall entry
-            switch (Environment.OSVersion.Platform)
-            {
-                case PlatformID.Win32NT:
-                    AddWindowsFirewallEntry();
-                    break;
-            }
         }
 
         #endregion
@@ -135,14 +135,6 @@ namespace BitChatApp
                 this.Top = 100;
             }
 
-            //create AppLink
-            _link = new AppLink(Program.APP_LINK_PORT);
-            _link.CommandReceived += _link_CommandReceived;
-
-            //if (_cmdLine != null)
-            //    _link_CommandReceived(_cmdLine);
-
-
             //start automatic update client
             _updateClient = new AutomaticUpdateClient(Program.MUTEX_NAME, Application.ProductVersion, Program.UPDATE_URI, Program.UPDATE_CHECK_INTERVAL_DAYS, Program.TRUSTED_CERTIFICATES, _lastUpdateCheckedOn, _lastModifiedGMT);
             _updateClient.Proxy = _profile.Proxy;
@@ -150,7 +142,6 @@ namespace BitChatApp
             _updateClient.UpdateAvailable += _updateClient_UpdateAvailable;
             _updateClient.NoUpdateAvailable += _updateClient_NoUpdateAvailable;
             _updateClient.UpdateError += _updateClient_UpdateError;
-
 
             //show tray icon
             notifyIcon1.Visible = true;
@@ -189,7 +180,6 @@ namespace BitChatApp
                 }
             }
 
-            _link.Dispose();
             _updateClient.Dispose();
             _service.Dispose();
         }
@@ -204,12 +194,6 @@ namespace BitChatApp
                     this.Hide();
                     break;
             }
-        }
-
-        private void _link_CommandReceived(string cmd)
-        {
-            this.Show();
-            this.Activate();
         }
 
         private void btnPlusButton_Click(object sender, EventArgs e)
@@ -504,34 +488,59 @@ namespace BitChatApp
 
         #region private
 
-        private void AddWindowsFirewallEntry()
+        private void AddWindowsFirewallEntryVista()
         {
-            if (Environment.OSVersion.Version.Major < 6)
+            if ((new WindowsPrincipal(WindowsIdentity.GetCurrent())).IsInRole(WindowsBuiltInRole.Administrator))
             {
-                //below vista
+                //vista & above
+
+                string appPath = Assembly.GetEntryAssembly().CodeBase.Replace("file:///", "").Replace("/", "\\");
+
                 try
                 {
-                    if (!WindowsFirewall.PortExists(Protocol.TCP, _service.NetworkInfo.LocalPort))
-                        WindowsFirewall.AddPort("Bit Chat", Protocol.TCP, _service.NetworkInfo.LocalPort, true);
+                    RuleStatus status = WindowsFirewall.RuleExistsVista("", appPath);
 
-                    if (!WindowsFirewall.PortExists(Protocol.UDP, _service.NetworkInfo.DhtLocalPort))
-                        WindowsFirewall.AddPort("Bit Chat - DHT", Protocol.UDP, _service.NetworkInfo.DhtLocalPort, true);
+                    switch (status)
+                    {
+                        case RuleStatus.Blocked:
+                        case RuleStatus.Disabled:
+                            WindowsFirewall.RemoveRuleVista("", appPath);
+                            break;
 
-                    if (!WindowsFirewall.PortExists(Protocol.UDP, 41733))
-                        WindowsFirewall.AddPort("Bit Chat - Local Discovery", Protocol.UDP, 41733, true);
+                        case RuleStatus.Allowed:
+                            return;
+                    }
+
+                    WindowsFirewall.AddRuleVista("Bit Chat", "Allow incoming connection request to Bit Chat application.", FirewallAction.Allow, appPath, Protocol.ANY);
                 }
                 catch
                 { }
             }
-            else
+        }
+
+        private void AddWindowsFirewallEntryXP()
+        {
+            if ((new WindowsPrincipal(WindowsIdentity.GetCurrent())).IsInRole(WindowsBuiltInRole.Administrator))
             {
-                //vista & above
+                //below vista
+
+                string appPath = Assembly.GetEntryAssembly().CodeBase.Replace("file:///", "").Replace("/", "\\");
+
                 try
                 {
-                    string appPath = Assembly.GetEntryAssembly().CodeBase.Replace("file:///", "").Replace("/", "\\");
+                    RuleStatus status = WindowsFirewall.ApplicationExists(appPath);
 
-                    if (!WindowsFirewall.RuleExistsVista("Bit Chat", appPath))
-                        WindowsFirewall.AddRuleVista("Bit Chat", "Allow incoming connection request to Bit Chat application.", FirewallAction.Allow, appPath, Protocol.ANY);
+                    switch (status)
+                    {
+                        case RuleStatus.Disabled:
+                            WindowsFirewall.RemoveApplication(appPath);
+                            break;
+
+                        case RuleStatus.Allowed:
+                            return;
+                    }
+
+                    WindowsFirewall.AddApplication("Bit Chat", appPath);
                 }
                 catch
                 { }

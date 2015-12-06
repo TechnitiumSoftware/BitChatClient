@@ -36,8 +36,6 @@ namespace BitChatAppMono
     {
         #region variables
 
-        AppLink _link;
-
         BitChatProfile _profile;
         string _profileFilePath;
 
@@ -126,10 +124,6 @@ namespace BitChatAppMono
             this.mainContainer.Panel1.Resize += new System.EventHandler(this.mainContainer_Panel1_Resize);
             mainContainer_Panel1_Resize(null, null);
 
-            //create AppLink
-            _link = new AppLink(Program.APP_LINK_PORT);
-            _link.CommandReceived += _link_CommandReceived;
-
             //start automatic update client
             _updateClient = new AutomaticUpdateClient(Program.MUTEX_NAME, Application.ProductVersion, Program.UPDATE_URI, Program.UPDATE_CHECK_INTERVAL_DAYS, Program.TRUSTED_CERTIFICATES, _lastUpdateCheckedOn, _lastModifiedGMT);
             _updateClient.Proxy = _profile.Proxy;
@@ -172,7 +166,6 @@ namespace BitChatAppMono
                 }
             }
 
-            _link.Dispose();
             _updateClient.Dispose();
             _service.Dispose();
         }
@@ -187,12 +180,6 @@ namespace BitChatAppMono
                     this.WindowState = FormWindowState.Minimized;
                     break;
             }
-        }
-
-        private void _link_CommandReceived(string cmd)
-        {
-            this.WindowState = FormWindowState.Normal;
-            this.Activate();
         }
 
         private void btnPlusButton_Click(object sender, EventArgs e)
