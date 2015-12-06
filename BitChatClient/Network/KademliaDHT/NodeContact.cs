@@ -87,7 +87,7 @@ namespace BitChatClient.Network.KademliaDHT
         protected NodeContact(int udpDhtPort)
         {
             _nodeID = BinaryID.GenerateRandomID160();
-            _nodeEP = new IPEndPoint(IPAddress.Any, udpDhtPort);
+            _nodeEP = new IPEndPoint(IPAddress.Loopback, udpDhtPort);
             _currentNode = true;
         }
 
