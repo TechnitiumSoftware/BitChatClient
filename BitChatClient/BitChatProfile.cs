@@ -654,12 +654,13 @@ namespace BitChatClient
             SharedFileInfo[] _sharedFiles;
             Uri[] _trackerURIs;
             bool _enableTracking;
+            BitChatNetworkStatus _networkStatus;
 
             #endregion
 
             #region constructor
 
-            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID networkID, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking)
+            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID networkID, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, BitChatNetworkStatus networkStatus)
             {
                 _type = type;
                 _networkNameOrPeerEmailAddress = networkNameOrPeerEmailAddress;
@@ -669,6 +670,7 @@ namespace BitChatClient
                 _sharedFiles = sharedFiles;
                 _trackerURIs = trackerURIs;
                 _enableTracking = enableTracking;
+                _networkStatus = networkStatus;
             }
 
             public BitChatInfo(BinaryReader bR)
@@ -685,6 +687,7 @@ namespace BitChatClient
                     case 3:
                     case 4:
                     case 5:
+                    case 6:
                         if (version > 2)
                             _type = (BitChatNetworkType)bR.ReadByte();
                         else
@@ -721,6 +724,11 @@ namespace BitChatClient
                         else
                             _enableTracking = true;
 
+                        if (version > 5)
+                            _networkStatus = (BitChatNetworkStatus)bR.ReadByte();
+                        else
+                            _networkStatus = BitChatNetworkStatus.Online;
+
                         break;
 
                     default:
@@ -735,7 +743,7 @@ namespace BitChatClient
             public override void WriteTo(BinaryWriter bW)
             {
                 bW.Write(Encoding.ASCII.GetBytes("BI"));
-                bW.Write((byte)5);
+                bW.Write((byte)6);
 
                 bW.Write((byte)_type);
 
@@ -776,6 +784,7 @@ namespace BitChatClient
                 }
 
                 bW.Write(_enableTracking);
+                bW.Write((byte)_networkStatus);
             }
 
             #endregion
@@ -804,10 +813,10 @@ namespace BitChatClient
             { get { return _trackerURIs; } }
 
             public bool EnableTracking
-            {
-                get { return _enableTracking; }
-                set { _enableTracking = value; }
-            }
+            { get { return _enableTracking; } }
+
+            public BitChatNetworkStatus NetworkStatus
+            { get { return _networkStatus; } }
 
             #endregion
         }

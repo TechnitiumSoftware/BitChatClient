@@ -44,6 +44,12 @@ namespace BitChatClient.Network
         GroupChat = 2
     }
 
+    public enum BitChatNetworkStatus : byte
+    {
+        Offline = 0,
+        Online = 1
+    }
+
     class BitChatNetwork : IDisposable
     {
         #region events
@@ -65,6 +71,8 @@ namespace BitChatClient.Network
         string _peerName;
         BinaryID _networkID;
 
+        BitChatNetworkStatus _status;
+
         IBitChatNetworkManager _networkManager;
         ISecureChannelSecurityManager _securityManager;
         VirtualPeer _selfPeer;
@@ -74,13 +82,14 @@ namespace BitChatClient.Network
 
         #region constructor
 
-        public BitChatNetwork(MailAddress peerEmailAddress, string sharedSecret, BinaryID networkID, Certificate[] knownPeerCerts, IBitChatNetworkManager networkManager, ISecureChannelSecurityManager securityManager)
+        public BitChatNetwork(MailAddress peerEmailAddress, string sharedSecret, BinaryID networkID, Certificate[] knownPeerCerts, IBitChatNetworkManager networkManager, ISecureChannelSecurityManager securityManager, BitChatNetworkStatus status)
         {
             _type = BitChatNetworkType.PrivateChat;
             _peerEmailAddress = peerEmailAddress;
             _sharedSecret = sharedSecret;
             _networkManager = networkManager;
             _securityManager = securityManager;
+            _status = status;
 
             LoadPeers(knownPeerCerts);
 
@@ -109,13 +118,14 @@ namespace BitChatClient.Network
             }
         }
 
-        public BitChatNetwork(string networkName, string sharedSecret, BinaryID networkID, Certificate[] knownPeerCerts, IBitChatNetworkManager networkManager, ISecureChannelSecurityManager securityManager)
+        public BitChatNetwork(string networkName, string sharedSecret, BinaryID networkID, Certificate[] knownPeerCerts, IBitChatNetworkManager networkManager, ISecureChannelSecurityManager securityManager, BitChatNetworkStatus status)
         {
             _type = BitChatNetworkType.GroupChat;
             _networkName = networkName;
             _sharedSecret = sharedSecret;
             _networkManager = networkManager;
             _securityManager = securityManager;
+            _status = status;
 
             LoadPeers(knownPeerCerts);
 
@@ -329,12 +339,18 @@ namespace BitChatClient.Network
 
         public void MakeConnection(IPEndPoint peerEP)
         {
+            if (_status == BitChatNetworkStatus.Offline)
+                throw new BitChatException("BitChat network is offline.");
+
             if (!IsPeerConnected(peerEP))
                 ThreadPool.QueueUserWorkItem(new WaitCallback(MakeConnectionAsync), peerEP);
         }
 
         public void MakeConnection(IEnumerable<IPEndPoint> peerEPs)
         {
+            if (_status == BitChatNetworkStatus.Offline)
+                throw new BitChatException("BitChat network is offline.");
+
             foreach (IPEndPoint peerEP in peerEPs)
             {
                 if (!IsPeerConnected(peerEP))
@@ -344,6 +360,9 @@ namespace BitChatClient.Network
 
         public void MakeConnection(Connection viaConnection, IEnumerable<IPEndPoint> peerEPs)
         {
+            if (_status == BitChatNetworkStatus.Offline)
+                throw new BitChatException("BitChat network is offline.");
+
             foreach (IPEndPoint peerEP in peerEPs)
             {
                 if (!IsPeerConnected(peerEP))
@@ -353,6 +372,9 @@ namespace BitChatClient.Network
 
         public void JoinNetwork(string peerID, SecureChannelStream peerStream, bool checkCertificateRevocationList)
         {
+            if (_status == BitChatNetworkStatus.Offline)
+                throw new BitChatException("BitChat network is offline.");
+
             if (_type == BitChatNetworkType.PrivateChat)
             {
                 if (!peerStream.RemotePeerCertificate.IssuedTo.EmailAddress.Equals(_peerEmailAddress))
@@ -414,15 +436,6 @@ namespace BitChatClient.Network
             }
 
             return connectedPeers;
-        }
-
-        public bool RemovePeer(string peerID)
-        {
-            lock (_virtualPeers)
-            {
-                _virtualPeers[peerID].Dispose();
-                return _virtualPeers.Remove(peerID);
-            }
         }
 
         public void WritePacketTo(string peerID, byte[] data, int offset, int count)
@@ -498,6 +511,26 @@ namespace BitChatClient.Network
         public BinaryID NetworkID
         { get { return _networkID; } }
 
+        public BitChatNetworkStatus Status
+        {
+            get { return _status; }
+            set
+            {
+                _status = value;
+
+                if (value == BitChatNetworkStatus.Offline)
+                {
+                    lock (_virtualPeers)
+                    {
+                        foreach (KeyValuePair<string, VirtualPeer> vPeer in _virtualPeers)
+                        {
+                            vPeer.Value.Disconnect();
+                        }
+                    }
+                }
+            }
+        }
+
         #endregion
 
         public class VirtualPeer : IDisposable
@@ -554,18 +587,7 @@ namespace BitChatClient.Network
                 {
                     _disposing = true;
 
-                    lock (_readThreadList)
-                    {
-                        foreach (Thread readThread in _readThreadList)
-                        {
-                            try
-                            {
-                                readThread.Abort();
-                            }
-                            catch
-                            { }
-                        }
-                    }
+                    Disconnect();
 
                     _disposed = true;
                 }
@@ -765,16 +787,18 @@ namespace BitChatClient.Network
                 return new PeerInfo(_peerCert.IssuedTo.EmailAddress.Address, peerEPList);
             }
 
-            public SecureChannelCryptoOptionFlags CipherSuite
+            public void Disconnect()
             {
-                get
+                lock (_readThreadList)
                 {
-                    lock (_streamList)
+                    foreach (Thread readThread in _readThreadList)
                     {
-                        if (_streamList.Count > 0)
-                            return _streamList[0].SelectedCryptoOption;
-                        else
-                            return SecureChannelCryptoOptionFlags.None;
+                        try
+                        {
+                            readThread.Abort();
+                        }
+                        catch
+                        { }
                     }
                 }
             }
@@ -788,6 +812,20 @@ namespace BitChatClient.Network
 
             public bool IsOnline
             { get { return _isOnline; } }
+
+            public SecureChannelCryptoOptionFlags CipherSuite
+            {
+                get
+                {
+                    lock (_streamList)
+                    {
+                        if (_streamList.Count > 0)
+                            return _streamList[0].SelectedCryptoOption;
+                        else
+                            return SecureChannelCryptoOptionFlags.None;
+                    }
+                }
+            }
 
             #endregion
         }

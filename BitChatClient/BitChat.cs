@@ -40,7 +40,7 @@ namespace BitChatClient
     public delegate void PeerSecureChannelException(BitChat sender, SecureChannelException ex);
     public delegate void PeerHasChangedCertificate(BitChat sender, Certificate cert);
 
-    public enum BitChatNetworkStatus
+    public enum BitChatConnectivityStatus
     {
         NoNetwork = 0,
         PartialNetwork = 1,
@@ -86,7 +86,7 @@ namespace BitChatClient
         Peer _selfPeer;
         List<PeerInfo> _connectedPeerList = new List<PeerInfo>();
         List<PeerInfo> _disconnectedPeerList = new List<PeerInfo>();
-        BitChatNetworkStatus _networkStatus = BitChatNetworkStatus.NoNetwork;
+        BitChatConnectivityStatus _connectivityStatus = BitChatConnectivityStatus.NoNetwork;
 
         bool _updateNetworkStatusTriggered;
         bool _updateNetworkStatusRunning;
@@ -133,18 +133,28 @@ namespace BitChatClient
                 { }
             }
 
-            //start tracking
-            _manager.StartLocalTracking(_network.NetworkID);
+            //init tracking
             _dhtClient = connectionManager.DhtClient;
             _trackerManager = new TrackerManager(_network.NetworkID, connectionManager.LocalPort, _dhtClient);
             _trackerManager.Proxy = _profile.Proxy;
             _trackerManager.DiscoveredPeers += trackerManager_DiscoveredPeers;
             _enableTracking = enableTracking;
 
-            if (enableTracking)
-                _trackerManager.StartTracking(trackerURIs);
-            else
+            if (_network.Status == BitChatNetworkStatus.Offline)
+            {
                 _trackerManager.AddTracker(trackerURIs);
+            }
+            else
+            {
+                //start local peer discovery
+                _manager.StartLocalTracking(_network.NetworkID);
+
+                //enable tracking
+                if (enableTracking)
+                    _trackerManager.StartTracking(trackerURIs);
+                else
+                    _trackerManager.AddTracker(trackerURIs);
+            }
 
             //start noop timer
             _NOOPTimer = new Timer(NOOPTimerCallback, null, NOOP_PACKET_TIMER_INTERVAL, Timeout.Infinite);
@@ -353,9 +363,9 @@ namespace BitChatClient
             }
 
             if (_network.Type == BitChatNetworkType.PrivateChat)
-                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.PeerEmailAddress.Address, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _enableTracking);
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.PeerEmailAddress.Address, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _enableTracking, _network.Status);
             else
-                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _enableTracking);
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _enableTracking, _network.Status);
         }
 
         public BitChat.Peer[] GetPeerList()
@@ -553,7 +563,7 @@ namespace BitChatClient
 
             try
             {
-                BitChatNetworkStatus oldStatus = _networkStatus;
+                BitChatConnectivityStatus oldStatus = _connectivityStatus;
 
                 //find network wide connected peer ep list
                 List<PeerInfo> uniqueConnectedPeerList = new List<PeerInfo>();
@@ -621,18 +631,18 @@ namespace BitChatClient
                     }
                 }
 
-                BitChatNetworkStatus networkStatus;
+                BitChatConnectivityStatus connectivityStatus;
 
                 if (disconnectedPeerList.Count > 0)
                 {
-                    networkStatus = BitChatNetworkStatus.PartialNetwork;
+                    connectivityStatus = BitChatConnectivityStatus.PartialNetwork;
 
                     foreach (PeerInfo peerInfo in disconnectedPeerList)
                         _network.MakeConnection(peerInfo.PeerEPList);
                 }
                 else
                 {
-                    networkStatus = BitChatNetworkStatus.FullNetwork;
+                    connectivityStatus = BitChatConnectivityStatus.FullNetwork;
                 }
 
                 lock (_connectedPeerList)
@@ -640,7 +650,7 @@ namespace BitChatClient
                     _connectedPeerList.Clear();
                     _connectedPeerList.AddRange(connectedPeerList);
                     _disconnectedPeerList = disconnectedPeerList;
-                    _networkStatus = networkStatus;
+                    _connectivityStatus = connectivityStatus;
                 }
 
                 if (_network.Type == BitChatNetworkType.PrivateChat)
@@ -684,7 +694,7 @@ namespace BitChatClient
                     }
                 }
 
-                if (oldStatus != networkStatus)
+                if (oldStatus != connectivityStatus)
                     _selfPeer.RaiseEventNetworkStatusUpdated();
             }
             catch
@@ -701,7 +711,7 @@ namespace BitChatClient
                     {
                         _updateNetworkStatusTriggered = false;
 
-                        if (_networkStatus == BitChatNetworkStatus.PartialNetwork)
+                        if (_connectivityStatus == BitChatConnectivityStatus.PartialNetwork)
                             _reCheckNetworkStatusTimer.Change(NETWORK_STATUS_RECHECK_TIMER_INTERVAL, Timeout.Infinite);
                     }
 
@@ -814,21 +824,38 @@ namespace BitChatClient
             {
                 _enableTracking = value;
 
-                if (_network.Type == BitChatNetworkType.GroupChat)
+                if (_network.Status != BitChatNetworkStatus.Offline)
                 {
-                    if (_enableTracking)
-                        _trackerManager.StartTracking();
+                    if (_network.Type == BitChatNetworkType.GroupChat)
+                    {
+                        if (_enableTracking)
+                            _trackerManager.StartTracking();
+                        else
+                            _trackerManager.StopTracking();
+                    }
                     else
-                        _trackerManager.StopTracking();
-                }
-                else
-                {
-                    if (_enableTracking)
-                        TriggerUpdateNetworkStatus();
-                    else
-                        _trackerManager.StopTracking();
+                    {
+                        if (_enableTracking)
+                            TriggerUpdateNetworkStatus();
+                        else
+                            _trackerManager.StopTracking();
+                    }
                 }
             }
+        }
+
+        private void StopAllTracking()
+        {
+            _manager.StopLocalTracking(_network.NetworkID);
+            _trackerManager.StopTracking();
+        }
+
+        private void StartAllTracking()
+        {
+            _manager.StartLocalTracking(_network.NetworkID);
+
+            if (this.EnableTracking)
+                this.EnableTracking = true;
         }
 
         #endregion
@@ -840,6 +867,20 @@ namespace BitChatClient
 
         public BitChatNetworkType NetworkType
         { get { return _network.Type; } }
+
+        public BitChatNetworkStatus NetworkStatus
+        {
+            get { return _network.Status; }
+            set
+            {
+                _network.Status = value;
+
+                if (value == BitChatNetworkStatus.Offline)
+                    StopAllTracking();
+                else
+                    StartAllTracking();
+            }
+        }
 
         public MailAddress PeerEmailAddress
         { get { return _network.PeerEmailAddress; } }
@@ -874,7 +915,7 @@ namespace BitChatClient
 
             List<PeerInfo> _connectedPeerList = new List<PeerInfo>();
             List<PeerInfo> _disconnectedPeerList = new List<PeerInfo>();
-            BitChatNetworkStatus _networkStatus = BitChatNetworkStatus.NoNetwork;
+            BitChatConnectivityStatus _connectivityStatus = BitChatConnectivityStatus.NoNetwork;
 
             bool _isSelfPeer;
             bool _lastStatus = false;
@@ -1235,7 +1276,7 @@ namespace BitChatClient
 
             internal void UpdateNetworkStatus(List<PeerInfo> uniqueConnectedPeerList)
             {
-                BitChatNetworkStatus oldStatus = _networkStatus;
+                BitChatConnectivityStatus oldStatus = _connectivityStatus;
 
                 lock (_connectedPeerList)
                 {
@@ -1245,22 +1286,22 @@ namespace BitChatClient
                     _disconnectedPeerList.Remove(_virtualPeer.GetPeerInfo());
 
                     if (_disconnectedPeerList.Count > 0)
-                        _networkStatus = BitChatNetworkStatus.PartialNetwork;
+                        _connectivityStatus = BitChatConnectivityStatus.PartialNetwork;
                     else
-                        _networkStatus = BitChatNetworkStatus.FullNetwork;
+                        _connectivityStatus = BitChatConnectivityStatus.FullNetwork;
                 }
 
-                if (oldStatus != _networkStatus)
+                if (oldStatus != _connectivityStatus)
                     RaiseEventNetworkStatusUpdated();
             }
 
             internal void SetNoNetworkStatus()
             {
-                BitChatNetworkStatus oldStatus = _networkStatus;
+                BitChatConnectivityStatus oldStatus = _connectivityStatus;
 
-                _networkStatus = BitChatNetworkStatus.NoNetwork;
+                _connectivityStatus = BitChatConnectivityStatus.NoNetwork;
 
-                if (oldStatus != _networkStatus)
+                if (oldStatus != _connectivityStatus)
                     RaiseEventNetworkStatusUpdated();
             }
 
@@ -1323,14 +1364,14 @@ namespace BitChatClient
                 }
             }
 
-            public BitChatNetworkStatus NetworkStatus
+            public BitChatConnectivityStatus ConnectivityStatus
             {
                 get
                 {
                     if (_isSelfPeer)
-                        return _bitchat._networkStatus;
+                        return _bitchat._connectivityStatus;
                     else
-                        return _networkStatus;
+                        return _connectivityStatus;
                 }
             }
 
