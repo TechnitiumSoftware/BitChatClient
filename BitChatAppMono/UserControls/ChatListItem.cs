@@ -31,6 +31,7 @@ namespace BitChatAppMono.UserControls
         #region variables
 
         int _newMessageCount;
+        bool _isOffline;
 
         #endregion
 
@@ -54,17 +55,35 @@ namespace BitChatAppMono.UserControls
         {
             this.SuspendLayout();
 
-            if (Selected)
+            if (_isOffline)
             {
-                this.BackColor = Color.FromArgb(61, 78, 93);
-                labIcon.BackColor = Color.FromArgb(255, 213, 89);
+                if (Selected)
+                {
+                    this.BackColor = Color.FromArgb(61, 78, 93);
+                    labIcon.BackColor = Color.Gray;
 
-                ResetNewMessages();
+                    ResetNewMessages();
+                }
+                else
+                {
+                    this.BackColor = Color.FromArgb(51, 65, 78);
+                    labIcon.BackColor = Color.Gray;
+                }
             }
             else
             {
-                this.BackColor = Color.FromArgb(51, 65, 78);
-                labIcon.BackColor = Color.White;
+                if (Selected)
+                {
+                    this.BackColor = Color.FromArgb(61, 78, 93);
+                    labIcon.BackColor = Color.FromArgb(255, 213, 89);
+
+                    ResetNewMessages();
+                }
+                else
+                {
+                    this.BackColor = Color.FromArgb(51, 65, 78);
+                    labIcon.BackColor = Color.White;
+                }
             }
 
             this.ResumeLayout();
@@ -116,7 +135,10 @@ namespace BitChatAppMono.UserControls
 
         public override string ToString()
         {
-            return labTitle.Text;
+            if (_isOffline)
+                return "1-" + labTitle.Text;
+            else
+                return "0-" + labTitle.Text;
         }
 
         #endregion
@@ -131,6 +153,17 @@ namespace BitChatAppMono.UserControls
 
         public int NewMessageCount
         { get { return _newMessageCount; } }
+
+        public bool GoOffline
+        {
+            get { return _isOffline; }
+            set
+            {
+                _isOffline = value;
+                OnSelected();
+                SortListView();
+            }
+        }
 
         #endregion
     }

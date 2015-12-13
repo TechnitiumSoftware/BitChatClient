@@ -60,12 +60,14 @@ namespace BitChatApp
             this.mnuProfileSettings = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuPlus = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.mnuAddPrivateChat1 = new System.Windows.Forms.ToolStripMenuItem();
+            this.networkInfoToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuSwitchProfile2 = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuCheckUpdate2 = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuAbout2 = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.mnuExit2 = new System.Windows.Forms.ToolStripMenuItem();
-            this.networkInfoToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.mnuGoOffline = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
             this.mnuChat.SuspendLayout();
             this.mnuSysTray.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.mainContainer)).BeginInit();
@@ -82,13 +84,15 @@ namespace BitChatApp
             // mnuChat
             // 
             this.mnuChat.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.mnuGoOffline,
             this.mnuLeaveChat,
+            this.toolStripSeparator6,
             this.mnuProperties,
             this.toolStripSeparator1,
             this.mnuAddPrivateChat2,
             this.mnuAddGroupChat2});
             this.mnuChat.Name = "chatContextMenu";
-            this.mnuChat.Size = new System.Drawing.Size(164, 98);
+            this.mnuChat.Size = new System.Drawing.Size(164, 148);
             // 
             // mnuLeaveChat
             // 
@@ -362,7 +366,7 @@ namespace BitChatApp
             this.toolStripSeparator2,
             this.mnuExit2});
             this.mnuPlus.Name = "addChatContextMenu";
-            this.mnuPlus.Size = new System.Drawing.Size(174, 214);
+            this.mnuPlus.Size = new System.Drawing.Size(174, 192);
             // 
             // mnuAddPrivateChat1
             // 
@@ -371,6 +375,13 @@ namespace BitChatApp
             this.mnuAddPrivateChat1.Size = new System.Drawing.Size(173, 22);
             this.mnuAddPrivateChat1.Text = "Add &Private Chat";
             this.mnuAddPrivateChat1.Click += new System.EventHandler(this.mnuAddPrivateChat_Click);
+            // 
+            // networkInfoToolStripMenuItem
+            // 
+            this.networkInfoToolStripMenuItem.Name = "networkInfoToolStripMenuItem";
+            this.networkInfoToolStripMenuItem.Size = new System.Drawing.Size(173, 22);
+            this.networkInfoToolStripMenuItem.Text = "Network &Info";
+            this.networkInfoToolStripMenuItem.Click += new System.EventHandler(this.networkInfoToolStripMenuItem_Click);
             // 
             // mnuSwitchProfile2
             // 
@@ -406,12 +417,17 @@ namespace BitChatApp
             this.mnuExit2.Text = "E&xit";
             this.mnuExit2.Click += new System.EventHandler(this.mnuExit_Click);
             // 
-            // networkInfoToolStripMenuItem
+            // mnuGoOffline
             // 
-            this.networkInfoToolStripMenuItem.Name = "networkInfoToolStripMenuItem";
-            this.networkInfoToolStripMenuItem.Size = new System.Drawing.Size(173, 22);
-            this.networkInfoToolStripMenuItem.Text = "Network &Info";
-            this.networkInfoToolStripMenuItem.Click += new System.EventHandler(this.networkInfoToolStripMenuItem_Click);
+            this.mnuGoOffline.Name = "mnuGoOffline";
+            this.mnuGoOffline.Size = new System.Drawing.Size(163, 22);
+            this.mnuGoOffline.Text = "Go Offline";
+            this.mnuGoOffline.Click += new System.EventHandler(this.mnuGoOffline_Click);
+            // 
+            // toolStripSeparator6
+            // 
+            this.toolStripSeparator6.Name = "toolStripSeparator6";
+            this.toolStripSeparator6.Size = new System.Drawing.Size(160, 6);
             // 
             // frmMain
             // 
@@ -484,6 +500,8 @@ namespace BitChatApp
         private System.Windows.Forms.ToolStripMenuItem mnuAddPrivateChat2;
         private System.Windows.Forms.ToolStripMenuItem mnuAddPrivateChat1;
         private System.Windows.Forms.ToolStripMenuItem networkInfoToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem mnuGoOffline;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator6;
 
     }
 }

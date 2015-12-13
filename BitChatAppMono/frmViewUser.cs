@@ -122,21 +122,21 @@ namespace BitChatAppMono
             }
 
             //network status
-            switch (_peer.NetworkStatus)
+            switch (_peer.ConnectivityStatus)
             {
-                case BitChatNetworkStatus.NoNetwork:
+                case BitChatConnectivityStatus.NoNetwork:
                     labNetworkStatus.Text = "No Network";
                     labNetworkStatus.ForeColor = Color.DimGray;
                     picNetwork.Image = BitChatAppMono.Properties.Resources.NoNetwork;
                     break;
 
-                case BitChatNetworkStatus.PartialNetwork:
+                case BitChatConnectivityStatus.PartialNetwork:
                     labNetworkStatus.Text = "Partial Network";
                     labNetworkStatus.ForeColor = Color.OrangeRed;
                     picNetwork.Image = BitChatAppMono.Properties.Resources.PartialNetwork;
                     break;
 
-                case BitChatNetworkStatus.FullNetwork:
+                case BitChatConnectivityStatus.FullNetwork:
                     labNetworkStatus.Text = "Full Network";
                     labNetworkStatus.ForeColor = Color.Green;
                     picNetwork.Image = BitChatAppMono.Properties.Resources.FullNetwork;

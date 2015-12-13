@@ -219,6 +219,8 @@ namespace BitChatAppMono
         {
             if (e.Button == System.Windows.Forms.MouseButtons.Right)
             {
+                mnuGoOffline.Enabled = false;
+                mnuGoOffline.Checked = false;
                 mnuLeaveChat.Enabled = false;
                 mnuProperties.Enabled = false;
                 mnuChat.Show(lstChats, e.Location);
@@ -235,6 +237,8 @@ namespace BitChatAppMono
                     break;
 
                 case Keys.Apps:
+                    mnuGoOffline.Enabled = false;
+                    mnuGoOffline.Checked = false;
                     mnuLeaveChat.Enabled = false;
                     mnuProperties.Enabled = false;
                     mnuChat.Show(lstChats, lstChats.Location);
@@ -247,6 +251,10 @@ namespace BitChatAppMono
         {
             if (e.Button == System.Windows.Forms.MouseButtons.Right)
             {
+                BitChatPanel chatPanel = (lstChats.SelectedItem as ChatListItem).Tag as BitChatPanel;
+
+                mnuGoOffline.Enabled = true;
+                mnuGoOffline.Checked = (chatPanel.BitChat.NetworkStatus == BitChatClient.Network.BitChatNetworkStatus.Offline);
                 mnuLeaveChat.Enabled = true;
                 mnuProperties.Enabled = true;
                 mnuChat.Show(lstChats, e.Location);
@@ -263,6 +271,10 @@ namespace BitChatAppMono
                     break;
 
                 case Keys.Apps:
+                    BitChatPanel chatPanel = (lstChats.SelectedItem as ChatListItem).Tag as BitChatPanel;
+
+                    mnuGoOffline.Enabled = true;
+                    mnuGoOffline.Checked = (chatPanel.BitChat.NetworkStatus == BitChatClient.Network.BitChatNetworkStatus.Offline);
                     mnuLeaveChat.Enabled = true;
                     mnuProperties.Enabled = true;
                     mnuChat.Show(lstChats, lstChats.Location);
@@ -422,6 +434,19 @@ namespace BitChatAppMono
             this.Close();
         }
 
+        private void mnuGoOffline_Click(object sender, EventArgs e)
+        {
+            if (lstChats.SelectedItem != null)
+            {
+                ChatListItem itm = lstChats.SelectedItem as ChatListItem;
+                BitChatPanel chatPanel = itm.Tag as BitChatPanel;
+
+                mnuGoOffline.Checked = !mnuGoOffline.Checked;
+                chatPanel.BitChat.NetworkStatus = mnuGoOffline.Checked ? BitChatClient.Network.BitChatNetworkStatus.Offline : BitChatClient.Network.BitChatNetworkStatus.Online;
+                itm.GoOffline = mnuGoOffline.Checked;
+            }
+        }
+
         private void mnuLeaveChat_Click(object sender, EventArgs e)
         {
             if (MessageBox.Show("Are you sure to leave chat?\r\n\r\nWarning! If you wish to join back the same chat again, you will need to remember the Chat Name and Shared Secret.", "Leave Chat?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
@@ -478,6 +503,8 @@ namespace BitChatAppMono
 
             ChatListItem itm = new ChatListItem(title);
 
+            itm.GoOffline = (chat.NetworkStatus == BitChatClient.Network.BitChatNetworkStatus.Offline);
+
             BitChatPanel chatPanel = new BitChatPanel(chat, itm);
             chatPanel.Dock = DockStyle.Fill;
             chatPanel.SettingsModified += chatPanel_SettingsModified;
@@ -514,16 +541,6 @@ namespace BitChatAppMono
                 BitChatPanel chatPanel = lstChats.SelectedItem.Tag as BitChatPanel;
                 chatPanel.BringToFront();
             }
-        }
-
-        private void ShowChatListContextMenu(Point location)
-        {
-            if (lstChats.SelectedItem != null)
-            {
-
-            }
-
-            mnuChat.Show(lstChats, location);
         }
 
         private void ReadUISettingsFrom(Stream s)

@@ -101,19 +101,19 @@ namespace BitChatApp.UserControls
 
         private void _peer_NetworkStatusUpdated(object sender, EventArgs e)
         {
-            switch (_peer.NetworkStatus)
+            switch (_peer.ConnectivityStatus)
             {
-                case BitChatNetworkStatus.NoNetwork:
+                case BitChatConnectivityStatus.NoNetwork:
                     //labName.Text = _peer.PeerCertificate.IssuedTo.Name + " [N]";
                     picNetwork.Image = BitChatApp.Properties.Resources.NoNetwork;
                     break;
 
-                case BitChatNetworkStatus.PartialNetwork:
+                case BitChatConnectivityStatus.PartialNetwork:
                     //labName.Text = _peer.PeerCertificate.IssuedTo.Name + " [P]";
                     picNetwork.Image = BitChatApp.Properties.Resources.PartialNetwork;
                     break;
 
-                case BitChatNetworkStatus.FullNetwork:
+                case BitChatConnectivityStatus.FullNetwork:
                     //labName.Text = _peer.PeerCertificate.IssuedTo.Name + " [F]";
                     picNetwork.Image = BitChatApp.Properties.Resources.FullNetwork;
                     break;
