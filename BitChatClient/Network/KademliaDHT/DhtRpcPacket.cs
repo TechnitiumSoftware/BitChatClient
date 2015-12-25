@@ -173,10 +173,7 @@ namespace BitChatClient.Network.KademliaDHT
 
         public static DhtRpcPacket CreatePingPacketQuery(NodeContact sourceNode)
         {
-            DhtRpcPacket packet = new DhtRpcPacket(GetRandomTransactionID(), sourceNode, RpcPacketType.Query, RpcQueryType.PING);
-            packet._servicePort = Convert.ToUInt16(sourceNode.NodeEP.Port);
-
-            return packet;
+            return new DhtRpcPacket(GetRandomTransactionID(), sourceNode, RpcPacketType.Query, RpcQueryType.PING);
         }
 
         public static DhtRpcPacket CreatePingPacketResponse(int transactionID, NodeContact sourceNode)
