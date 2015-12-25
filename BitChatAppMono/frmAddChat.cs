@@ -54,7 +54,7 @@ namespace BitChatAppMono
                 this.Text = "Add Private Chat";
 
                 label1.Text = "Peer's Email Address";
-                label3.Text = "(case insensitive name. example: user@example.com)";
+                label3.Text = "(case insensitive, example: user@example.com)";
                 label4.Text = "Both peers must use same Shared Secret and enter each other's email address.";
             }
         }

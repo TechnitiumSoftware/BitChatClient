@@ -105,9 +105,9 @@
             this.label3.AutoSize = true;
             this.label3.Location = new System.Drawing.Point(155, 35);
             this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(202, 13);
+            this.label3.Size = new System.Drawing.Size(173, 13);
             this.label3.TabIndex = 6;
-            this.label3.Text = "(case insensitive name. example: Friends)";
+            this.label3.Text = "(case insensitive, example: Friends)";
             // 
             // label4
             // 
