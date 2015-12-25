@@ -66,7 +66,8 @@ namespace BitChatClient.Network.Connections
         const byte SIGNAL_DISCONNECT_VIRTUAL_CONNECTION = 8;
         const byte SIGNAL_RELAY_NETWORK_SUCCESS = 9;
 
-        const int BUFFER_SIZE = 65536;
+        const int MAX_FRAME_SIZE = 65279; //65535 (max ipv4 packet size) - 256 (margin for other headers)
+        const int BUFFER_SIZE = 65535;
 
         Stream _baseStream;
         BinaryID _remotePeerID;
@@ -228,29 +229,37 @@ namespace BitChatClient.Network.Connections
 
         private void WriteDataFrame(byte[] buffer, int offset, int count, BinaryID channelName, ChannelType type)
         {
-            if (count < 1)
-                return;
+            int frameCount = MAX_FRAME_SIZE - 24; //24 bytes frame header
 
-            lock (_baseStream)
+            while (count > 0)
             {
-                //write frame signal
-                _writeBufferData[0] = SIGNAL_DATA;
+                if (count < frameCount)
+                    frameCount = count;
 
-                //write channel name
-                Buffer.BlockCopy(channelName.ID, 0, _writeBufferData, 1, 20);
+                lock (_baseStream)
+                {
+                    //write frame signal
+                    _writeBufferData[0] = SIGNAL_DATA;
 
-                //write channel type
-                _writeBufferData[21] = (byte)type;
+                    //write channel name
+                    Buffer.BlockCopy(channelName.ID, 0, _writeBufferData, 1, 20);
 
-                //write data
-                byte[] bufferCount = BitConverter.GetBytes(Convert.ToUInt16(count - 1));
-                _writeBufferData[22] = bufferCount[0];
-                _writeBufferData[23] = bufferCount[1];
-                Buffer.BlockCopy(buffer, offset, _writeBufferData, 24, count);
+                    //write channel type
+                    _writeBufferData[21] = (byte)type;
 
-                //output to base stream
-                _baseStream.Write(_writeBufferData, 0, 24 + count);
-                _baseStream.Flush();
+                    //write data
+                    byte[] bufferCount = BitConverter.GetBytes(Convert.ToUInt16(frameCount));
+                    _writeBufferData[22] = bufferCount[0];
+                    _writeBufferData[23] = bufferCount[1];
+                    Buffer.BlockCopy(buffer, offset, _writeBufferData, 24, frameCount);
+
+                    //output to base stream
+                    _baseStream.Write(_writeBufferData, 0, 24 + frameCount);
+                    _baseStream.Flush();
+                }
+
+                offset += frameCount;
+                count -= frameCount;
             }
         }
 
@@ -263,7 +272,7 @@ namespace BitChatClient.Network.Connections
                 byte[] channelNameBuffer = new byte[20];
                 BinaryID channelName = new BinaryID(channelNameBuffer);
                 ChannelType channelType;
-                byte[] buffer = new byte[65536];
+                byte[] buffer = new byte[BUFFER_SIZE];
 
                 while (true)
                 {
@@ -282,7 +291,7 @@ namespace BitChatClient.Network.Connections
                                 channelType = (ChannelType)_baseStream.ReadByte();
 
                                 OffsetStream.StreamRead(_baseStream, buffer, 0, 2);
-                                channelDataLength = BitConverter.ToUInt16(buffer, 0) + 1;
+                                channelDataLength = BitConverter.ToUInt16(buffer, 0);
                                 OffsetStream.StreamRead(_baseStream, buffer, 0, channelDataLength);
 
                                 //switch frame
@@ -1162,7 +1171,7 @@ namespace BitChatClient.Network.Connections
             BinaryID _channelName;
             ChannelType _channelType;
 
-            byte[] _buffer;
+            readonly byte[] _buffer = new byte[BUFFER_SIZE];
             int _offset;
             int _count;
 
@@ -1192,8 +1201,6 @@ namespace BitChatClient.Network.Connections
                 {
                     if (!_disposed)
                     {
-                        _buffer = null;
-
                         _connection.RemoveChannel(this);
 
                         Monitor.PulseAll(this);
@@ -1281,12 +1288,12 @@ namespace BitChatClient.Network.Connections
                     if (_disposed)
                         throw new IOException("Cannot read from a closed stream.");
 
-                    if (_buffer == null)
+                    if (_count < 1)
                     {
                         if (!Monitor.Wait(this, _readTimeout))
                             throw new IOException("Read timed out.");
 
-                        if (_buffer == null)
+                        if (_count < 1)
                             return 0;
                     }
 
@@ -1297,17 +1304,11 @@ namespace BitChatClient.Network.Connections
 
                     Buffer.BlockCopy(_buffer, _offset, buffer, offset, bytesToCopy);
 
-                    if (bytesToCopy < _count)
-                    {
-                        _offset += bytesToCopy;
-                        _count -= bytesToCopy;
-                    }
-                    else
-                    {
-                        _buffer = null;
+                    _offset += bytesToCopy;
+                    _count -= bytesToCopy;
 
+                    if (_count < 1)
                         Monitor.Pulse(this);
-                    }
 
                     return bytesToCopy;
                 }
@@ -1315,17 +1316,7 @@ namespace BitChatClient.Network.Connections
 
             public override void Write(byte[] buffer, int offset, int count)
             {
-                int frameCount = ushort.MaxValue + 1;
-
-                while (count > 0)
-                {
-                    if (count < frameCount)
-                        frameCount = count;
-
-                    _connection.WriteDataFrame(buffer, offset, frameCount, _channelName, _channelType);
-                    offset += frameCount;
-                    count -= frameCount;
-                }
+                _connection.WriteDataFrame(buffer, offset, count, _channelName, _channelType);
             }
 
             #endregion
@@ -1341,14 +1332,20 @@ namespace BitChatClient.Network.Connections
                         if (_disposed)
                             throw new IOException("Cannot write buffer to a closed stream.");
 
-                        _buffer = buffer;
-                        _offset = offset;
+                        if (_count > 0)
+                        {
+                            if (!Monitor.Wait(this, timeout))
+                                throw new IOException("Channel WriteBuffer timed out.");
+
+                            if (_count > 0)
+                                throw new IOException("Channel WriteBuffer failed. Buffer not empty.");
+                        }
+
+                        Buffer.BlockCopy(buffer, offset, _buffer, 0, count);
+                        _offset = 0;
                         _count = count;
 
                         Monitor.Pulse(this);
-
-                        if (!Monitor.Wait(this, timeout))
-                            throw new IOException("Channel WriteBuffer timed out.");
                     }
                 }
             }
