@@ -34,7 +34,7 @@ namespace BitChatClient.Network
 {
     delegate void VirtualPeerAdded(BitChatNetwork sender, BitChatNetwork.VirtualPeer virtualPeer);
     delegate void VirtualPeerHasRevokedCertificate(BitChatNetwork sender, InvalidCertificateException ex);
-    delegate void VirtualPeerPacketReceived(BitChatNetwork.VirtualPeer sender, Stream packetDataStream, IPEndPoint remotePeerEP);
+    delegate void VirtualPeerMessageReceived(BitChatNetwork.VirtualPeer sender, Stream messageDataStream, IPEndPoint remotePeerEP);
     delegate void VirtualPeerSecureChannelException(BitChatNetwork sender, SecureChannelException ex);
     delegate void VirtualPeerHasChangedCertificate(BitChatNetwork sender, Certificate cert);
 
@@ -62,6 +62,9 @@ namespace BitChatClient.Network
         #endregion
 
         #region variables
+
+        public const int MAX_MESSAGE_SIZE = 65220; //max payload size of secure channel packet
+        const int BUFFER_SIZE = 65535;
 
         BitChatNetworkType _type;
         MailAddress _peerEmailAddress;
@@ -438,15 +441,15 @@ namespace BitChatClient.Network
             return connectedPeers;
         }
 
-        public void WritePacketTo(string peerID, byte[] data, int offset, int count)
-        {
-            lock (_virtualPeers)
-            {
-                _virtualPeers[peerID].WritePacket(data, offset, count);
-            }
-        }
+        //public void WriteMessageTo(string peerID, byte[] data, int offset, int count)
+        //{
+        //    lock (_virtualPeers)
+        //    {
+        //        _virtualPeers[peerID].WriteMessage(data, offset, count);
+        //    }
+        //}
 
-        public void WritePacketBroadcast(byte[] data, int offset, int count)
+        public void WriteMessageBroadcast(byte[] data, int offset, int count)
         {
             lock (_virtualPeers)
             {
@@ -455,7 +458,7 @@ namespace BitChatClient.Network
                     try
                     {
                         if (vPeer.Value.IsOnline)
-                            vPeer.Value.WritePacket(data, offset, count);
+                            vPeer.Value.WriteMessage(data, offset, count);
                     }
                     catch
                     { }
@@ -463,17 +466,17 @@ namespace BitChatClient.Network
             }
         }
 
-        public void WritePacketExcept(string peerID, byte[] data, int offset, int count)
-        {
-            lock (_virtualPeers)
-            {
-                foreach (KeyValuePair<string, VirtualPeer> vPeer in _virtualPeers)
-                {
-                    if (vPeer.Key != peerID)
-                        vPeer.Value.WritePacket(data, offset, count);
-                }
-            }
-        }
+        //public void WriteMessageExcept(string peerID, byte[] data, int offset, int count)
+        //{
+        //    lock (_virtualPeers)
+        //    {
+        //        foreach (KeyValuePair<string, VirtualPeer> vPeer in _virtualPeers)
+        //        {
+        //            if (vPeer.Key != peerID)
+        //                vPeer.Value.WriteMessage(data, offset, count);
+        //        }
+        //    }
+        //}
 
         public void RemoveNetwork()
         {
@@ -538,13 +541,11 @@ namespace BitChatClient.Network
             #region events
 
             public event EventHandler StreamStateChanged;
-            public event VirtualPeerPacketReceived PacketReceived;
+            public event VirtualPeerMessageReceived MessageReceived;
 
             #endregion
 
             #region variables
-
-            const int MAX_BUFFER_SIZE = 65532;
 
             Certificate _peerCert;
             BitChatNetwork _network;
@@ -597,21 +598,21 @@ namespace BitChatClient.Network
 
             #region private
 
-            private void ReadPacketAsync(object state)
+            private void ReadMessageAsync(object state)
             {
                 SecureChannelStream stream = state as SecureChannelStream;
                 bool doReconnect = false;
 
                 try
                 {
-                    FixMemoryStream mS = new FixMemoryStream(MAX_BUFFER_SIZE);
+                    FixMemoryStream mS = new FixMemoryStream(BUFFER_SIZE);
                     byte[] buffer = mS.Buffer;
                     int dataLength;
 
                     while (true)
                     {
                         OffsetStream.StreamRead(stream, buffer, 0, 2);
-                        dataLength = BitConverter.ToUInt16(buffer, 0) + 1;
+                        dataLength = BitConverter.ToUInt16(buffer, 0);
 
                         mS.SetLength(dataLength);
                         mS.Position = 0;
@@ -620,7 +621,7 @@ namespace BitChatClient.Network
 
                         try
                         {
-                            PacketReceived(this, mS, stream.RemotePeerEP);
+                            MessageReceived(this, mS, stream.RemotePeerEP);
                         }
                         catch
                         { }
@@ -690,12 +691,12 @@ namespace BitChatClient.Network
 
             #region public
 
-            public void WritePacket(byte[] data, int offset, int count)
+            public void WriteMessage(byte[] data, int offset, int count)
             {
-                if (count > MAX_BUFFER_SIZE)
-                    throw new IOException("BitChatNetwork packet data size cannot exceed 65532 bytes.");
+                if (count > (MAX_MESSAGE_SIZE - 2))
+                    throw new IOException("BitChatNetwork message data size cannot exceed " + MAX_MESSAGE_SIZE + " bytes.");
 
-                byte[] len = BitConverter.GetBytes(Convert.ToUInt16(count - 1));
+                byte[] len = BitConverter.GetBytes(Convert.ToUInt16(count));
 
                 lock (_streamList)
                 {
@@ -741,7 +742,7 @@ namespace BitChatClient.Network
 
                 lock (_readThreadList)
                 {
-                    Thread readThread = new Thread(ReadPacketAsync);
+                    Thread readThread = new Thread(ReadMessageAsync);
                     readThread.IsBackground = true;
 
                     _readThreadList.Add(readThread);

@@ -119,7 +119,9 @@ namespace BitChatClient.Network.SecureChannel
         object _readLock = new object();
 
         //buffering
-        const int BUFFER_SIZE = 65536;
+        const int MAX_PACKET_SIZE = 65255; //max connection frame payload size
+        const int BUFFER_SIZE = 65535;
+
         int _authHMACSize;
 
         byte[] _writeBufferData = new byte[BUFFER_SIZE];
@@ -256,7 +258,7 @@ namespace BitChatClient.Network.SecureChannel
 
                 do
                 {
-                    int bytesAvailable = BUFFER_SIZE - _writeBufferPosition - _authHMACSize;
+                    int bytesAvailable = MAX_PACKET_SIZE - _writeBufferPosition - _authHMACSize;
                     if (bytesAvailable < count)
                     {
                         if (bytesAvailable > 0)
@@ -310,7 +312,7 @@ namespace BitChatClient.Network.SecureChannel
                     if (_channelClosed)
                         throw new SecureChannelException(SecureChannelCode.EndOfStream, _remotePeerEP, _remotePeerCert);
 
-                    bytesAvailableForRead = ReadSecureChannelFrame();
+                    bytesAvailableForRead = ReadSecureChannelPacket();
 
                     //check header flags
                     switch (_readBufferData[2])
@@ -392,7 +394,7 @@ namespace BitChatClient.Network.SecureChannel
 
                 _bytesSent += _writeBufferPosition - 3;
 
-                //write secure channel frame
+                //write secure channel packet
 
                 //calc header and padding
                 ushort dataLength = Convert.ToUInt16(_writeBufferPosition); //includes 3 bytes header length
@@ -440,16 +442,16 @@ namespace BitChatClient.Network.SecureChannel
             }
         }
 
-        private int ReadSecureChannelFrame()
+        private int ReadSecureChannelPacket()
         {
-            //read secure channel frame
+            //read secure channel packet
 
             //read first block to read the encrypted packet size
             OffsetStream.StreamRead(_baseStream, _readEncryptedData, 0, _blockSizeBytes);
             _cryptoDecryptor.TransformBlock(_readEncryptedData, 0, _blockSizeBytes, _readBufferData, 0);
             _readBufferPosition = _blockSizeBytes;
 
-            //read frame header 2 byte length
+            //read packet header 2 byte length
             int dataLength = BitConverter.ToUInt16(_readBufferData, 0);
             _readBufferLength = dataLength;
 
@@ -497,7 +499,7 @@ namespace BitChatClient.Network.SecureChannel
 
             _readBufferPosition = 3;
 
-            //return bytes available in this frame to read
+            //return bytes available in this packet to read
             return _readBufferLength - _readBufferPosition;
         }
 
@@ -548,7 +550,7 @@ namespace BitChatClient.Network.SecureChannel
                     //write in-transit data into special read buffer
                     do
                     {
-                        bytesAvailableForRead = ReadSecureChannelFrame();
+                        bytesAvailableForRead = ReadSecureChannelPacket();
                         if (bytesAvailableForRead > 0)
                         {
                             if (_reNegotiateReadBuffer == null)

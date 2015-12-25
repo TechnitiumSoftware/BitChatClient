@@ -588,7 +588,7 @@ namespace BitChatClient.Network.Connections
         {
             try
             {
-                byte[] response = _dhtClient.ProcessPacket(dhtPacketData, viaConnection.RemotePeerEP);
+                byte[] response = _dhtClient.ProcessPacket(dhtPacketData, viaConnection.RemotePeerEP.Address);
 
                 if (response != null)
                     viaConnection.SendDhtPacket(response, 0, response.Length);

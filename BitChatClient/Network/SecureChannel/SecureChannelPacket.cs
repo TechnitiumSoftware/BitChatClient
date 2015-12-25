@@ -81,9 +81,6 @@ namespace BitChatClient.Network.SecureChannel
 
         private static void WritePacket(Stream s, byte[] data, int offset, int count)
         {
-            if (count > 65534)
-                throw new IOException("SecureChannelPacket data size cannot exceed 65534 bytes.");
-
             byte[] buffer = new byte[1 + 2 + count];
 
             buffer[0] = Convert.ToByte(SecureChannelCode.None);

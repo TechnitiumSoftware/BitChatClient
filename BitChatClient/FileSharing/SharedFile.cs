@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+using BitChatClient.Network;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -59,11 +60,11 @@ namespace BitChatClient.FileSharing
 
         static Dictionary<BinaryID, SharedFile> _sharedFiles = new Dictionary<BinaryID, SharedFile>();
 
-        const int TOTAL_DOWNLOAD_BLOCKS = 5;
+        const int MAX_DOWNLOADING_BLOCKS = 5;
         const int DOWNLOAD_MONITOR_INTERVAL = 10000; //10 seconds
         const int DOWNLOAD_INACTIVE_INTERVAL_SECONDS = 30; //30 seconds
 
-        public const ushort MIN_BLOCK_SIZE = 57344; //56kb min block size
+        const ushort MIN_BLOCK_SIZE = 57344; //56kb min block size
 
         SynchronizationContext _syncCxt;
 
@@ -204,10 +205,10 @@ namespace BitChatClient.FileSharing
             //calculate block size
             int blockSize;
             {
-                //header size = ChatMessage header + FileAdvertisement header
-                int packetHeaderSize = (20 + 1 + 2) + (1 + 1 + 255 + 1 + 255 + 8 + 8 + 4 + 1 + 10 + 1);
-                int packetDataSize = 65536 - packetHeaderSize;
-                int totalBlocksPossible = packetDataSize / hashSize;
+                //FileAdvertisement header
+                int AdvtHeaderSize = 1 + 1 + 255 + 1 + 255 + 8 + 8 + 4 + 1 + 255 + 1;
+                int payloadSize = BitChatNetwork.MAX_MESSAGE_SIZE - AdvtHeaderSize; //max secure channel packet paload size - header
+                int totalBlocksPossible = payloadSize / hashSize;
                 blockSize = Convert.ToInt32(fS.Length / totalBlocksPossible);
 
                 if (blockSize <= short.MaxValue)
@@ -556,11 +557,11 @@ namespace BitChatClient.FileSharing
                 SendFileShareParticipate();
 
                 //start block download
-                _downloadingBlocks = new List<FileBlockDownloadManager>(TOTAL_DOWNLOAD_BLOCKS);
+                _downloadingBlocks = new List<FileBlockDownloadManager>(MAX_DOWNLOADING_BLOCKS);
 
                 lock (_downloadingBlocks)
                 {
-                    for (int i = 0; i < TOTAL_DOWNLOAD_BLOCKS; i++)
+                    for (int i = 0; i < MAX_DOWNLOADING_BLOCKS; i++)
                     {
                         FileBlockDownloadManager download = GetRandomDownloadBlock();
 
@@ -672,13 +673,13 @@ namespace BitChatClient.FileSharing
                     //remove extra inactive blocks to maintain total x 2 numbe of blocks
                     //this will prevent memory getting filled with large number of inactive blocks
 
-                    if (_downloadingBlocks.Count > TOTAL_DOWNLOAD_BLOCKS * 2)
+                    if (_downloadingBlocks.Count > MAX_DOWNLOADING_BLOCKS * 2)
                     {
                         foreach (FileBlockDownloadManager downloadBlock in inactiveDownloadBlocks)
                         {
                             _downloadingBlocks.Remove(downloadBlock);
 
-                            if (_downloadingBlocks.Count <= TOTAL_DOWNLOAD_BLOCKS * 2)
+                            if (_downloadingBlocks.Count <= MAX_DOWNLOADING_BLOCKS * 2)
                                 break;
                         }
                     }
@@ -735,14 +736,14 @@ namespace BitChatClient.FileSharing
             lock (_peers)
             {
                 foreach (BitChat.Peer peer in _peers)
-                    peer.WritePacket(packetData);
+                    peer.WriteMessage(packetData);
             }
 
             //announce to all seeds
             lock (_seeders)
             {
                 foreach (BitChat.Peer seeder in _seeders)
-                    seeder.WritePacket(packetData);
+                    seeder.WriteMessage(packetData);
             }
         }
 
@@ -906,7 +907,7 @@ namespace BitChatClient.FileSharing
             lock (_chats)
             {
                 foreach (BitChat chat in _chats)
-                    chat.WritePacketBroadcast(packetData, 0, packetData.Length);
+                    chat.WriteMessageBroadcast(packetData, 0, packetData.Length);
             }
         }
 
@@ -917,7 +918,7 @@ namespace BitChatClient.FileSharing
             lock (_chats)
             {
                 foreach (BitChat chat in _chats)
-                    chat.WritePacketBroadcast(packetData, 0, packetData.Length);
+                    chat.WriteMessageBroadcast(packetData, 0, packetData.Length);
             }
         }
 
@@ -928,14 +929,14 @@ namespace BitChatClient.FileSharing
             lock (_chats)
             {
                 foreach (BitChat chat in _chats)
-                    chat.WritePacketBroadcast(packetData, 0, packetData.Length);
+                    chat.WriteMessageBroadcast(packetData, 0, packetData.Length);
             }
         }
 
         private void SendFileShareUnparticipate(BitChat chat)
         {
             byte[] packetData = BitChatMessage.CreateFileUnparticipate(_metaData.FileID);
-            chat.WritePacketBroadcast(packetData, 0, packetData.Length);
+            chat.WriteMessageBroadcast(packetData, 0, packetData.Length);
         }
 
         #endregion
