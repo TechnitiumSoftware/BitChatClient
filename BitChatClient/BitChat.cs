@@ -79,7 +79,7 @@ namespace BitChatClient
         bool _enableTracking;
 
         //noop timer
-        const int NOOP_PACKET_TIMER_INTERVAL = 15000;
+        const int NOOP_MESSAGE_TIMER_INTERVAL = 15000;
         Timer _NOOPTimer;
 
         //network status
@@ -157,7 +157,7 @@ namespace BitChatClient
             }
 
             //start noop timer
-            _NOOPTimer = new Timer(NOOPTimerCallback, null, NOOP_PACKET_TIMER_INTERVAL, Timeout.Infinite);
+            _NOOPTimer = new Timer(NOOPTimerCallback, null, NOOP_MESSAGE_TIMER_INTERVAL, Timeout.Infinite);
 
             //start network update timer
             _updateNetworkStatusTimer = new Timer(UpdateNetworkStatusCallback, null, NETWORK_STATUS_TIMER_INTERVAL, Timeout.Infinite);
@@ -388,19 +388,19 @@ namespace BitChatClient
 
         public void SendTypingNotification()
         {
-            byte[] packetData = BitChatMessage.CreateTypingNotification();
-            _network.WritePacketBroadcast(packetData, 0, packetData.Length);
+            byte[] messageData = BitChatMessage.CreateTypingNotification();
+            _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
         }
 
         public void SendTextMessage(string message)
         {
-            byte[] packetData = BitChatMessage.CreateTextMessage(message);
-            _network.WritePacketBroadcast(packetData, 0, packetData.Length);
+            byte[] messageData = BitChatMessage.CreateTextMessage(message);
+            _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
         }
 
-        internal void WritePacketBroadcast(byte[] data, int offset, int count)
+        internal void WriteMessageBroadcast(byte[] data, int offset, int count)
         {
-            _network.WritePacketBroadcast(data, offset, count);
+            _network.WriteMessageBroadcast(data, offset, count);
         }
 
         public void ShareFile(string filePath, string hashAlgo = "SHA1")
@@ -494,8 +494,8 @@ namespace BitChatClient
 
         private void SendFileAdvertisement(SharedFile sharedFile)
         {
-            byte[] packetData = BitChatMessage.CreateFileAdvertisement(sharedFile.MetaData);
-            _network.WritePacketBroadcast(packetData, 0, packetData.Length);
+            byte[] messageData = BitChatMessage.CreateFileAdvertisement(sharedFile.MetaData);
+            _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
         }
 
         private void profile_ProxyUpdated(object sender, EventArgs e)
@@ -523,11 +523,11 @@ namespace BitChatClient
             }
 
             //send other peers ep list to online peers
-            byte[] packetData = BitChatMessage.CreatePeerExchange(peerList);
+            byte[] messageData = BitChatMessage.CreatePeerExchange(peerList);
 
             foreach (Peer onlinePeer in onlinePeers)
             {
-                onlinePeer.WritePacket(packetData);
+                onlinePeer.WriteMessage(messageData);
             }
         }
 
@@ -750,15 +750,15 @@ namespace BitChatClient
         {
             try
             {
-                byte[] packetData = BitChatMessage.CreateNOOPMessage();
-                _network.WritePacketBroadcast(packetData, 0, packetData.Length);
+                byte[] messageData = BitChatMessage.CreateNOOPMessage();
+                _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
             }
             catch
             { }
             finally
             {
                 if (_NOOPTimer != null)
-                    _NOOPTimer.Change(NOOP_PACKET_TIMER_INTERVAL, Timeout.Infinite);
+                    _NOOPTimer.Change(NOOP_MESSAGE_TIMER_INTERVAL, Timeout.Infinite);
             }
         }
 
@@ -931,7 +931,7 @@ namespace BitChatClient
 
                 _isSelfPeer = (_virtualPeer.PeerCertificate.IssuedTo.EmailAddress.Address == _bitchat._profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address);
 
-                _virtualPeer.PacketReceived += virtualPeer_PacketReceived;
+                _virtualPeer.MessageReceived += virtualPeer_MessageReceived;
                 _virtualPeer.StreamStateChanged += virtualPeer_StreamStateChanged;
             }
 
@@ -1011,9 +1011,11 @@ namespace BitChatClient
                 }
             }
 
-            private void virtualPeer_PacketReceived(BitChatNetwork.VirtualPeer sender, Stream packetDataStream, IPEndPoint remotePeerEP)
+            private void virtualPeer_MessageReceived(BitChatNetwork.VirtualPeer sender, Stream messageDataStream, IPEndPoint remotePeerEP)
             {
-                switch (BitChatMessage.ReadType(packetDataStream))
+                BitChatMessageType type = BitChatMessage.ReadType(messageDataStream);
+
+                switch (type)
                 {
                     case BitChatMessageType.TypingNotification:
                         #region Typing Notification
@@ -1029,7 +1031,7 @@ namespace BitChatClient
                         #region Text
                         {
                             if (_bitchat.MessageReceived != null)
-                                _bitchat.RaiseEventMessageReceived(this, BitChatMessage.ReadTextMessage(packetDataStream));
+                                _bitchat.RaiseEventMessageReceived(this, BitChatMessage.ReadTextMessage(messageDataStream));
 
                             break;
                         }
@@ -1038,7 +1040,7 @@ namespace BitChatClient
                     case BitChatMessageType.FileAdvertisement:
                         #region FileAdvertisement
                         {
-                            SharedFile sharedFile = SharedFile.PrepareDownloadFile(BitChatMessage.ReadFileAdvertisement(packetDataStream), _bitchat, this, _bitchat._profile, _bitchat._syncCxt);
+                            SharedFile sharedFile = SharedFile.PrepareDownloadFile(BitChatMessage.ReadFileAdvertisement(messageDataStream), _bitchat, this, _bitchat._profile, _bitchat._syncCxt);
 
                             lock (_bitchat._sharedFiles)
                             {
@@ -1055,7 +1057,7 @@ namespace BitChatClient
                                         sharedFile.AddChat(_bitchat);
                                         sharedFile.AddSeeder(this); //add the seeder
 
-                                        WritePacket(BitChatMessage.CreateFileParticipate(sharedFile.MetaData.FileID));
+                                        WriteMessage(BitChatMessage.CreateFileParticipate(sharedFile.MetaData.FileID));
                                     }
                                 }
                                 else
@@ -1075,25 +1077,9 @@ namespace BitChatClient
                     case BitChatMessageType.FileBlockRequest:
                         #region FileBlockRequest
                         {
-                            FileBlockRequest blockRequest = BitChatMessage.ReadFileBlockRequest(packetDataStream);
-                            SharedFile sharedFile;
+                            FileBlockRequest blockRequest = BitChatMessage.ReadFileBlockRequest(messageDataStream);
 
-                            lock (_bitchat._sharedFiles)
-                            {
-                                sharedFile = _bitchat._sharedFiles[blockRequest.FileID];
-                            }
-
-                            if (sharedFile.State == FileSharing.SharedFileState.Paused)
-                                return;
-
-                            if (!sharedFile.PeerExists(this))
-                                return;
-
-                            FileBlockDataPart blockData = sharedFile.ReadBlock(blockRequest.BlockNumber, blockRequest.BlockOffset, blockRequest.Length);
-
-                            byte[] packetData = BitChatMessage.CreateFileBlockResponse(blockData);
-                            _virtualPeer.WritePacket(packetData, 0, packetData.Length);
-
+                            ThreadPool.QueueUserWorkItem(ProcessFileSharingMessagesAsync, new object[] { type, blockRequest });
                             break;
                         }
                         #endregion
@@ -1101,33 +1087,9 @@ namespace BitChatClient
                     case BitChatMessageType.FileBlockResponse:
                         #region FileBlockResponse
                         {
-                            FileBlockDataPart blockData = BitChatMessage.ReadFileBlockData(packetDataStream);
-                            SharedFile sharedFile;
+                            FileBlockDataPart blockData = BitChatMessage.ReadFileBlockData(messageDataStream);
 
-                            lock (_bitchat._sharedFiles)
-                            {
-                                sharedFile = _bitchat._sharedFiles[blockData.FileID];
-                            }
-
-                            if (sharedFile.State == FileSharing.SharedFileState.Paused)
-                                return;
-
-                            if (!sharedFile.PeerExists(this))
-                                return;
-
-                            SharedFile.FileBlockDownloadManager downloadingBlock = sharedFile.GetDownloadingBlock(blockData.BlockNumber);
-                            if (downloadingBlock != null)
-                            {
-                                if (downloadingBlock.IsThisDownloadPeerSet(this))
-                                {
-                                    if (!downloadingBlock.SetBlockData(blockData))
-                                    {
-                                        byte[] packetData = BitChatMessage.CreateFileBlockRequest(downloadingBlock.GetNextRequest());
-                                        _virtualPeer.WritePacket(packetData, 0, packetData.Length);
-                                    }
-                                }
-                            }
-
+                            ThreadPool.QueueUserWorkItem(ProcessFileSharingMessagesAsync, new object[] { type, blockData });
                             break;
                         }
                         #endregion
@@ -1135,26 +1097,9 @@ namespace BitChatClient
                     case BitChatMessageType.FileBlockWanted:
                         #region FileBlockWanted
                         {
-                            FileBlockWanted blockWanted = BitChatMessage.ReadFileBlockWanted(packetDataStream);
-                            SharedFile sharedFile;
+                            FileBlockWanted blockWanted = BitChatMessage.ReadFileBlockWanted(messageDataStream);
 
-                            lock (_bitchat._sharedFiles)
-                            {
-                                sharedFile = _bitchat._sharedFiles[blockWanted.FileID];
-                            }
-
-                            if (sharedFile.State == FileSharing.SharedFileState.Paused)
-                                return;
-
-                            if (!sharedFile.PeerExists(this))
-                                return;
-
-                            if (sharedFile.IsBlockAvailable(blockWanted.BlockNumber))
-                            {
-                                byte[] packetData = BitChatMessage.CreateFileBlockAvailable(blockWanted);
-                                _virtualPeer.WritePacket(packetData, 0, packetData.Length);
-                            }
-
+                            ThreadPool.QueueUserWorkItem(ProcessFileSharingMessagesAsync, new object[] { type, blockWanted });
                             break;
                         }
                         #endregion
@@ -1162,33 +1107,9 @@ namespace BitChatClient
                     case BitChatMessageType.FileBlockAvailable:
                         #region FileBlockAvailable
                         {
-                            FileBlockWanted blockWanted = BitChatMessage.ReadFileBlockWanted(packetDataStream);
-                            SharedFile sharedFile;
+                            FileBlockWanted blockWanted = BitChatMessage.ReadFileBlockWanted(messageDataStream);
 
-                            lock (_bitchat._sharedFiles)
-                            {
-                                sharedFile = _bitchat._sharedFiles[blockWanted.FileID];
-                            }
-
-                            if (sharedFile.IsComplete)
-                                return;
-
-                            if (sharedFile.State == FileSharing.SharedFileState.Paused)
-                                return;
-
-                            if (!sharedFile.PeerExists(this))
-                                return;
-
-                            SharedFile.FileBlockDownloadManager downloadingBlock = sharedFile.GetDownloadingBlock(blockWanted.BlockNumber);
-                            if (downloadingBlock != null)
-                            {
-                                if (downloadingBlock.SetDownloadPeer(this))
-                                {
-                                    byte[] packetData = BitChatMessage.CreateFileBlockRequest(downloadingBlock.GetNextRequest());
-                                    _virtualPeer.WritePacket(packetData, 0, packetData.Length);
-                                }
-                            }
-
+                            ThreadPool.QueueUserWorkItem(ProcessFileSharingMessagesAsync, new object[] { type, blockWanted });
                             break;
                         }
                         #endregion
@@ -1196,7 +1117,7 @@ namespace BitChatClient
                     case BitChatMessageType.FileShareParticipate:
                         #region FileShareParticipate
                         {
-                            BinaryID fileID = BitChatMessage.ReadFileID(packetDataStream);
+                            BinaryID fileID = BitChatMessage.ReadFileID(messageDataStream);
 
                             lock (_bitchat._sharedFiles)
                             {
@@ -1210,7 +1131,7 @@ namespace BitChatClient
                     case BitChatMessageType.FileShareUnparticipate:
                         #region FileShareUnparticipate
                         {
-                            BinaryID fileID = BitChatMessage.ReadFileID(packetDataStream);
+                            BinaryID fileID = BitChatMessage.ReadFileID(messageDataStream);
 
                             lock (_bitchat._sharedFiles)
                             {
@@ -1224,7 +1145,7 @@ namespace BitChatClient
                     case BitChatMessageType.PeerExchange:
                         #region PeerExchange
 
-                        List<PeerInfo> peerList = BitChatMessage.ReadPeerExchange(packetDataStream);
+                        List<PeerInfo> peerList = BitChatMessage.ReadPeerExchange(messageDataStream);
 
                         lock (_connectedPeerList)
                         {
@@ -1250,14 +1171,150 @@ namespace BitChatClient
                 }
             }
 
+            private void ProcessFileSharingMessagesAsync(object state)
+            {
+                object[] parameters = state as object[];
+
+                BitChatMessageType type = (BitChatMessageType)parameters[0];
+
+                try
+                {
+                    switch (type)
+                    {
+                        case BitChatMessageType.FileBlockRequest:
+                            #region FileBlockRequest
+                            {
+                                FileBlockRequest blockRequest = parameters[1] as FileBlockRequest;
+                                SharedFile sharedFile;
+
+                                lock (_bitchat._sharedFiles)
+                                {
+                                    sharedFile = _bitchat._sharedFiles[blockRequest.FileID];
+                                }
+
+                                if (sharedFile.State == FileSharing.SharedFileState.Paused)
+                                    return;
+
+                                if (!sharedFile.PeerExists(this))
+                                    return;
+
+                                FileBlockDataPart blockData = sharedFile.ReadBlock(blockRequest.BlockNumber, blockRequest.BlockOffset, blockRequest.Length);
+
+                                byte[] messageData = BitChatMessage.CreateFileBlockResponse(blockData);
+                                _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
+
+                                break;
+                            }
+                            #endregion
+
+                        case BitChatMessageType.FileBlockResponse:
+                            #region FileBlockResponse
+                            {
+                                FileBlockDataPart blockData = parameters[1] as FileBlockDataPart;
+                                SharedFile sharedFile;
+
+                                lock (_bitchat._sharedFiles)
+                                {
+                                    sharedFile = _bitchat._sharedFiles[blockData.FileID];
+                                }
+
+                                if (sharedFile.State == FileSharing.SharedFileState.Paused)
+                                    return;
+
+                                if (!sharedFile.PeerExists(this))
+                                    return;
+
+                                SharedFile.FileBlockDownloadManager downloadingBlock = sharedFile.GetDownloadingBlock(blockData.BlockNumber);
+                                if (downloadingBlock != null)
+                                {
+                                    if (downloadingBlock.IsThisDownloadPeerSet(this))
+                                    {
+                                        if (!downloadingBlock.SetBlockData(blockData))
+                                        {
+                                            byte[] messageData = BitChatMessage.CreateFileBlockRequest(downloadingBlock.GetNextRequest());
+                                            _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
+                                        }
+                                    }
+                                }
+
+                                break;
+                            }
+                            #endregion
+
+                        case BitChatMessageType.FileBlockWanted:
+                            #region FileBlockWanted
+                            {
+                                FileBlockWanted blockWanted = parameters[1] as FileBlockWanted;
+                                SharedFile sharedFile;
+
+                                lock (_bitchat._sharedFiles)
+                                {
+                                    sharedFile = _bitchat._sharedFiles[blockWanted.FileID];
+                                }
+
+                                if (sharedFile.State == FileSharing.SharedFileState.Paused)
+                                    return;
+
+                                if (!sharedFile.PeerExists(this))
+                                    return;
+
+                                if (sharedFile.IsBlockAvailable(blockWanted.BlockNumber))
+                                {
+                                    byte[] messageData = BitChatMessage.CreateFileBlockAvailable(blockWanted);
+                                    _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
+                                }
+
+                                break;
+                            }
+                            #endregion
+
+                        case BitChatMessageType.FileBlockAvailable:
+                            #region FileBlockAvailable
+                            {
+                                FileBlockWanted blockWanted = parameters[1] as FileBlockWanted;
+                                SharedFile sharedFile;
+
+                                lock (_bitchat._sharedFiles)
+                                {
+                                    sharedFile = _bitchat._sharedFiles[blockWanted.FileID];
+                                }
+
+                                if (sharedFile.IsComplete)
+                                    return;
+
+                                if (sharedFile.State == FileSharing.SharedFileState.Paused)
+                                    return;
+
+                                if (!sharedFile.PeerExists(this))
+                                    return;
+
+                                SharedFile.FileBlockDownloadManager downloadingBlock = sharedFile.GetDownloadingBlock(blockWanted.BlockNumber);
+                                if (downloadingBlock != null)
+                                {
+                                    if (downloadingBlock.SetDownloadPeer(this))
+                                    {
+                                        byte[] messageData = BitChatMessage.CreateFileBlockRequest(downloadingBlock.GetNextRequest());
+                                        _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
+                                    }
+                                }
+
+                                break;
+                            }
+                            #endregion
+                    }
+                }
+                catch
+                { }
+            }
+
             private void DoSendSharedFileMetaData()
             {
                 foreach (KeyValuePair<BinaryID, SharedFile> sharedFile in _bitchat._sharedFiles)
                 {
                     if (sharedFile.Value.State == SharedFileState.Sharing)
                     {
-                        byte[] packetData = BitChatMessage.CreateFileAdvertisement(sharedFile.Value.MetaData);
-                        _virtualPeer.WritePacket(packetData, 0, packetData.Length);
+                        byte[] messageData = BitChatMessage.CreateFileAdvertisement(sharedFile.Value.MetaData);
+                        _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
                     }
                 }
             }
@@ -1305,9 +1362,9 @@ namespace BitChatClient
                     RaiseEventNetworkStatusUpdated();
             }
 
-            internal void WritePacket(byte[] packetData)
+            internal void WriteMessage(byte[] messageData)
             {
-                _virtualPeer.WritePacket(packetData, 0, packetData.Length);
+                _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
             }
 
             public override string ToString()
