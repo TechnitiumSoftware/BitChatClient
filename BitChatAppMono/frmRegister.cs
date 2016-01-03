@@ -382,6 +382,11 @@ namespace BitChatAppMono
             pnlRegister.Visible = true;
         }
 
+        private void linkLabel2_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            System.Diagnostics.Process.Start("http://blog.technitium.com/2015/11/how-to-register-profile-get-started.html");
+        }
+
         #endregion
 
         #region properties

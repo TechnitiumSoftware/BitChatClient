@@ -58,7 +58,12 @@ namespace BitChatAppMono
 
         private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            System.Diagnostics.Process.Start("http://bitchat.im");
+            System.Diagnostics.Process.Start("https://bitchat.im");
+        }
+
+        private void linkLabel2_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            System.Diagnostics.Process.Start("http://blog.technitium.com/2015/11/how-to-register-profile-get-started.html");
         }
 
         private void frmRegisterNow_Click(object sender, EventArgs e)
