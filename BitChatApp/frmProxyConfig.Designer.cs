@@ -178,7 +178,8 @@
             this.cmbProxy.Items.AddRange(new object[] {
             "Proxy Disabled",
             "Http Proxy",
-            "Socks 5 Proxy"});
+            "Socks 5 Proxy",
+            "Socks 5 (Tor Network)"});
             this.cmbProxy.Location = new System.Drawing.Point(157, 48);
             this.cmbProxy.Name = "cmbProxy";
             this.cmbProxy.Size = new System.Drawing.Size(140, 21);

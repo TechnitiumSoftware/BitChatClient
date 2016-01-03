@@ -39,6 +39,7 @@
             this.groupBox1 = new System.Windows.Forms.GroupBox();
             this.label15 = new System.Windows.Forms.Label();
             this.groupBox2 = new System.Windows.Forms.GroupBox();
+            this.label9 = new System.Windows.Forms.Label();
             this.cmbProxy = new System.Windows.Forms.ComboBox();
             this.chkProxyAuth = new System.Windows.Forms.CheckBox();
             this.txtProxyPass = new System.Windows.Forms.TextBox();
@@ -62,7 +63,6 @@
             this.btnOK = new System.Windows.Forms.Button();
             this.btnClose = new System.Windows.Forms.Button();
             this.btnCheckProxy = new System.Windows.Forms.Button();
-            this.label9 = new System.Windows.Forms.Label();
             this.groupBox1.SuspendLayout();
             this.groupBox2.SuspendLayout();
             this.SuspendLayout();
@@ -186,6 +186,15 @@
             this.groupBox2.TabStop = false;
             this.groupBox2.Text = "Profile Settings";
             // 
+            // label9
+            // 
+            this.label9.AutoSize = true;
+            this.label9.Location = new System.Drawing.Point(35, 215);
+            this.label9.Name = "label9";
+            this.label9.Size = new System.Drawing.Size(60, 13);
+            this.label9.TabIndex = 51;
+            this.label9.Text = "Proxy Type";
+            // 
             // cmbProxy
             // 
             this.cmbProxy.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
@@ -193,7 +202,8 @@
             this.cmbProxy.Items.AddRange(new object[] {
             "Proxy Disabled",
             "Http Proxy",
-            "Socks 5 Proxy"});
+            "Socks 5 Proxy",
+            "Socks 5 (Tor Network)"});
             this.cmbProxy.Location = new System.Drawing.Point(101, 212);
             this.cmbProxy.Name = "cmbProxy";
             this.cmbProxy.Size = new System.Drawing.Size(167, 21);
@@ -407,15 +417,6 @@
             this.btnCheckProxy.Text = "Check Proxy";
             this.btnCheckProxy.UseVisualStyleBackColor = true;
             this.btnCheckProxy.Click += new System.EventHandler(this.btnCheckProxy_Click);
-            // 
-            // label9
-            // 
-            this.label9.AutoSize = true;
-            this.label9.Location = new System.Drawing.Point(35, 215);
-            this.label9.Name = "label9";
-            this.label9.Size = new System.Drawing.Size(60, 13);
-            this.label9.TabIndex = 51;
-            this.label9.Text = "Proxy Type";
             // 
             // frmSettings
             // 

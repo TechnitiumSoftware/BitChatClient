@@ -21,7 +21,11 @@ namespace BitChatAppMono
         {
             InitializeComponent();
 
-            cmbProxy.SelectedIndex = (int)proxyType;
+            if ((proxyPort == 9150) && (proxyAddress == "127.0.0.1"))
+                cmbProxy.SelectedIndex = 3;
+            else
+                cmbProxy.SelectedIndex = (int)proxyType;
+
             txtProxyAddress.Text = proxyAddress;
             txtProxyPort.Text = proxyPort.ToString();
 
@@ -42,11 +46,28 @@ namespace BitChatAppMono
         private void cmbProxy_SelectedIndexChanged(object sender, EventArgs e)
         {
             btnCheckProxy.Enabled = (cmbProxy.SelectedIndex != 0);
-            txtProxyAddress.Enabled = btnCheckProxy.Enabled;
-            txtProxyPort.Enabled = btnCheckProxy.Enabled;
-            chkProxyAuth.Enabled = btnCheckProxy.Enabled;
-            txtProxyUser.Enabled = chkProxyAuth.Enabled && chkProxyAuth.Checked;
-            txtProxyPass.Enabled = chkProxyAuth.Enabled && chkProxyAuth.Checked;
+
+            if (cmbProxy.SelectedIndex == 3)
+            {
+                //socks 5 tor
+                txtProxyAddress.Enabled = false;
+                txtProxyPort.Enabled = false;
+                chkProxyAuth.Enabled = false;
+                txtProxyUser.Enabled = false;
+                txtProxyPass.Enabled = false;
+
+                txtProxyAddress.Text = "127.0.0.1";
+                txtProxyPort.Text = "9150";
+                chkProxyAuth.Checked = false;
+            }
+            else
+            {
+                txtProxyAddress.Enabled = btnCheckProxy.Enabled;
+                txtProxyPort.Enabled = btnCheckProxy.Enabled;
+                chkProxyAuth.Enabled = btnCheckProxy.Enabled;
+                txtProxyUser.Enabled = chkProxyAuth.Enabled && chkProxyAuth.Checked;
+                txtProxyPass.Enabled = chkProxyAuth.Enabled && chkProxyAuth.Checked;
+            }
         }
 
         private void btnOK_Click(object sender, EventArgs e)
@@ -79,7 +100,7 @@ namespace BitChatAppMono
         {
             try
             {
-                NetProxyType proxyType = (NetProxyType)cmbProxy.SelectedIndex;
+                NetProxyType proxyType = this.ProxyType;
                 NetProxy proxy;
                 NetworkCredential credentials = null;
 
@@ -111,7 +132,15 @@ namespace BitChatAppMono
         }
 
         public NetProxyType ProxyType
-        { get { return (NetProxyType)cmbProxy.SelectedIndex; } }
+        {
+            get
+            {
+                if (cmbProxy.SelectedIndex == 3)
+                    return NetProxyType.Socks5;
+                else
+                    return (NetProxyType)cmbProxy.SelectedIndex;
+            }
+        }
 
         public string ProxyAddress
         { get { return _proxyAddress; } }
