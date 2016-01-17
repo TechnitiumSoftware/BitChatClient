@@ -80,7 +80,7 @@ namespace BitChatApp
             txtProxyPort.Enabled = btnCheckProxy.Enabled;
             chkProxyAuth.Enabled = btnCheckProxy.Enabled;
 
-            if ((profile.ProxyPort == 9150) && (profile.ProxyAddress == "127.0.0.1"))
+            if ((cmbProxy.SelectedIndex == 2) && (profile.ProxyPort == 9150) && (profile.ProxyAddress == "127.0.0.1"))
                 cmbProxy.SelectedIndex = 3;
 
             if (profile.ProxyCredentials == null)
