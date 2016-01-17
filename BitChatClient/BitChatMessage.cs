@@ -60,16 +60,10 @@ namespace BitChatClient
             {
                 mS.WriteByte((byte)BitChatMessageType.PeerExchange); //1 byte
 
-                BinaryWriter bW = new BinaryWriter(mS);
-
-                bW.Write(Convert.ToByte(peerInfoList.Count));
+                mS.WriteByte(Convert.ToByte(peerInfoList.Count));
 
                 foreach (PeerInfo peerInfo in peerInfoList)
-                {
-                    peerInfo.WriteTo(bW);
-                }
-
-                bW.Flush();
+                    peerInfo.WriteTo(mS);
 
                 return mS.ToArray();
             }
@@ -188,15 +182,11 @@ namespace BitChatClient
 
         public static List<PeerInfo> ReadPeerExchange(Stream s)
         {
-            BinaryReader bR = new BinaryReader(s);
-
-            int count = bR.ReadByte();
+            int count = s.ReadByte();
             List<PeerInfo> peerEPs = new List<PeerInfo>(count);
 
             for (int i = 0; i < count; i++)
-            {
-                peerEPs.Add(new PeerInfo(bR));
-            }
+                peerEPs.Add(new PeerInfo(s));
 
             return peerEPs;
         }

@@ -179,11 +179,6 @@ namespace BitChatClient.Network.SecureChannel
                 s.WriteByte((byte)_cryptoOptions);
             }
 
-            public override void WriteTo(BinaryWriter bW)
-            {
-                throw new NotImplementedException();
-            }
-
             #endregion
 
             #region properties
@@ -253,12 +248,7 @@ namespace BitChatClient.Network.SecureChannel
                 s.Write(BitConverter.GetBytes(Convert.ToUInt16(_signature.Length)), 0, 2);
                 s.Write(_signature, 0, _signature.Length);
             }
-
-            public override void WriteTo(BinaryWriter bW)
-            {
-                throw new NotImplementedException();
-            }
-
+            
             #endregion
 
             #region properties
@@ -309,11 +299,6 @@ namespace BitChatClient.Network.SecureChannel
             public override void WriteTo(Stream s)
             {
                 _hmac.WriteTo(s);
-            }
-
-            public override void WriteTo(BinaryWriter bW)
-            {
-                throw new NotImplementedException();
             }
 
             #endregion

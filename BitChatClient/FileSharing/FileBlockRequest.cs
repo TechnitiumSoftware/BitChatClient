@@ -58,13 +58,13 @@ namespace BitChatClient.FileSharing
 
         #region public
 
-        public override void WriteTo(BinaryWriter bW)
+        public override void WriteTo(Stream s)
         {
-            bW.Write(Convert.ToByte(_fileID.ID.Length));
-            bW.Write(_fileID.ID);
-            bW.Write(_blockNumber);
-            bW.Write(_blockOffset);
-            bW.Write(_length);
+            s.WriteByte(Convert.ToByte(_fileID.ID.Length));
+            s.Write(_fileID.ID, 0, _fileID.ID.Length);
+            s.Write(BitConverter.GetBytes(_blockNumber), 0, 4);
+            s.Write(BitConverter.GetBytes(_blockOffset), 0, 4);
+            s.Write(BitConverter.GetBytes(_length), 0, 2);
         }
 
         #endregion

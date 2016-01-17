@@ -66,20 +66,8 @@ namespace BitChatClient.FileSharing
 
         public SharedFileMetaData(Stream s)
         {
-            ReadFrom(new BinaryReader(s));
-        }
+            BinaryReader bR = new BinaryReader(s);
 
-        public SharedFileMetaData(BinaryReader bR)
-        {
-            ReadFrom(bR);
-        }
-
-        #endregion
-
-        #region private
-
-        private void ReadFrom(BinaryReader bR)
-        {
             switch (bR.ReadByte()) //version
             {
                 case 1:
@@ -110,6 +98,10 @@ namespace BitChatClient.FileSharing
             }
         }
 
+        #endregion
+
+        #region private
+
         private BinaryID ComputeFileID()
         {
             using (MemoryStream mS = new MemoryStream(_blockHash[0].Length * _blockHash.Length))
@@ -138,8 +130,10 @@ namespace BitChatClient.FileSharing
             }
         }
 
-        public override void WriteTo(BinaryWriter bW)
+        public override void WriteTo(Stream s)
         {
+            BinaryWriter bW = new BinaryWriter(s);
+
             byte[] buffer = null;
 
             bW.Write((byte)1);
@@ -165,6 +159,8 @@ namespace BitChatClient.FileSharing
 
             for (int i = 0; i < _blockHash.Length; i++)
                 bW.Write(_blockHash[i]);
+
+            bW.Flush();
         }
 
         #endregion

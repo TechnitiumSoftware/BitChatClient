@@ -51,20 +51,8 @@ namespace AutomaticUpdate.Client
 
         public UpdateInfo(Stream s)
         {
-            ReadFrom(new BinaryReader(s));
-        }
+            BinaryReader bR = new BinaryReader(s);
 
-        public UpdateInfo(BinaryReader bR)
-        {
-            ReadFrom(bR);
-        }
-
-        #endregion
-
-        #region private
-
-        private void ReadFrom(BinaryReader bR)
-        {
             if (Encoding.ASCII.GetString(bR.ReadBytes(2)) != "UI")
                 throw new Exception("Invalid UpdateInfo format.");
 
@@ -74,7 +62,7 @@ namespace AutomaticUpdate.Client
                     _updateVersion = Encoding.ASCII.GetString(bR.ReadBytes(bR.ReadByte()));
                     _downloadURI = new Uri(Encoding.ASCII.GetString(bR.ReadBytes(bR.ReadByte())));
                     _downloadSize = bR.ReadInt64();
-                    _signature = new Signature(bR);
+                    _signature = new Signature(bR.BaseStream);
 
                     if (_signature.SigningCertificate.Capability != CertificateCapability.SignFile)
                         throw new Exception("Signing certificate is not capable to sign files.");
@@ -125,24 +113,17 @@ namespace AutomaticUpdate.Client
 
         public void WriteTo(Stream s)
         {
-            BinaryWriter bW = new BinaryWriter(s);
-            WriteTo(bW);
-            bW.Flush();
-        }
+            s.Write(Encoding.ASCII.GetBytes("UI"), 0, 2); //format
+            s.WriteByte((byte)1); //version
 
-        public void WriteTo(BinaryWriter bW)
-        {
-            bW.Write(Encoding.ASCII.GetBytes("UI")); //format
-            bW.Write((byte)1); //version
+            s.WriteByte(Convert.ToByte(_updateVersion.Length));
+            s.Write(Encoding.ASCII.GetBytes(_updateVersion), 0, _updateVersion.Length);
 
-            bW.Write(Convert.ToByte(_updateVersion.Length));
-            bW.Write(Encoding.ASCII.GetBytes(_updateVersion), 0, _updateVersion.Length);
+            s.WriteByte(Convert.ToByte(_downloadURI.AbsoluteUri.Length));
+            s.Write(Encoding.ASCII.GetBytes(_downloadURI.AbsoluteUri), 0, _downloadURI.AbsoluteUri.Length);
 
-            bW.Write(Convert.ToByte(_downloadURI.AbsoluteUri.Length));
-            bW.Write(Encoding.ASCII.GetBytes(_downloadURI.AbsoluteUri), 0, _downloadURI.AbsoluteUri.Length);
-
-            bW.Write(_downloadSize);
-            _signature.WriteTo(bW);
+            s.Write(BitConverter.GetBytes(_downloadSize), 0, 8);
+            _signature.WriteTo(s);
         }
 
         public byte[] ToArray()

@@ -52,11 +52,11 @@ namespace BitChatClient.FileSharing
 
         #region public
 
-        public override void WriteTo(BinaryWriter bW)
+        public override void WriteTo(Stream s)
         {
-            bW.Write(Convert.ToByte(_fileID.ID.Length));
-            bW.Write(_fileID.ID);
-            bW.Write(_blockNumber);
+            s.WriteByte(Convert.ToByte(_fileID.ID.Length));
+            s.Write(_fileID.ID, 0, _fileID.ID.Length);
+            s.Write(BitConverter.GetBytes(_blockNumber), 0, 4);
         }
 
         #endregion

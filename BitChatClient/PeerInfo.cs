@@ -45,46 +45,32 @@ namespace BitChatClient
 
         public PeerInfo(Stream s)
         {
-            ReadFrom(new BinaryReader(s));
-        }
+            byte[] buffer = new byte[s.ReadByte()];
+            OffsetStream.StreamRead(s, buffer, 0, buffer.Length);
+            _peerEmail = Encoding.UTF8.GetString(buffer);
 
-        public PeerInfo(BinaryReader bR)
-        {
-            ReadFrom(bR);
-        }
-
-        #endregion
-
-        #region private
-
-        private void ReadFrom(BinaryReader bR)
-        {
-            _peerEmail = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
-
-            int count = bR.ReadByte();
+            int count = s.ReadByte();
             _peerEPList = new List<IPEndPoint>(count);
 
             for (int i = 0; i < count; i++)
-                _peerEPList.Add(IPEndPointParser.Parse(bR));
+                _peerEPList.Add(IPEndPointParser.Parse(s));
         }
 
         #endregion
 
         #region public
 
-        public override void WriteTo(BinaryWriter bW)
+        public override void WriteTo(Stream s)
         {
             byte[] buffer = Encoding.UTF8.GetBytes(_peerEmail);
 
-            bW.Write(Convert.ToByte(buffer.Length));
-            bW.Write(buffer);
+            s.WriteByte(Convert.ToByte(buffer.Length));
+            s.Write(buffer, 0, buffer.Length);
 
-            bW.Write(Convert.ToByte(_peerEPList.Count));
+            s.WriteByte(Convert.ToByte(_peerEPList.Count));
 
             foreach (IPEndPoint peerEP in _peerEPList)
-            {
-                IPEndPointParser.WriteTo(peerEP, bW);
-            }
+                IPEndPointParser.WriteTo(peerEP, s);
         }
 
         public override bool Equals(object obj)

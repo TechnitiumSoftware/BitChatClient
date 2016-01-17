@@ -21,6 +21,7 @@ using System;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
+using TechnitiumLibrary.IO;
 
 namespace BitChatClient
 {
@@ -30,49 +31,60 @@ namespace BitChatClient
 
         public static IPEndPoint Parse(Stream s)
         {
-            return Parse(new BinaryReader(s));
-        }
+            byte[] address;
+            byte[] port = new byte[2];
 
-        public static IPEndPoint Parse(BinaryReader bR)
-        {
-            switch (bR.ReadByte())
+            switch (s.ReadByte())
             {
                 case 0:
-                    return new IPEndPoint(new IPAddress(bR.ReadBytes(4)), bR.ReadUInt16());
+                    address = new byte[4];
+                    break;
 
                 case 1:
-                    return new IPEndPoint(new IPAddress(bR.ReadBytes(16)), bR.ReadUInt16());
+                    address = new byte[16];
+                    break;
+
+                case -1:
+                    throw new EndOfStreamException();
 
                 default:
                     throw new NotSupportedException("AddressFamily not supported.");
             }
+
+            OffsetStream.StreamRead(s, address, 0, address.Length);
+
+            return new IPEndPoint(new IPAddress(address), BitConverter.ToUInt16(port, 0));
         }
 
         public static void WriteTo(IPEndPoint ep, Stream s)
         {
-            BinaryWriter bW = new BinaryWriter(s);
-            WriteTo(ep, bW);
-            bW.Flush();
-        }
-
-        public static void WriteTo(IPEndPoint ep, BinaryWriter bW)
-        {
             switch (ep.AddressFamily)
             {
                 case AddressFamily.InterNetwork:
-                    bW.Write((byte)0);
+                    s.WriteByte((byte)0);
                     break;
 
                 case AddressFamily.InterNetworkV6:
-                    bW.Write((byte)1);
+                    s.WriteByte((byte)1);
                     break;
 
                 default:
                     throw new NotSupportedException("AddressFamily not supported.");
             }
 
-            bW.Write(ep.Address.GetAddressBytes());
-            bW.Write(Convert.ToUInt16(ep.Port));
+            byte[] address = ep.Address.GetAddressBytes();
+            s.Write(address, 0, address.Length);
+            s.Write(BitConverter.GetBytes(Convert.ToUInt16(ep.Port)), 0, 2);
+        }
+
+        public static byte[] ToArray(IPEndPoint ep)
+        {
+            using (MemoryStream mS = new MemoryStream(20))
+            {
+                WriteTo(ep, mS);
+
+                return mS.ToArray();
+            }
         }
 
         #endregion

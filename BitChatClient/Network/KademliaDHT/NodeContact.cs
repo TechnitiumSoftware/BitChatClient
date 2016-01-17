@@ -139,11 +139,6 @@ namespace BitChatClient.Network.KademliaDHT
             s.Write(port, 0, 2);
         }
 
-        public override void WriteTo(BinaryWriter bW)
-        {
-            throw new NotImplementedException();
-        }
-
         public override bool Equals(object obj)
         {
             NodeContact contact = obj as NodeContact;

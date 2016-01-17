@@ -301,11 +301,6 @@ namespace BitChatClient.Network.KademliaDHT
             }
         }
 
-        public override void WriteTo(BinaryWriter bW)
-        {
-            throw new NotImplementedException();
-        }
-
         #endregion
 
         #region properties
