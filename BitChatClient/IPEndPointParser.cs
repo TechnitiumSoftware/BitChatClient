@@ -52,39 +52,42 @@ namespace BitChatClient
             }
 
             OffsetStream.StreamRead(s, address, 0, address.Length);
+            OffsetStream.StreamRead(s, port, 0, 2);
 
             return new IPEndPoint(new IPAddress(address), BitConverter.ToUInt16(port, 0));
         }
 
         public static void WriteTo(IPEndPoint ep, Stream s)
         {
+            byte[] endpoint = ToArray(ep);
+
+            s.Write(endpoint, 0, endpoint.Length);
+        }
+
+        public static byte[] ToArray(IPEndPoint ep)
+        {
+            byte[] address = ep.Address.GetAddressBytes();
+            byte[] port = BitConverter.GetBytes(Convert.ToUInt16(ep.Port));
+
+            byte[] endpoint = new byte[1 + address.Length + 2];
+
             switch (ep.AddressFamily)
             {
                 case AddressFamily.InterNetwork:
-                    s.WriteByte((byte)0);
                     break;
 
                 case AddressFamily.InterNetworkV6:
-                    s.WriteByte((byte)1);
+                    endpoint[0] = 1;
                     break;
 
                 default:
                     throw new NotSupportedException("AddressFamily not supported.");
             }
 
-            byte[] address = ep.Address.GetAddressBytes();
-            s.Write(address, 0, address.Length);
-            s.Write(BitConverter.GetBytes(Convert.ToUInt16(ep.Port)), 0, 2);
-        }
+            Buffer.BlockCopy(address, 0, endpoint, 1, address.Length);
+            Buffer.BlockCopy(port, 0, endpoint, 1 + address.Length, 2);
 
-        public static byte[] ToArray(IPEndPoint ep)
-        {
-            using (MemoryStream mS = new MemoryStream(20))
-            {
-                WriteTo(ep, mS);
-
-                return mS.ToArray();
-            }
+            return endpoint;
         }
 
         #endregion
