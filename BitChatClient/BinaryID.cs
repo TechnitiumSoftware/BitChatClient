@@ -20,7 +20,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using System;
 using System.IO;
 using System.Security.Cryptography;
-using System.Threading;
 using TechnitiumLibrary.IO;
 
 namespace BitChatClient
@@ -52,69 +51,23 @@ namespace BitChatClient
         #region static
 
         static RandomNumberGenerator _rnd = new RNGCryptoServiceProvider();
-        static HashAlgorithm _hashSHA1 = HashAlgorithm.Create("SHA1");
-        static HashAlgorithm _hashSHA256 = HashAlgorithm.Create("SHA256");
 
         public static BinaryID GenerateRandomID160()
         {
-            using (MemoryStream mS = new MemoryStream(64))
-            {
-                byte[] buffer = new byte[20];
+            byte[] buffer = new byte[20];
 
-                BinaryWriter bW = new BinaryWriter(mS);
+            _rnd.GetBytes(buffer);
 
-                _rnd.GetBytes(buffer);
-                bW.Write(buffer);
-
-                bW.Write(DateTime.UtcNow.ToBinary());
-
-                bW.Write(Thread.CurrentThread.ManagedThreadId);
-
-                bW.Write(System.Diagnostics.Process.GetCurrentProcess().Id);
-
-                _rnd.GetBytes(buffer);
-                bW.Write(buffer);
-
-                bW.Flush();
-
-                mS.Position = 0;
-
-                lock (_hashSHA1)
-                {
-                    return new BinaryID(_hashSHA1.ComputeHash(mS.ToArray()));
-                }
-            }
+            return new BinaryID(buffer);
         }
 
         public static BinaryID GenerateRandomID256()
         {
-            using (MemoryStream mS = new MemoryStream(128))
-            {
-                byte[] buffer = new byte[32];
+            byte[] buffer = new byte[32];
 
-                BinaryWriter bW = new BinaryWriter(mS);
+            _rnd.GetBytes(buffer);
 
-                _rnd.GetBytes(buffer);
-                bW.Write(buffer);
-
-                bW.Write(DateTime.UtcNow.ToBinary());
-
-                bW.Write(Thread.CurrentThread.ManagedThreadId);
-
-                bW.Write(System.Diagnostics.Process.GetCurrentProcess().Id);
-
-                _rnd.GetBytes(buffer);
-                bW.Write(buffer);
-
-                bW.Flush();
-
-                mS.Position = 0;
-
-                lock (_hashSHA256)
-                {
-                    return new BinaryID(_hashSHA256.ComputeHash(mS.ToArray()));
-                }
-            }
+            return new BinaryID(buffer);
         }
 
         public static BinaryID MaxValueID160()
@@ -185,12 +138,6 @@ namespace BitChatClient
         {
             s.WriteByte(Convert.ToByte(_id.Length));
             s.Write(_id, 0, _id.Length);
-        }
-
-        public override void WriteTo(BinaryWriter bW)
-        {
-            bW.Write(Convert.ToByte(_id.Length));
-            bW.Write(_id, 0, _id.Length);
         }
 
         #endregion
