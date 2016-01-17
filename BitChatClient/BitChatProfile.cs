@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using BitChatClient.FileSharing;
 using BitChatClient.Network;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Text;
@@ -183,7 +184,7 @@ namespace BitChatClient
                         throw new BitChatException(message);
                     }
 
-                    Certificate cert = new Certificate(bR);
+                    Certificate cert = new Certificate(bR.BaseStream);
 
                     if (!cert.IssuedTo.EmailAddress.Equals(_localCertStore.Certificate.IssuedTo.EmailAddress) || (cert.PublicKeyEncryptionAlgorithm != _localCertStore.PrivateKey.Algorithm) || (cert.PublicKeyXML != _localCertStore.PrivateKey.GetPublicKey()))
                         throw new BitChatException("Invalid signed certificate received. Please try again.");
@@ -197,31 +198,32 @@ namespace BitChatClient
 
         #region private
 
-        protected override void ReadPlainTextFrom(BinaryReader bR)
+        protected override void ReadPlainTextFrom(Stream s)
         {
-            if (Encoding.ASCII.GetString(bR.ReadBytes(2)) != "BP")
-                throw new BitChatException("Invalid BitChatProfile data format.");
+            BincodingDecoder decoder = new BincodingDecoder(s, "BP");
 
-            byte version = bR.ReadByte();
-
-            switch (version)
+            switch (decoder.Version)
             {
                 case 1:
-                    ReadSettingsVersion1(bR);
+                    ReadSettingsVersion1(new BinaryReader(s));
                     break;
 
                 case 2:
                 case 3:
-                    ReadSettingsVersion2And3(version, bR);
+                    ReadSettingsVersion2And3(decoder.Version, new BinaryReader(s));
                     break;
 
                 case 4:
                 case 5:
-                    ReadSettingsVersion4And5(version, bR);
+                    ReadSettingsVersion4And5(decoder.Version, new BinaryReader(s));
                     break;
 
                 case 6:
-                    ReadSettingsVersion6(bR);
+                    ReadSettingsVersion6(new BinaryReader(s));
+                    break;
+
+                case 7:
+                    ReadSettingsVersion7(decoder);
                     break;
 
                 default:
@@ -232,11 +234,11 @@ namespace BitChatClient
         private void ReadSettingsVersion1(BinaryReader bR)
         {
             //tracker client id
-            TrackerClientID localClientID = new TrackerClientID(bR);
+            TrackerClientID localClientID = new TrackerClientID(bR.BaseStream);
 
             //local cert store
             if (bR.ReadByte() == 1)
-                _localCertStore = new CertificateStore(bR);
+                _localCertStore = new CertificateStore(bR.BaseStream);
 
             //bitchat local service end point
             IPEndPoint localEP = new IPEndPoint(new IPAddress(bR.ReadBytes(bR.ReadByte())), bR.ReadInt32());
@@ -252,7 +254,7 @@ namespace BitChatClient
         {
             //local cert store
             if (bR.ReadByte() == 1)
-                _localCertStore = new CertificateStore(bR);
+                _localCertStore = new CertificateStore(bR.BaseStream);
 
             //bitchat local service end point
             IPEndPoint localEP = new IPEndPoint(new IPAddress(bR.ReadBytes(bR.ReadByte())), bR.ReadInt32());
@@ -293,7 +295,7 @@ namespace BitChatClient
         {
             //local cert store
             if (bR.ReadByte() == 1)
-                _localCertStore = new CertificateStore(bR);
+                _localCertStore = new CertificateStore(bR.BaseStream);
 
             //bitchat local port
             _localPort = bR.ReadInt32();
@@ -319,7 +321,7 @@ namespace BitChatClient
             //bootstrap dht nodes
             _bootstrapDhtNodes = new IPEndPoint[bR.ReadInt32()];
             for (int i = 0; i < _bootstrapDhtNodes.Length; i++)
-                _bootstrapDhtNodes[i] = IPEndPointParser.Parse(bR);
+                _bootstrapDhtNodes[i] = IPEndPointParser.Parse(bR.BaseStream);
 
             //upnp enabled
             _enableUPnP = bR.ReadBoolean();
@@ -337,7 +339,7 @@ namespace BitChatClient
                     proxyType = NetProxyType.None;
 
                 //socks proxy ep
-                IPEndPoint socksEP = IPEndPointParser.Parse(bR);
+                IPEndPoint socksEP = IPEndPointParser.Parse(bR.BaseStream);
                 string proxyAddress = socksEP.Address.ToString();
                 int proxyPort = socksEP.Port;
 
@@ -365,7 +367,7 @@ namespace BitChatClient
         {
             //local cert store
             if (bR.ReadByte() == 1)
-                _localCertStore = new CertificateStore(bR);
+                _localCertStore = new CertificateStore(bR.BaseStream);
 
             //bitchat local port
             _localPort = bR.ReadInt32();
@@ -391,7 +393,7 @@ namespace BitChatClient
             //bootstrap dht nodes
             _bootstrapDhtNodes = new IPEndPoint[bR.ReadInt32()];
             for (int i = 0; i < _bootstrapDhtNodes.Length; i++)
-                _bootstrapDhtNodes[i] = IPEndPointParser.Parse(bR);
+                _bootstrapDhtNodes[i] = IPEndPointParser.Parse(bR.BaseStream);
 
             //upnp enabled
             _enableUPnP = bR.ReadBoolean();
@@ -424,106 +426,213 @@ namespace BitChatClient
                 _clientData = bR.ReadBytes(dataCount);
         }
 
-        protected override void WritePlainTextTo(BinaryWriter bW)
+        private void ReadSettingsVersion7(BincodingDecoder decoder)
         {
-            bW.Write(Encoding.ASCII.GetBytes("BP"));
-            bW.Write((byte)6);
+            NetProxyType proxyType = NetProxyType.None;
+            string proxyAddress = "127.0.0.1";
+            int proxyPort = 0;
+            string username = null;
+            string password = "";
 
-            //local cert store
-            if (_localCertStore == null)
-                bW.Write((byte)0);
-            else
+            while (true)
             {
-                bW.Write((byte)1);
-                _localCertStore.WriteTo(bW);
+                Bincoding value = decoder.DecodeNext();
+
+                if (value.Type == BincodingType.NULL)
+                    break;
+
+                KeyValuePair<string, Bincoding> item = value.GetKeyValuePair();
+
+                switch (item.Key)
+                {
+                    case "local_port":
+                        _localPort = item.Value.GetIntegerValue();
+                        break;
+
+                    case "check_cert_revocation":
+                        _checkCertificateRevocationList = item.Value.GetBooleanValue();
+                        break;
+
+                    case "enable_upnp":
+                        _enableUPnP = item.Value.GetBooleanValue();
+                        break;
+
+                    case "download_folder":
+                        _downloadFolder = item.Value.GetStringValue();
+                        break;
+
+                    case "local_cert_store":
+                        _localCertStore = new CertificateStore(item.Value.GetValueStream());
+                        break;
+
+                    case "tracker_list":
+                        {
+                            List<Bincoding> trackerList = item.Value.GetList();
+
+                            _trackerURIs = new Uri[trackerList.Count];
+                            int i = 0;
+
+                            foreach (Bincoding trackerItem in trackerList)
+                                _trackerURIs[i++] = new Uri(trackerItem.GetStringValue());
+                        }
+                        break;
+
+                    case "bitchat_info":
+                        {
+                            List<Bincoding> bitChatInfoList = item.Value.GetList();
+
+                            _bitChatInfoList = new BitChatInfo[bitChatInfoList.Count];
+                            int i = 0;
+
+                            foreach (Bincoding infoItem in bitChatInfoList)
+                                _bitChatInfoList[i++] = new BitChatInfo(infoItem.GetValueStream());
+                        }
+                        break;
+
+                    case "dht_nodes":
+                        {
+                            List<Bincoding> dhtNodeList = item.Value.GetList();
+
+                            _bootstrapDhtNodes = new IPEndPoint[dhtNodeList.Count];
+                            int i = 0;
+
+                            foreach (Bincoding dhtItem in dhtNodeList)
+                                _bootstrapDhtNodes[i++] = IPEndPointParser.Parse(dhtItem.GetValueStream());
+                        }
+                        break;
+
+                    case "proxy_type":
+                        proxyType = (NetProxyType)item.Value.GetByteValue();
+                        break;
+
+                    case "proxy_address":
+                        proxyAddress = item.Value.GetStringValue();
+                        break;
+
+                    case "proxy_port":
+                        proxyPort = item.Value.GetIntegerValue();
+                        break;
+
+                    case "proxy_user":
+                        username = item.Value.GetStringValue();
+                        break;
+
+                    case "proxy_pass":
+                        password = item.Value.GetStringValue();
+                        break;
+
+                    case "client_data":
+                        if (item.Value.Type == BincodingType.BINARY)
+                            _clientData = item.Value.Value;
+
+                        break;
+                }
             }
+
+            if (_downloadFolder == null)
+            {
+                switch (Environment.OSVersion.Platform)
+                {
+                    case PlatformID.Win32NT:
+                        _downloadFolder = @"C:\";
+                        break;
+
+                    default:
+                        _downloadFolder = @"/";
+                        break;
+                }
+            }
+
+            //apply proxy settings
+            NetworkCredential proxyCredentials = null;
+
+            if (username != null)
+                proxyCredentials = new NetworkCredential(username, password);
+
+            ConfigureProxy(proxyType, proxyAddress, proxyPort, proxyCredentials);
+        }
+
+        protected override void WritePlainTextTo(Stream s)
+        {
+            BincodingEncoder encoder = new BincodingEncoder(s, "BP", 7);
+
+            //main settings
 
             //bitchat local port
-            bW.Write(_localPort);
+            encoder.Encode("local_port", _localPort);
+
+            //check CertificateRevocationList
+            encoder.Encode("check_cert_revocation", _checkCertificateRevocationList);
+
+            //upnp enabled
+            encoder.Encode("enable_upnp", _enableUPnP);
 
             //download folder
-            if (_downloadFolder == null)
-                bW.Write((ushort)0);
-            else
-            {
-                byte[] buffer = Encoding.UTF8.GetBytes(_downloadFolder);
-                bW.Write(Convert.ToUInt16(buffer.Length));
-                bW.Write(buffer, 0, buffer.Length);
-            }
+            if (_downloadFolder != null)
+                encoder.Encode("download_folder", _downloadFolder);
+
+            //local cert store
+            if (_localCertStore != null)
+                encoder.Encode("local_cert_store", _localCertStore);
 
             //tracker urls
-            bW.Write(Convert.ToByte(_trackerURIs.Length));
-            foreach (Uri trackerURI in _trackerURIs)
             {
-                byte[] buffer = Encoding.UTF8.GetBytes(trackerURI.AbsoluteUri);
-                bW.Write(Convert.ToByte(buffer.Length));
-                bW.Write(buffer);
+                List<Bincoding> trackerList = new List<Bincoding>(_trackerURIs.Length);
+
+                foreach (Uri trackerURI in _trackerURIs)
+                    trackerList.Add(Bincoding.GetValue(trackerURI.AbsoluteUri));
+
+                encoder.Encode("tracker_list", trackerList);
             }
 
             //bitchat info
-            bW.Write(Convert.ToByte(_bitChatInfoList.Length));
-            foreach (BitChatInfo info in _bitChatInfoList)
-                info.WriteTo(bW);
+            {
+                List<Bincoding> bitChatInfoList = new List<Bincoding>(_bitChatInfoList.Length);
 
-            //check CertificateRevocationList
-            bW.Write(_checkCertificateRevocationList);
+                foreach (BitChatInfo info in _bitChatInfoList)
+                    bitChatInfoList.Add(Bincoding.GetValue(info));
+
+                encoder.Encode("bitchat_info", bitChatInfoList);
+            }
 
             //bootstrap dht nodes
-            bW.Write(_bootstrapDhtNodes.Length);
-            foreach (IPEndPoint nodeEP in _bootstrapDhtNodes)
-                IPEndPointParser.WriteTo(nodeEP, bW);
+            {
+                List<Bincoding> dhtNodeList = new List<Bincoding>(_bootstrapDhtNodes.Length);
 
-            //upnp enabled
-            bW.Write(_enableUPnP);
+                foreach (IPEndPoint nodeEP in _bootstrapDhtNodes)
+                    dhtNodeList.Add(Bincoding.GetValue(IPEndPointParser.ToArray(nodeEP)));
+
+                encoder.Encode("dht_nodes", dhtNodeList);
+            }
+
+            //proxy settings
 
             //proxy type
-            if (_proxy == null)
-                bW.Write((byte)0);
-            else
-                bW.Write((byte)_proxy.Type);
+            if (_proxy != null)
+                encoder.Encode("proxy_type", (byte)_proxy.Type);
 
             //proxy address
-            {
-                byte[] buffer = Encoding.UTF8.GetBytes(_proxyAddress);
-                bW.Write(Convert.ToByte(buffer.Length));
-                bW.Write(buffer);
-            }
+            if (_proxyAddress != null)
+                encoder.Encode("proxy_address", _proxyAddress);
 
             //proxy port
-            bW.Write(_proxyPort);
+            encoder.Encode("proxy_port", _proxyPort);
 
             //proxy credentials
-            if (_proxyCredentials == null)
+            if (_proxyCredentials != null)
             {
-                bW.Write(false);
-            }
-            else
-            {
-                bW.Write(true);
-
-                {
-                    byte[] buffer = Encoding.UTF8.GetBytes(_proxyCredentials.UserName);
-                    bW.Write(Convert.ToByte(buffer.Length));
-                    bW.Write(buffer);
-                }
-
-                {
-                    byte[] buffer = Encoding.UTF8.GetBytes(_proxyCredentials.Password);
-                    bW.Write(Convert.ToByte(buffer.Length));
-                    bW.Write(buffer);
-                }
+                encoder.Encode("proxy_user", _proxyCredentials.UserName);
+                encoder.Encode("proxy_pass", _proxyCredentials.Password);
             }
 
             //generic client data
             if ((_clientData == null) || (_clientData.Length == 0))
-            {
-                bW.Write(0);
-            }
+                encoder.Encode("client_data", Bincoding.GetNullValue());
             else
-            {
-                bW.Write(_clientData.Length);
-                bW.Write(_clientData);
-            }
+                encoder.Encode("client_data", _clientData);
+
+            //signal end of settings
+            encoder.EncodeNull();
         }
 
         #endregion
@@ -646,15 +755,15 @@ namespace BitChatClient
         {
             #region variables
 
-            BitChatNetworkType _type;
+            BitChatNetworkType _type = BitChatNetworkType.GroupChat;
             string _networkNameOrPeerEmailAddress;
             string _sharedSecret;
             BinaryID _networkID;
-            Certificate[] _peerCerts;
-            SharedFileInfo[] _sharedFiles;
-            Uri[] _trackerURIs;
-            bool _enableTracking;
-            BitChatNetworkStatus _networkStatus;
+            Certificate[] _peerCerts = new Certificate[] { };
+            SharedFileInfo[] _sharedFiles = new SharedFileInfo[] { };
+            Uri[] _trackerURIs = new Uri[] { };
+            bool _enableTracking = true;
+            BitChatNetworkStatus _networkStatus = BitChatNetworkStatus.Online;
 
             #endregion
 
@@ -671,6 +780,84 @@ namespace BitChatClient
                 _trackerURIs = trackerURIs;
                 _enableTracking = enableTracking;
                 _networkStatus = networkStatus;
+            }
+
+            public BitChatInfo(Stream s)
+            {
+                BincodingDecoder decoder = new BincodingDecoder(s, "BI");
+
+                while (true)
+                {
+                    Bincoding value = decoder.DecodeNext();
+
+                    if (value.Type == BincodingType.NULL)
+                        break;
+
+                    KeyValuePair<string, Bincoding> pair = value.GetKeyValuePair();
+
+                    switch (pair.Key)
+                    {
+                        case "type":
+                            _type = (BitChatNetworkType)pair.Value.GetByteValue();
+                            break;
+
+                        case "network_name":
+                            _networkNameOrPeerEmailAddress = pair.Value.GetStringValue();
+                            break;
+
+                        case "shared_secret":
+                            _sharedSecret = pair.Value.GetStringValue();
+                            break;
+
+                        case "enable_tracking":
+                            _enableTracking = pair.Value.GetBooleanValue();
+                            break;
+
+                        case "network_status":
+                            _networkStatus = (BitChatNetworkStatus)pair.Value.GetByteValue();
+                            break;
+
+                        case "network_id":
+                            _networkID = new BinaryID(pair.Value.Value);
+                            break;
+
+                        case "peer_certs":
+                            {
+                                List<Bincoding> peerCerts = pair.Value.GetList();
+
+                                _peerCerts = new Certificate[peerCerts.Count];
+                                int i = 0;
+
+                                foreach (Bincoding item in peerCerts)
+                                    _peerCerts[i++] = new Certificate(item.GetValueStream());
+                            }
+                            break;
+
+                        case "shared_files":
+                            {
+                                List<Bincoding> sharedFiles = pair.Value.GetList();
+
+                                _sharedFiles = new SharedFileInfo[sharedFiles.Count];
+                                int i = 0;
+
+                                foreach (Bincoding item in sharedFiles)
+                                    _sharedFiles[i++] = new SharedFileInfo(item.GetValueStream());
+                            }
+                            break;
+
+                        case "tracker_list":
+                            {
+                                List<Bincoding> trackerList = pair.Value.GetList();
+
+                                _trackerURIs = new Uri[trackerList.Count];
+                                int i = 0;
+
+                                foreach (Bincoding item in trackerList)
+                                    _trackerURIs[i++] = new Uri(item.GetStringValue());
+                            }
+                            break;
+                    }
+                }
             }
 
             public BitChatInfo(BinaryReader bR)
@@ -705,7 +892,7 @@ namespace BitChatClient
 
                         _peerCerts = new Certificate[bR.ReadByte()];
                         for (int i = 0; i < _peerCerts.Length; i++)
-                            _peerCerts[i] = new Certificate(bR);
+                            _peerCerts[i] = new Certificate(bR.BaseStream);
 
                         _sharedFiles = new SharedFileInfo[bR.ReadByte()];
                         for (int i = 0; i < _sharedFiles.Length; i++)
@@ -740,51 +927,48 @@ namespace BitChatClient
 
             #region public
 
-            public override void WriteTo(BinaryWriter bW)
+            public override void WriteTo(Stream s)
             {
-                bW.Write(Encoding.ASCII.GetBytes("BI"));
-                bW.Write((byte)6);
+                BincodingEncoder encoder = new BincodingEncoder(s, "BI", 7);
 
-                bW.Write((byte)_type);
+                encoder.Encode("type", (byte)_type);
+                encoder.Encode("network_name", _networkNameOrPeerEmailAddress);
+                encoder.Encode("shared_secret", _sharedSecret);
+                encoder.Encode("enable_tracking", _enableTracking);
+                encoder.Encode("network_status", (byte)_networkStatus);
 
-                byte[] buffer;
+                if (_networkID != null)
+                    encoder.Encode("network_id", _networkID.ID);
 
-                buffer = Encoding.UTF8.GetBytes(_networkNameOrPeerEmailAddress);
-                bW.Write(Convert.ToByte(buffer.Length));
-                bW.Write(buffer);
-
-                buffer = Encoding.UTF8.GetBytes(_sharedSecret);
-                bW.Write(Convert.ToByte(buffer.Length));
-                bW.Write(buffer);
-
-                if (_networkID == null)
                 {
-                    bW.Write((byte)0);
-                }
-                else
-                {
-                    bW.Write(Convert.ToByte(_networkID.ID.Length));
-                    bW.Write(_networkID.ID);
+                    List<Bincoding> peerCerts = new List<Bincoding>(_peerCerts.Length);
+
+                    foreach (Certificate peerCert in _peerCerts)
+                        peerCerts.Add(Bincoding.GetValue(peerCert));
+
+                    encoder.Encode("peer_certs", peerCerts);
                 }
 
-                bW.Write(Convert.ToByte(_peerCerts.Length));
-                foreach (Certificate peerCert in _peerCerts)
-                    peerCert.WriteTo(bW);
-
-                bW.Write(Convert.ToByte(_sharedFiles.Length));
-                foreach (SharedFileInfo sharedFile in _sharedFiles)
-                    sharedFile.WriteTo(bW);
-
-                bW.Write(Convert.ToByte(_trackerURIs.Length));
-                foreach (Uri trackerURI in _trackerURIs)
                 {
-                    buffer = Encoding.UTF8.GetBytes(trackerURI.AbsoluteUri);
-                    bW.Write(Convert.ToByte(buffer.Length));
-                    bW.Write(buffer);
+                    List<Bincoding> sharedFiles = new List<Bincoding>(_sharedFiles.Length);
+
+                    foreach (SharedFileInfo sharedFile in _sharedFiles)
+                        sharedFiles.Add(Bincoding.GetValue(sharedFile));
+
+                    encoder.Encode("shared_files", sharedFiles);
                 }
 
-                bW.Write(_enableTracking);
-                bW.Write((byte)_networkStatus);
+                {
+                    List<Bincoding> trackerList = new List<Bincoding>(_sharedFiles.Length);
+
+                    foreach (Uri trackerURI in _trackerURIs)
+                        trackerList.Add(Bincoding.GetValue(trackerURI.AbsoluteUri));
+
+                    encoder.Encode("tracker_list", trackerList);
+                }
+
+                //signal end of settings
+                encoder.EncodeNull();
             }
 
             #endregion
@@ -842,6 +1026,48 @@ namespace BitChatClient
                 _isPaused = isPaused;
             }
 
+            public SharedFileInfo(Stream s)
+            {
+                BincodingDecoder decoder = new BincodingDecoder(s, "FI");
+
+                while (true)
+                {
+                    Bincoding value = decoder.DecodeNext();
+
+                    if (value.Type == BincodingType.NULL)
+                        break;
+
+                    KeyValuePair<string, Bincoding> pair = value.GetKeyValuePair();
+
+                    switch (pair.Key)
+                    {
+                        case "file_path":
+                            _filePath = pair.Value.GetStringValue();
+                            break;
+
+                        case "file_metadata":
+                            _fileMetaData = new SharedFileMetaData(pair.Value.GetValueStream());
+                            break;
+
+                        case "paused":
+                            _isPaused = pair.Value.GetBooleanValue();
+                            break;
+
+                        case "block_available":
+                            {
+                                List<Bincoding> blockList = pair.Value.GetList();
+
+                                _blockAvailable = new FileBlockState[blockList.Count];
+                                int i = 0;
+
+                                foreach (Bincoding item in blockList)
+                                    _blockAvailable[i++] = (FileBlockState)item.GetByteValue();
+                            }
+                            break;
+                    }
+                }
+            }
+
             public SharedFileInfo(BinaryReader bR)
             {
                 if (Encoding.ASCII.GetString(bR.ReadBytes(2)) != "FI")
@@ -853,7 +1079,7 @@ namespace BitChatClient
                 {
                     case 1:
                         _filePath = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
-                        _fileMetaData = new SharedFileMetaData(bR);
+                        _fileMetaData = new SharedFileMetaData(bR.BaseStream);
 
                         _blockAvailable = new FileBlockState[bR.ReadInt32()];
                         for (int i = 0; i < _blockAvailable.Length; i++)
@@ -871,24 +1097,25 @@ namespace BitChatClient
 
             #region public
 
-            public override void WriteTo(BinaryWriter bW)
+            public override void WriteTo(Stream s)
             {
-                bW.Write(Encoding.ASCII.GetBytes("FI"));
-                bW.Write((byte)1);
+                BincodingEncoder encoder = new BincodingEncoder(s, "FI", 2);
 
-                byte[] buffer;
+                encoder.Encode("file_path", _filePath);
+                encoder.Encode("file_metadata", _fileMetaData);
+                encoder.Encode("paused", _isPaused);
 
-                buffer = Encoding.UTF8.GetBytes(_filePath);
-                bW.Write(Convert.ToByte(buffer.Length));
-                bW.Write(buffer);
+                {
+                    List<Bincoding> blockList = new List<Bincoding>(_blockAvailable.Length);
 
-                _fileMetaData.WriteTo(bW);
+                    foreach (FileBlockState state in _blockAvailable)
+                        blockList.Add(Bincoding.GetValue((byte)state));
 
-                bW.Write(_blockAvailable.Length);
-                foreach (FileBlockState state in _blockAvailable)
-                    bW.Write((byte)state);
+                    encoder.Encode("block_available", blockList);
+                }
 
-                bW.Write(_isPaused);
+                //signal end
+                encoder.EncodeNull();
             }
 
             #endregion
