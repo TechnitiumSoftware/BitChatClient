@@ -72,6 +72,8 @@
     <Compile Include="IBitChatManager.cs" />
     <Compile Include="IDebug.cs" />
     <Compile Include="IPEndPointParser.cs" />
+    <Compile Include="MessageItem.cs" />
+    <Compile Include="MessageStore.cs" />
     <Compile Include="Network\INetworkInfo.cs" />
     <Compile Include="Network\KademliaDHT\DhtClient.cs" />
     <Compile Include="Network\KademliaDHT\NodeContact.cs" />
