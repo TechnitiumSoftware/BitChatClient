@@ -23,11 +23,20 @@ using TechnitiumLibrary.IO;
 
 namespace BitChatClient
 {
+    public enum MessageType : byte
+    {
+        Info = 1,
+        TextMessage = 2
+    }
+
     public class MessageItem
     {
         #region variables
 
         int _messageNumber;
+
+        MessageType _type;
+        DateTime _messageDate;
         string _sender;
         string _message;
 
@@ -38,8 +47,29 @@ namespace BitChatClient
         public MessageItem(string sender, string message)
         {
             _messageNumber = -1;
+
+            _type = MessageType.TextMessage;
+            _messageDate = DateTime.Now;
             _sender = sender;
             _message = message;
+        }
+
+        public MessageItem(string info)
+        {
+            _messageNumber = -1;
+
+            _type = MessageType.Info;
+            _messageDate = DateTime.Now;
+            _message = info;
+        }
+
+        public MessageItem(string info, DateTime infoDate)
+        {
+            _messageNumber = -1;
+
+            _type = MessageType.Info;
+            _messageDate = infoDate;
+            _message = info;
         }
 
         public MessageItem(MessageStore store, int messageNumber)
@@ -51,8 +81,20 @@ namespace BitChatClient
             {
                 BincodingDecoder decoder = new BincodingDecoder(mS);
 
-                _sender = decoder.DecodeNext().GetStringValue();
-                _message = decoder.DecodeNext().GetStringValue();
+                _type = (MessageType)decoder.DecodeNext().GetByteValue();
+                _messageDate = new DateTime(1970, 1, 1).AddSeconds(decoder.DecodeNext().GetULongValue());
+
+                switch (_type)
+                {
+                    case MessageType.Info:
+                        _message = decoder.DecodeNext().GetStringValue();
+                        break;
+
+                    case MessageType.TextMessage:
+                        _sender = decoder.DecodeNext().GetStringValue();
+                        _message = decoder.DecodeNext().GetStringValue();
+                        break;
+                }
             }
         }
 
@@ -60,33 +102,28 @@ namespace BitChatClient
 
         #region static
 
-        public static MessagePage GetPage(MessageStore store, int pageNumber, int itemsPerPage)
+        public static MessageItem[] GetLastMessageItems(MessageStore store, int index, int count)
         {
             int totalMessages = store.TotalMessages();
-            int pageCount = (int)Math.Ceiling(totalMessages / (double)itemsPerPage);
 
-            if (pageNumber > pageCount)
-                return new MessagePage(0, pageCount, new MessageItem[] { });
+            if (index > totalMessages)
+                index = totalMessages;
+            else if (index < 1)
+                return new MessageItem[] { };
 
-            int firstItemNumber = (pageNumber - 1) * itemsPerPage;
-            int itemCount = totalMessages - firstItemNumber;
+            int firstMessageNumber = index - count;
 
-            if (itemCount > itemsPerPage)
-                itemCount = itemsPerPage;
+            if (firstMessageNumber < 0)
+                firstMessageNumber = 0;
+
+            int itemCount = index - firstMessageNumber;
 
             MessageItem[] items = new MessageItem[itemCount];
 
-            int lastItemNumber = firstItemNumber + itemCount;
-
-            for (int i = firstItemNumber, x = 0; i < lastItemNumber; i++, x++)
+            for (int i = firstMessageNumber, x = 0; i < index; i++, x++)
                 items[x] = new MessageItem(store, i);
 
-            return new MessagePage(pageNumber, pageCount, items);
-        }
-
-        public static int GetPageCount(MessageStore store, int itemsPerPage)
-        {
-            return (int)Math.Ceiling(store.TotalMessages() / (double)itemsPerPage);
+            return items;
         }
 
         #endregion
@@ -102,8 +139,20 @@ namespace BitChatClient
             {
                 BincodingEncoder encoder = new BincodingEncoder(mS);
 
-                encoder.Encode(_sender);
-                encoder.Encode(_message);
+                encoder.Encode((byte)_type);
+                encoder.Encode(Convert.ToUInt64((_messageDate - new DateTime(1970, 1, 1)).TotalSeconds));
+
+                switch (_type)
+                {
+                    case MessageType.Info:
+                        encoder.Encode(_message);
+                        break;
+
+                    case MessageType.TextMessage:
+                        encoder.Encode(_sender);
+                        encoder.Encode(_message);
+                        break;
+                }
 
                 byte[] messageData = mS.ToArray();
                 _messageNumber = store.WriteMessage(messageData, 0, messageData.Length);
@@ -117,46 +166,17 @@ namespace BitChatClient
         public int MessageNumber
         { get { return _messageNumber; } }
 
+        public MessageType Type
+        { get { return _type; } }
+
+        public DateTime MessageDate
+        { get { return _messageDate; } }
+
         public string Sender
         { get { return _sender; } }
 
         public string Message
         { get { return _message; } }
-
-        #endregion
-    }
-
-    public class MessagePage
-    {
-        #region variables
-
-        int _pageNumber;
-        int _pageCount;
-        MessageItem[] _items;
-
-        #endregion
-
-        #region constructor
-
-        public MessagePage(int pageNumber, int pageCount, MessageItem[] items)
-        {
-            _pageNumber = pageNumber;
-            _pageCount = pageCount;
-            _items = items;
-        }
-
-        #endregion
-
-        #region properties
-
-        public int PageNumber
-        { get { return _pageNumber; } }
-
-        public int PageCount
-        { get { return _pageCount; } }
-
-        public MessageItem[] Items
-        { get { return _items; } }
 
         #endregion
     }
