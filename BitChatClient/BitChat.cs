@@ -35,7 +35,7 @@ namespace BitChatClient
 {
     public delegate void PeerNotification(BitChat sender, BitChat.Peer peer);
     public delegate void PeerHasRevokedCertificate(BitChat sender, InvalidCertificateException ex);
-    public delegate void MessageReceived(BitChat.Peer sender, string message);
+    public delegate void MessageReceived(BitChat.Peer sender, MessageItem message);
     public delegate void FileAdded(BitChat sender, SharedFile sharedFile);
     public delegate void PeerSecureChannelException(BitChat sender, SecureChannelException ex);
     public delegate void PeerHasChangedCertificate(BitChat sender, Certificate cert);
@@ -69,6 +69,10 @@ namespace BitChatClient
         IBitChatManager _manager;
         BitChatProfile _profile;
         BitChatNetwork _network;
+        string _messageStoreID;
+        byte[] _messageStoreKey;
+
+        MessageStore _store;
 
         List<BitChat.Peer> _peers = new List<Peer>();
         Dictionary<BinaryID, SharedFile> _sharedFiles = new Dictionary<BinaryID, SharedFile>();
@@ -100,7 +104,7 @@ namespace BitChatClient
 
         #region constructor
 
-        internal BitChat(IBitChatManager manager, ConnectionManager connectionManager, BitChatProfile profile, BitChatNetwork network, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs, bool enableTracking)
+        internal BitChat(IBitChatManager manager, ConnectionManager connectionManager, BitChatProfile profile, BitChatNetwork network, string messageStoreID, byte[] messageStoreKey, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs, bool enableTracking)
         {
             _manager = manager;
 
@@ -112,6 +116,15 @@ namespace BitChatClient
             _network.VirtualPeerHasRevokedCertificate += network_VirtualPeerHasRevokedCertificate;
             _network.VirtualPeerSecureChannelException += network_VirtualPeerSecureChannelException;
             _network.VirtualPeerHasChangedCertificate += network_VirtualPeerHasChangedCertificate;
+
+            _messageStoreID = messageStoreID;
+            _messageStoreKey = messageStoreKey;
+
+            string messageStoreFolder = Path.Combine(_profile.ProfileFolder, "messages");
+            if (!Directory.Exists(messageStoreFolder))
+                Directory.CreateDirectory(messageStoreFolder);
+
+            _store = new MessageStore(new FileStream(Path.Combine(messageStoreFolder, messageStoreID + ".index"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None), new FileStream(Path.Combine(messageStoreFolder, messageStoreID + ".data"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None), _messageStoreKey);
 
             foreach (BitChatNetwork.VirtualPeer virtualPeer in _network.GetVirtualPeerList())
             {
@@ -215,6 +228,9 @@ namespace BitChatClient
                 foreach (KeyValuePair<BinaryID, SharedFile> sharedFile in _sharedFiles)
                     sharedFile.Value.Dispose();
 
+                //close message store
+                _store.Dispose();
+
                 _disposed = true;
             }
         }
@@ -293,7 +309,7 @@ namespace BitChatClient
             catch { }
         }
 
-        private void RaiseEventMessageReceived(Peer peer, string message)
+        private void RaiseEventMessageReceived(Peer peer, MessageItem message)
         {
             _syncCxt.Post(MessageReceivedCallback, new object[] { peer, message });
         }
@@ -302,7 +318,7 @@ namespace BitChatClient
         {
             try
             {
-                MessageReceived((Peer)((object[])state)[0], (string)((object[])state)[1]);
+                MessageReceived((Peer)((object[])state)[0], (MessageItem)((object[])state)[1]);
             }
             catch { }
         }
@@ -363,9 +379,9 @@ namespace BitChatClient
             }
 
             if (_network.Type == BitChatNetworkType.PrivateChat)
-                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.PeerEmailAddress.Address, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _enableTracking, _network.Status);
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.PeerEmailAddress.Address, _network.SharedSecret, _network.NetworkID, _messageStoreID, _messageStoreKey, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _enableTracking, _network.Status);
             else
-                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _enableTracking, _network.Status);
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, _messageStoreID, _messageStoreKey, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _enableTracking, _network.Status);
         }
 
         public BitChat.Peer[] GetPeerList()
@@ -392,10 +408,15 @@ namespace BitChatClient
             _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
         }
 
-        public void SendTextMessage(string message)
+        public MessageItem SendTextMessage(string message)
         {
             byte[] messageData = BitChatMessage.CreateTextMessage(message);
             _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
+
+            MessageItem msg = new MessageItem(_profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address, message);
+            msg.WriteTo(_store);
+
+            return msg;
         }
 
         internal void WriteMessageBroadcast(byte[] data, int offset, int count)
@@ -445,6 +466,23 @@ namespace BitChatClient
             //dispose
             this.Dispose();
 
+            //delete message store index and data
+            string messageStoreFolder = Path.Combine(_profile.ProfileFolder, "messages");
+
+            try
+            {
+                File.Delete(Path.Combine(messageStoreFolder, _messageStoreID + ".index"));
+            }
+            catch
+            { }
+
+            try
+            {
+                File.Delete(Path.Combine(messageStoreFolder, _messageStoreID + ".data"));
+            }
+            catch
+            { }
+
             if (Leave != null)
                 RaiseEventLeave();
         }
@@ -455,6 +493,24 @@ namespace BitChatClient
             {
                 _sharedFiles.Remove(file.MetaData.FileID);
             }
+        }
+
+        public MessageItem WriteInfoMessage(string info)
+        {
+            MessageItem msg = new MessageItem(info);
+            msg.WriteTo(_store);
+
+            return msg;
+        }
+
+        public MessageItem[] GetLastMessageItems(int index, int count)
+        {
+            return MessageItem.GetLastMessageItems(_store, index, count);
+        }
+
+        public int GetTotalMessageCount()
+        {
+            return _store.TotalMessages();
         }
 
         #endregion
@@ -1030,8 +1086,13 @@ namespace BitChatClient
                     case BitChatMessageType.Text:
                         #region Text
                         {
+                            string message = BitChatMessage.ReadTextMessage(messageDataStream);
+
+                            MessageItem msg = new MessageItem(_virtualPeer.PeerCertificate.IssuedTo.EmailAddress.Address, message);
+                            msg.WriteTo(_bitchat._store);
+
                             if (_bitchat.MessageReceived != null)
-                                _bitchat.RaiseEventMessageReceived(this, BitChatMessage.ReadTextMessage(messageDataStream));
+                                _bitchat.RaiseEventMessageReceived(this, msg);
 
                             break;
                         }
