@@ -73,6 +73,8 @@ namespace BitChatClient
                 new Uri("http://tracker.ilibr.org:6969/announce")
             };
 
+        string _profileFolder;
+
         CertificateStore _localCertStore;
 
         int _localPort;
@@ -95,20 +97,20 @@ namespace BitChatClient
 
         #region constructor
 
-        public BitChatProfile(int localPort, string downloadFolder, Uri[] trackerURIs)
+        public BitChatProfile(int localPort, string downloadFolder, Uri[] trackerURIs, string profileFolder)
         {
             _localPort = localPort;
             _downloadFolder = downloadFolder;
             _trackerURIs = trackerURIs;
+
+            _profileFolder = profileFolder;
         }
 
-        public BitChatProfile(Stream s, string password)
+        public BitChatProfile(Stream s, string password, string profileFolder)
             : base(s, password)
-        { }
-
-        public BitChatProfile(Stream s)
-            : base(s, null)
-        { }
+        {
+            _profileFolder = profileFolder;
+        }
 
         #endregion
 
@@ -676,6 +678,9 @@ namespace BitChatClient
 
         #region properties
 
+        public string ProfileFolder
+        { get { return _profileFolder; } }
+
         public CertificateStore LocalCertificateStore
         {
             get { return _localCertStore; }
@@ -759,6 +764,8 @@ namespace BitChatClient
             string _networkNameOrPeerEmailAddress;
             string _sharedSecret;
             BinaryID _networkID;
+            string _messageStoreID;
+            byte[] _messageStoreKey;
             Certificate[] _peerCerts = new Certificate[] { };
             SharedFileInfo[] _sharedFiles = new SharedFileInfo[] { };
             Uri[] _trackerURIs = new Uri[] { };
@@ -769,12 +776,14 @@ namespace BitChatClient
 
             #region constructor
 
-            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID networkID, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, BitChatNetworkStatus networkStatus)
+            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID networkID, string messageStoreID, byte[] messageStoreKey, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, BitChatNetworkStatus networkStatus)
             {
                 _type = type;
                 _networkNameOrPeerEmailAddress = networkNameOrPeerEmailAddress;
                 _sharedSecret = sharedSecret;
                 _networkID = networkID;
+                _messageStoreID = messageStoreID;
+                _messageStoreKey = messageStoreKey;
                 _peerCerts = peerCerts;
                 _sharedFiles = sharedFiles;
                 _trackerURIs = trackerURIs;
@@ -819,6 +828,14 @@ namespace BitChatClient
 
                         case "network_id":
                             _networkID = new BinaryID(pair.Value.Value);
+                            break;
+
+                        case "message_store_id":
+                            _messageStoreID = pair.Value.GetStringValue();
+                            break;
+
+                        case "message_store_key":
+                            _messageStoreKey = pair.Value.Value;
                             break;
 
                         case "peer_certs":
@@ -916,6 +933,9 @@ namespace BitChatClient
                         else
                             _networkStatus = BitChatNetworkStatus.Online;
 
+                        _messageStoreID = BinaryID.GenerateRandomID160().ToString();
+                        _messageStoreKey = BinaryID.GenerateRandomID256().ID;
+
                         break;
 
                     default:
@@ -939,6 +959,9 @@ namespace BitChatClient
 
                 if (_networkID != null)
                     encoder.Encode("network_id", _networkID.ID);
+
+                encoder.Encode("message_store_id", _messageStoreID);
+                encoder.Encode("message_store_key", _messageStoreKey);
 
                 {
                     List<Bincoding> peerCerts = new List<Bincoding>(_peerCerts.Length);
@@ -986,6 +1009,12 @@ namespace BitChatClient
 
             public BinaryID NetworkID
             { get { return _networkID; } }
+
+            public string MessageStoreID
+            { get { return _messageStoreID; } }
+
+            public byte[] MessageStoreKey
+            { get { return _messageStoreKey; } }
 
             public Certificate[] PeerCertificateList
             { get { return _peerCerts; } }
