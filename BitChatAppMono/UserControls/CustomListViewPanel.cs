@@ -26,7 +26,7 @@ using System.Windows.Forms;
 
 namespace BitChatAppMono.UserControls
 {
-    public partial class CustomListView2 : BitChatAppMono.UserControls.CustomPanel
+    public partial class CustomListViewPanel : BitChatAppMono.UserControls.CustomPanel
     {
         #region events
 
@@ -41,7 +41,7 @@ namespace BitChatAppMono.UserControls
 
         #region constructor
 
-        public CustomListView2()
+        public CustomListViewPanel()
         {
             InitializeComponent();
         }

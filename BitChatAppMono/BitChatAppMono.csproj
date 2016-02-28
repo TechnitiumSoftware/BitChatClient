@@ -189,11 +189,11 @@
     <Compile Include="UserControls\CustomListView.Designer.cs">
       <DependentUpon>CustomListView.cs</DependentUpon>
     </Compile>
-    <Compile Include="UserControls\CustomListView2.cs">
+    <Compile Include="UserControls\CustomListViewPanel.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="UserControls\CustomListView2.Designer.cs">
-      <DependentUpon>CustomListView2.cs</DependentUpon>
+    <Compile Include="UserControls\CustomListViewPanel.Designer.cs">
+      <DependentUpon>CustomListViewPanel.cs</DependentUpon>
     </Compile>
     <Compile Include="UserControls\CustomListViewItem.cs">
       <SubType>UserControl</SubType>
@@ -207,6 +207,7 @@
     <Compile Include="UserControls\CustomPanel.Designer.cs">
       <DependentUpon>CustomPanel.cs</DependentUpon>
     </Compile>
+    <Compile Include="UserControls\IChatMessageItem.cs" />
     <Compile Include="UserControls\SharedFileItem.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -284,9 +285,11 @@
     </EmbeddedResource>
     <EmbeddedResource Include="UserControls\ChatMessageInfoItem.resx">
       <DependentUpon>ChatMessageInfoItem.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UserControls\ChatMessageItem.resx">
       <DependentUpon>ChatMessageItem.cs</DependentUpon>
+      <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UserControls\ChatMessageView.resx">
       <DependentUpon>ChatMessageView.cs</DependentUpon>
@@ -294,8 +297,8 @@
     <EmbeddedResource Include="UserControls\CustomListView.resx">
       <DependentUpon>CustomListView.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="UserControls\CustomListView2.resx">
-      <DependentUpon>CustomListView2.cs</DependentUpon>
+    <EmbeddedResource Include="UserControls\CustomListViewPanel.resx">
+      <DependentUpon>CustomListViewPanel.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="UserControls\CustomListViewItem.resx">
       <DependentUpon>CustomListViewItem.cs</DependentUpon>

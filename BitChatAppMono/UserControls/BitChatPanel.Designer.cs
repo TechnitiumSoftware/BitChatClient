@@ -30,8 +30,8 @@
         {
             this.bitChatPanelSplitContainer = new System.Windows.Forms.SplitContainer();
             this.chatOptionsSplitContainer = new System.Windows.Forms.SplitContainer();
-            this.lstUsers = new BitChatAppMono.UserControls.CustomListView2();
-            this.lstFiles = new BitChatAppMono.UserControls.CustomListView2();
+            this.lstUsers = new BitChatAppMono.UserControls.CustomListViewPanel();
+            this.lstFiles = new BitChatAppMono.UserControls.CustomListViewPanel();
             ((System.ComponentModel.ISupportInitialize)(this.bitChatPanelSplitContainer)).BeginInit();
             this.bitChatPanelSplitContainer.Panel2.SuspendLayout();
             this.bitChatPanelSplitContainer.SuspendLayout();
@@ -140,7 +140,7 @@
 
         private System.Windows.Forms.SplitContainer bitChatPanelSplitContainer;
         private System.Windows.Forms.SplitContainer chatOptionsSplitContainer;
-        private UserControls.CustomListView2 lstUsers;
-        private CustomListView2 lstFiles;
+        private UserControls.CustomListViewPanel lstUsers;
+        private CustomListViewPanel lstFiles;
     }
 }

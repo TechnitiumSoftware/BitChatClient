@@ -20,11 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using BitChatClient;
 using BitChatClient.FileSharing;
 using System;
-using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
-using TechnitiumLibrary.Net.BitTorrent;
-using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatAppMono.UserControls
 {
@@ -113,9 +110,9 @@ namespace BitChatAppMono.UserControls
             lstFiles.AddItem(item);
         }
 
-        private void _chat_MessageReceived(BitChat.Peer sender, string message)
+        private void _chat_MessageReceived(BitChat.Peer sender, MessageItem message)
         {
-            MessageNotification(_chat, sender, message);
+            MessageNotification(_chat, sender, message.Message);
         }
 
         #endregion

@@ -1,6 +1,6 @@
 ﻿namespace BitChatAppMono.UserControls
 {
-    partial class CustomListView2
+    partial class CustomListViewPanel
     {
         /// <summary>
         /// Required designer variable.
