@@ -480,7 +480,7 @@ namespace BitChatApp
 
         private void mnuLeaveChat_Click(object sender, EventArgs e)
         {
-            if (MessageBox.Show("Are you sure to leave chat?\r\n\r\nWarning! If you wish to join back the same chat again, you will need to remember the Chat Name and Shared Secret.", "Leave Chat?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
+            if (MessageBox.Show("Are you sure to leave chat?\r\n\r\nWarning! You will lose all stored messages in this chat. If you wish to join back the same chat again, you will need to remember the Chat Name and Shared Secret.", "Leave Chat?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
             {
                 RemoveSelectedChatView();
             }
