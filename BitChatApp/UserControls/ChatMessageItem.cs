@@ -18,54 +18,44 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 using BitChatClient;
-using TechnitiumLibrary.Security.Cryptography;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Drawing;
-using System.Text;
 using System.Windows.Forms;
 
 namespace BitChatApp.UserControls
 {
-    public partial class ChatMessageItem : CustomListViewItem
+    public partial class ChatMessageItem : CustomListViewItem, IChatMessageItem
     {
         BitChat.Peer _senderPeer;
-        DateTime _date;
+        MessageItem _message;
 
         public ChatMessageItem()
         {
             InitializeComponent();
         }
 
-        public ChatMessageItem(BitChat.Peer senderPeer, string message, DateTime date, bool myMessage)
+        public ChatMessageItem(BitChat.Peer senderPeer, MessageItem message, bool myMessage)
         {
             InitializeComponent();
 
             _senderPeer = senderPeer;
-            _date = date;
+            _message = message;
 
             lblUsername.Text = _senderPeer.PeerCertificate.IssuedTo.Name;
-            txtMessage.Text = message;
-            lblDateTime.Text = date.ToShortTimeString();
+            lblMessage.Text = _message.Message;
+            lblDateTime.Text = _message.MessageDate.ToShortTimeString();
 
             if (myMessage)
                 lblUsername.ForeColor = Color.FromArgb(63, 186, 228);
 
-            OnResize(EventArgs.Empty);
+            ResizeHeightByTextSize();
         }
 
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
 
-            if ((txtMessage != null) && txtMessage.Text != "")
-            {
-                Size msgSize = TextRenderer.MeasureText(txtMessage.Text, txtMessage.Font, new Size(txtMessage.Size.Width, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl);
-
-                if (this.Height != msgSize.Height)
-                    this.Height = msgSize.Height + 5; //5 pixel padding
-            }
+            ResizeHeightByTextSize();
         }
 
         protected override void OnMouseOver(bool hovering)
@@ -75,7 +65,18 @@ namespace BitChatApp.UserControls
             else
                 this.BackColor = Color.White;
 
-            txtMessage.BackColor = this.BackColor;
+            lblMessage.BackColor = this.BackColor;
+        }
+
+        private void ResizeHeightByTextSize()
+        {
+            if ((lblMessage != null) && lblMessage.Text != "")
+            {
+                Size msgSize = TextRenderer.MeasureText(lblMessage.Text, lblMessage.Font, new Size(lblMessage.Size.Width, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl);
+
+                if (this.Height != msgSize.Height)
+                    this.Height = msgSize.Height + 5; //5 pixel padding
+            }
         }
 
         private void lblUsername_Click(object sender, EventArgs e)
@@ -96,7 +97,17 @@ namespace BitChatApp.UserControls
             lblUsername.Font = new Font(lblUsername.Font, FontStyle.Regular | FontStyle.Bold);
         }
 
-        public DateTime MessageDate
-        { get { return _date; } }
+        private void copyMessageToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Clipboard.SetText("[" + _message.MessageDate.ToString("d MMM, yyyy HH:mm:ss") + "] " + lblUsername.Text + "> " + lblMessage.Text);
+            }
+            catch
+            { }
+        }
+
+        public MessageItem Message
+        { get { return _message; } }
     }
 }

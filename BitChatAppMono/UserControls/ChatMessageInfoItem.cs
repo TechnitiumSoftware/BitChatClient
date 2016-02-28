@@ -17,48 +17,41 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+using BitChatClient;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Drawing;
-using System.Text;
 using System.Windows.Forms;
 
 namespace BitChatAppMono.UserControls
 {
-    public partial class ChatMessageInfoItem : BitChatAppMono.UserControls.CustomListViewItem
+    public partial class ChatMessageInfoItem : CustomListViewItem, IChatMessageItem
     {
         const int BORDER_SIZE = 1;
 
         Color BorderColor = Color.FromArgb(224, 224, 223);
-        DateTime _date;
+        MessageItem _message;
 
         public ChatMessageInfoItem()
         {
             InitializeComponent();
         }
 
-        public ChatMessageInfoItem(string message)
+        public ChatMessageInfoItem(MessageItem message)
         {
             InitializeComponent();
 
-            label1.Text = message;
-            label2.Visible = false;
-        }
+            _message = message;
 
-        public ChatMessageInfoItem(string message, DateTime date)
-        {
-            InitializeComponent();
-
-            _date = date;
-
-            label1.Text = message;
-            label2.Text = date.ToString("HH:mm");
-        }
-
-        public bool IsDateSet()
-        {
-            return label2.Visible;
+            if (string.IsNullOrEmpty(_message.Message))
+            {
+                label1.Text = _message.MessageDate.ToString("dddd, MMMM d, yyyy");
+                label2.Visible = false;
+            }
+            else
+            {
+                label1.Text = _message.Message;
+                label2.Text = _message.MessageDate.ToShortTimeString();
+            }
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -79,7 +72,20 @@ namespace BitChatAppMono.UserControls
             this.Refresh();
         }
 
-        public DateTime MessageDate
-        { get { return _date; } }
+        private void copyInfoToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(_message.Message))
+                    Clipboard.SetText(label1.Text);
+                else
+                    Clipboard.SetText("[" + _message.MessageDate.ToString("d MMM, yyyy HH:mm:ss") + "] " + label1.Text);
+            }
+            catch
+            { }
+        }
+
+        public MessageItem Message
+        { get { return _message; } }
     }
 }

@@ -17,17 +17,15 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+using BitChatClient;
+using BitChatClient.Network.SecureChannel;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Drawing;
-using System.Text;
-using System.Windows.Forms;
-using BitChatClient;
 using System.IO;
-using TechnitiumLibrary.Security.Cryptography;
+using System.Windows.Forms;
 using TechnitiumLibrary.Net;
-using BitChatClient.Network.SecureChannel;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatApp.UserControls
 {
@@ -40,6 +38,8 @@ namespace BitChatApp.UserControls
         #endregion
 
         #region variables
+
+        const int MESSAGE_COUNT_PER_SCROLL = 20;
 
         BitChat _chat;
         ChatListItem _chatItem;
@@ -81,6 +81,14 @@ namespace BitChatApp.UserControls
             {
                 this.Title = _chat.NetworkName;
             }
+
+            //load stored messages
+            int totalMessageCount = _chat.GetTotalMessageCount();
+            if (totalMessageCount > 0)
+            {
+                customListView1.ReplaceItems(ConvertToListViewItems(_chat.GetLastMessageItems(totalMessageCount, MESSAGE_COUNT_PER_SCROLL)));
+                customListView1.ScrollToBottom();
+            }
         }
 
         #endregion
@@ -98,7 +106,7 @@ namespace BitChatApp.UserControls
             else
                 message = peer.PeerCertificate.IssuedTo.Name + " is offline";
 
-            AddMessage(new ChatMessageInfoItem(message, DateTime.Now));
+            AddMessage(new ChatMessageInfoItem(_chat.WriteInfoMessage(message)));
 
             if (!_chatItem.Selected)
                 _chatItem.SetNewMessage(message);
@@ -110,11 +118,11 @@ namespace BitChatApp.UserControls
             }
         }
 
-        private void chat_MessageReceived(BitChat.Peer sender, string message)
+        private void chat_MessageReceived(BitChat.Peer sender, MessageItem message)
         {
-            bool myMessage = sender.PeerCertificate.IssuedTo.EmailAddress.Address.Equals(_chat.LocalCertificate.IssuedTo.EmailAddress.Address);
+            bool myMessage = message.Sender.Equals(_chat.LocalCertificate.IssuedTo.EmailAddress.Address);
 
-            AddMessage(new ChatMessageItem(sender, message, DateTime.Now, myMessage));
+            AddMessage(new ChatMessageItem(sender, message, myMessage));
 
             if (!_chatItem.Selected)
                 _chatItem.SetNewMessage(sender.PeerCertificate.IssuedTo.Name + ": " + message);
@@ -124,7 +132,7 @@ namespace BitChatApp.UserControls
 
         private void chat_PeerAdded(BitChat sender, BitChat.Peer peer)
         {
-            AddMessage(new ChatMessageInfoItem(peer.PeerCertificate.IssuedTo.Name + " joined chat", DateTime.Now));
+            AddMessage(new ChatMessageInfoItem(_chat.WriteInfoMessage(peer.PeerCertificate.IssuedTo.Name + " joined chat")));
 
             if (sender.NetworkType == BitChatClient.Network.BitChatNetworkType.PrivateChat)
             {
@@ -140,7 +148,7 @@ namespace BitChatApp.UserControls
 
         private void chat_PeerHasRevokedCertificate(BitChat sender, InvalidCertificateException ex)
         {
-            AddMessage(new ChatMessageInfoItem(ex.Message));
+            AddMessage(new ChatMessageInfoItem(_chat.WriteInfoMessage(ex.Message)));
         }
 
         private void chat_PeerSecureChannelException(BitChat sender, SecureChannelException ex)
@@ -159,12 +167,12 @@ namespace BitChatApp.UserControls
             else
                 desc = ex.Code.ToString();
 
-            AddMessage(new ChatMessageInfoItem("Secure channel with peer '" + peerInfo + "' encountered '" + desc + "' exception.", DateTime.Now));
+            AddMessage(new ChatMessageInfoItem(_chat.WriteInfoMessage("Secure channel with peer '" + peerInfo + "' encountered '" + desc + "' exception.")));
         }
 
         private void chat_PeerHasChangedCertificate(BitChat sender, Certificate cert)
         {
-            AddMessage(new ChatMessageInfoItem("Warning! Peer '" + cert.IssuedTo.EmailAddress.Address + "' has changed profile certificate [serial number: " + cert.SerialNumber + ", issued on: " + cert.IssuedOnUTC.ToShortDateString() + "]", DateTime.Now));
+            AddMessage(new ChatMessageInfoItem(_chat.WriteInfoMessage("Warning! Peer '" + cert.IssuedTo.EmailAddress.Address + "' has changed profile certificate [serial number: " + cert.SerialNumber + ", issued on: " + cert.IssuedOnUTC.ToShortDateString() + "]")));
         }
 
         #endregion
@@ -203,7 +211,7 @@ namespace BitChatApp.UserControls
         {
             foreach (string filename in fileNames)
             {
-                AddMessage(new ChatMessageInfoItem("Please wait while '" + Path.GetFileName(filename) + "' of " + WebUtilities.GetFormattedSize((new FileInfo(filename)).Length) + " is being shared"));
+                AddMessage(new ChatMessageInfoItem(_chat.WriteInfoMessage("Please wait while '" + Path.GetFileName(filename) + "' of " + WebUtilities.GetFormattedSize((new FileInfo(filename)).Length) + " is being shared")));
             }
 
             Action<string[]> d = new Action<string[]>(ShareFileAsync);
@@ -289,9 +297,9 @@ namespace BitChatApp.UserControls
         {
             if (txtMessage.Text != "")
             {
-                AddMessage(new ChatMessageItem(_chat.SelfPeer, txtMessage.Text, DateTime.Now, true));
+                MessageItem msg = _chat.SendTextMessage(txtMessage.Text);
 
-                _chat.SendTextMessage(txtMessage.Text);
+                AddMessage(new ChatMessageItem(_chat.SelfPeer, msg, true));
 
                 txtMessage.Text = "";
                 txtMessage.Focus();
@@ -309,6 +317,70 @@ namespace BitChatApp.UserControls
                 if (oFD.ShowDialog(this) == DialogResult.OK)
                 {
                     ShareFiles(oFD.FileNames);
+                }
+            }
+        }
+
+        private List<CustomListViewItem> ConvertToListViewItems(MessageItem[] items)
+        {
+            BitChat.Peer[] peerList = _chat.GetPeerList();
+
+            List<CustomListViewItem> listItems = new List<CustomListViewItem>(items.Length);
+            DateTime lastItemDate = new DateTime();
+
+            foreach (MessageItem item in items)
+            {
+                if (lastItemDate.Date < item.MessageDate.Date)
+                {
+                    lastItemDate = item.MessageDate;
+                    listItems.Add(new ChatMessageInfoItem(new MessageItem("", lastItemDate)));
+                }
+
+                switch (item.Type)
+                {
+                    case MessageType.Info:
+                        listItems.Add(new ChatMessageInfoItem(item));
+                        break;
+
+                    case MessageType.TextMessage:
+                        BitChat.Peer sender = null;
+
+                        foreach (BitChat.Peer peer in peerList)
+                        {
+                            if (peer.PeerCertificate.IssuedTo.EmailAddress.Address.Equals(item.Sender))
+                            {
+                                sender = peer;
+                                break;
+                            }
+                        }
+
+                        if (sender != null)
+                        {
+                            bool myMessage = item.Sender.Equals(_chat.LocalCertificate.IssuedTo.EmailAddress.Address);
+
+                            listItems.Add(new ChatMessageItem(sender, item, myMessage));
+                        }
+                        break;
+                }
+            }
+
+            return listItems;
+        }
+
+        private void customListView1_ScrolledNearStart(object sender, EventArgs e)
+        {
+            foreach (CustomListViewItem item in customListView1.Controls)
+            {
+                IChatMessageItem messageItem = item as IChatMessageItem;
+
+                if (messageItem.Message.MessageNumber == 0)
+                {
+                    return;
+                }
+                else if (messageItem.Message.MessageNumber > -1)
+                {
+                    customListView1.InsertItemsAtBeginning(ConvertToListViewItems(_chat.GetLastMessageItems(messageItem.Message.MessageNumber, MESSAGE_COUNT_PER_SCROLL)));
+                    return;
                 }
             }
         }
@@ -412,28 +484,19 @@ namespace BitChatApp.UserControls
         {
             CustomListViewItem lastItem = customListView1.GetLastItem();
 
-            bool showDate = false;
+            bool insertDateInfo = false;
+            DateTime itemDate = (item as IChatMessageItem).Message.MessageDate;
 
             if (lastItem == null)
-                showDate = true;
+                insertDateInfo = true;
             else
             {
-                if (lastItem.GetType().Equals(typeof(ChatMessageItem)))
-                {
-                    if (DateTime.Now.Date > (lastItem as ChatMessageItem).MessageDate.Date)
-                        showDate = true;
-                }
-                else if (lastItem.GetType().Equals(typeof(ChatMessageInfoItem)))
-                {
-                    ChatMessageInfoItem xItem = lastItem as ChatMessageInfoItem;
-
-                    if (xItem.IsDateSet() && (DateTime.Now.Date > xItem.MessageDate.Date))
-                        showDate = true;
-                }
+                if (itemDate.Date > (lastItem as IChatMessageItem).Message.MessageDate.Date)
+                    insertDateInfo = true;
             }
 
-            if (showDate)
-                customListView1.AddItem(new ChatMessageInfoItem(DateTime.Now.ToString("dddd, MMMM d, yyyy")));
+            if (insertDateInfo)
+                customListView1.AddItem(new ChatMessageInfoItem(new MessageItem("")));
 
             customListView1.AddItem(item);
 

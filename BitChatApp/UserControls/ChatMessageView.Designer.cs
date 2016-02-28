@@ -105,6 +105,7 @@
             this.customListView1.Size = new System.Drawing.Size(697, 302);
             this.customListView1.SortItems = false;
             this.customListView1.TabIndex = 0;
+            this.customListView1.ScrolledNearStart += new System.EventHandler(customListView1_ScrolledNearStart);
             // 
             // btnShareFile
             // 
@@ -150,7 +151,7 @@
             this.txtMessage.Multiline = true;
             this.txtMessage.Name = "txtMessage";
             this.txtMessage.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.txtMessage.Size = new System.Drawing.Size(607, 44);
+            this.txtMessage.Size = new System.Drawing.Size(607, 46);
             this.txtMessage.TabIndex = 0;
             this.txtMessage.KeyDown += new System.Windows.Forms.KeyEventHandler(this.txtMessage_KeyDown);
             this.txtMessage.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.txtMessage_KeyPress);
