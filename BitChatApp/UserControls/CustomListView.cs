@@ -28,6 +28,8 @@ namespace BitChatApp.UserControls
     {
         #region events
 
+        public event EventHandler ScrolledNearStart;
+
         public event EventHandler ItemClick;
         public event EventHandler ItemDoubleClick;
         public event MouseEventHandler ItemMouseUp;
@@ -44,7 +46,6 @@ namespace BitChatApp.UserControls
         List<CustomListViewItem> _items = new List<CustomListViewItem>();
 
         CustomListViewItem _selectedItem;
-        CustomListViewItem _lastScrolledItem;
 
         bool _sortItems = false;
         bool _autoScrollToBottom = false;
@@ -64,6 +65,31 @@ namespace BitChatApp.UserControls
         #endregion
 
         #region private
+
+        protected override void OnMouseWheel(MouseEventArgs e)
+        {
+            base.OnMouseWheel(e);
+
+            if (this.VerticalScroll.Value < 10)
+            {
+                if (ScrolledNearStart != null)
+                    ScrolledNearStart(this, EventArgs.Empty);
+            }
+        }
+
+        protected override void OnScroll(ScrollEventArgs se)
+        {
+            base.OnScroll(se);
+
+            if (se.ScrollOrientation == ScrollOrientation.VerticalScroll)
+            {
+                if ((se.NewValue < se.OldValue) && (se.NewValue < 10))
+                {
+                    if (ScrolledNearStart != null)
+                        ScrolledNearStart(this, EventArgs.Empty);
+                }
+            }
+        }
 
         protected override void OnPaint(PaintEventArgs e)
         {
@@ -228,6 +254,70 @@ namespace BitChatApp.UserControls
 
         #region public
 
+        public void ReplaceItems(IEnumerable<CustomListViewItem> items)
+        {
+            this.SuspendLayout();
+
+            this.Controls.Clear();
+            _items.Clear();
+
+            foreach (CustomListViewItem item in items)
+            {
+                item.SeparatorColor = this.SeparatorColor;
+
+                item.Click += item_Clicked;
+                item.DoubleClick += item_DoubleClick;
+                item.MouseUp += item_MouseUp;
+                item.KeyPress += item_KeyPress;
+                item.KeyUp += item_KeyUp;
+                item.KeyDown += item_KeyDown;
+                item.SortList += item_SortList;
+            }
+
+            _items.AddRange(items);
+            this.Controls.AddRange(_items.ToArray());
+
+            ReArrangeItems();
+
+            this.ResumeLayout();
+        }
+
+        public void InsertItemsAtBeginning(IEnumerable<CustomListViewItem> items)
+        {
+            this.SuspendLayout();
+
+            this.Controls.Clear();
+
+            foreach (CustomListViewItem item in items)
+            {
+                item.SeparatorColor = this.SeparatorColor;
+
+                item.Click += item_Clicked;
+                item.DoubleClick += item_DoubleClick;
+                item.MouseUp += item_MouseUp;
+                item.KeyPress += item_KeyPress;
+                item.KeyUp += item_KeyUp;
+                item.KeyDown += item_KeyDown;
+                item.SortList += item_SortList;
+            }
+
+            CustomListViewItem previousTopItem = null;
+
+            if (_items.Count > 0)
+                previousTopItem = _items[0];
+
+
+            _items.InsertRange(0, items);
+            this.Controls.AddRange(_items.ToArray());
+
+            ReArrangeItems();
+
+            if (previousTopItem != null)
+                this.ScrollControlIntoView(previousTopItem);
+
+            this.ResumeLayout();
+        }
+
         public CustomListViewItem AddItem(CustomListViewItem item)
         {
             this.SuspendLayout();
@@ -315,8 +405,12 @@ namespace BitChatApp.UserControls
 
         public void RemoveAllItems()
         {
+            this.SuspendLayout();
+
             this.Controls.Clear();
             _items.Clear();
+
+            this.ResumeLayout();
         }
 
         public CustomListViewItem GetFirstItem()
@@ -347,10 +441,13 @@ namespace BitChatApp.UserControls
         public void ScrollToBottom()
         {
             if (_items.Count > 0)
-            {
-                _lastScrolledItem = _items[_items.Count - 1];
-                this.ScrollControlIntoView(_lastScrolledItem);
-            }
+                this.ScrollControlIntoView(_items[_items.Count - 1]);
+        }
+
+        public void ScrollToItem(CustomListViewItem item)
+        {
+            if (_items.Count > 0)
+                this.ScrollControlIntoView(item);
         }
 
         #endregion
