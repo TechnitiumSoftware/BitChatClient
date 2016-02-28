@@ -367,7 +367,7 @@ namespace BitChatApp
                 selfSignedCert.SelfSign("SHA256", privateKey, null);
 
                 if (_profile == null)
-                    _profile = new BitChatProfile((new Random(DateTime.UtcNow.Millisecond)).Next(1024, 65535), GetDownloadsPath(), BitChatProfile.DefaultTrackerURIs);
+                    _profile = new BitChatProfile((new Random(DateTime.UtcNow.Millisecond)).Next(1024, 65535), GetDownloadsPath(), BitChatProfile.DefaultTrackerURIs, _localAppData);
 
                 if (_enableProxy)
                     _profile.ConfigureProxy(_proxyType, _proxyAddress, _proxyPort, _proxyCredentials);

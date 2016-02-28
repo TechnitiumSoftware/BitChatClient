@@ -188,7 +188,7 @@ namespace BitChatApp
 
                 _profileFilePath = Path.Combine(_localAppData, (lstProfiles.SelectedItem as string) + ".profile");
 
-                using (frmPassword frm = new frmPassword(_profileFilePath))
+                using (frmPassword frm = new frmPassword(_profileFilePath, _localAppData))
                 {
                     if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
                     {
@@ -299,7 +299,7 @@ namespace BitChatApp
 
         private void Start()
         {
-            using (frmPassword frm = new frmPassword(_profileFilePath))
+            using (frmPassword frm = new frmPassword(_profileFilePath, _localAppData))
             {
                 switch (frm.ShowDialog(this))
                 {

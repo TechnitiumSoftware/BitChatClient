@@ -34,6 +34,7 @@ namespace BitChatApp
         #region variables
 
         string _profileFilePath;
+        string _profileFolder;
 
         BitChatProfile _profile;
 
@@ -41,11 +42,12 @@ namespace BitChatApp
 
         #region constructor
 
-        public frmPassword(string profileFilePath)
+        public frmPassword(string profileFilePath, string profileFolder)
         {
             InitializeComponent();
 
             _profileFilePath = profileFilePath;
+            _profileFolder = profileFolder;
 
             labProfileName.Text = Path.GetFileNameWithoutExtension(_profileFilePath);
         }
@@ -60,7 +62,7 @@ namespace BitChatApp
             {
                 using (FileStream fS = new FileStream(_profileFilePath, FileMode.Open, FileAccess.Read))
                 {
-                    _profile = new BitChatProfile(fS, txtPassword.Text);
+                    _profile = new BitChatProfile(fS, txtPassword.Text, _profileFolder);
                 }
 
                 DialogResult = System.Windows.Forms.DialogResult.OK;
@@ -72,7 +74,7 @@ namespace BitChatApp
                 {
                     using (FileStream fS = new FileStream(_profileFilePath + ".bak", FileMode.Open, FileAccess.Read))
                     {
-                        _profile = new BitChatProfile(fS, txtPassword.Text);
+                        _profile = new BitChatProfile(fS, txtPassword.Text, _profileFolder);
                     }
 
                     DialogResult = System.Windows.Forms.DialogResult.OK;

@@ -342,7 +342,7 @@ namespace BitChatAppMono
                 selfSignedCert.SelfSign("SHA256", privateKey, null);
 
                 if (_profile == null)
-                    _profile = new BitChatProfile((new Random(DateTime.UtcNow.Millisecond)).Next(1024, 65535), Environment.GetFolderPath(Environment.SpecialFolder.Desktop), BitChatProfile.DefaultTrackerURIs);
+                    _profile = new BitChatProfile((new Random(DateTime.UtcNow.Millisecond)).Next(1024, 65535), Environment.GetFolderPath(Environment.SpecialFolder.Desktop), BitChatProfile.DefaultTrackerURIs, _localAppData);
 
                 if (_enableProxy)
                     _profile.ConfigureProxy(_proxyType, _proxyAddress, _proxyPort, _proxyCredentials);
