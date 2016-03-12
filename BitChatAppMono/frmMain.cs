@@ -189,19 +189,22 @@ namespace BitChatAppMono
 
         private void lblUserName_MouseEnter(object sender, EventArgs e)
         {
-            lblUserName.Font = new Font(lblUserName.Font, FontStyle.Bold);
+            panel1.BackColor = Color.FromArgb(61, 78, 93);
+            lblUserName.BackColor = panel1.BackColor;
         }
 
         private void lblUserName_MouseLeave(object sender, EventArgs e)
         {
-            lblUserName.Font = new Font(lblUserName.Font, FontStyle.Regular);
+            panel1.BackColor = Color.FromArgb(51, 65, 78);
+            lblUserName.BackColor = panel1.BackColor;
         }
 
         private void lblUserName_Click(object sender, EventArgs e)
         {
-            using (frmViewCertificate frm = new frmViewCertificate(_profile.LocalCertificateStore.Certificate))
+            using (frmViewProfile frm = new frmViewProfile(_profile))
             {
-                frm.ShowDialog(this);
+                if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
+                    SaveProfile();
             }
         }
 

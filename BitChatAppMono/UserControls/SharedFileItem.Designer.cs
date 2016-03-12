@@ -94,7 +94,7 @@
             this.labSpeed.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.labSpeed.AutoEllipsis = true;
             this.labSpeed.Font = new System.Drawing.Font("Arial", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.labSpeed.ForeColor = System.Drawing.Color.Black;
+            this.labSpeed.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
             this.labSpeed.Location = new System.Drawing.Point(115, 18);
             this.labSpeed.Name = "labSpeed";
             this.labSpeed.Size = new System.Drawing.Size(82, 14);
@@ -108,7 +108,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.labInfo1.AutoEllipsis = true;
             this.labInfo1.Font = new System.Drawing.Font("Arial", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.labInfo1.ForeColor = System.Drawing.Color.Black;
+            this.labInfo1.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
             this.labInfo1.Location = new System.Drawing.Point(1, 18);
             this.labInfo1.Name = "labInfo1";
             this.labInfo1.Size = new System.Drawing.Size(118, 14);
@@ -133,7 +133,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.labFileName.AutoEllipsis = true;
             this.labFileName.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.labFileName.ForeColor = System.Drawing.Color.Black;
+            this.labFileName.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
             this.labFileName.Location = new System.Drawing.Point(2, 1);
             this.labFileName.Name = "labFileName";
             this.labFileName.Size = new System.Drawing.Size(196, 16);

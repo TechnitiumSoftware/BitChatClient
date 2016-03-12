@@ -30,6 +30,7 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmRegister));
             this.pnlRegister = new System.Windows.Forms.Panel();
+            this.linkLabel2 = new System.Windows.Forms.LinkLabel();
             this.label16 = new System.Windows.Forms.Label();
             this.chkEnableProxy = new System.Windows.Forms.CheckBox();
             this.rbImportRSA = new System.Windows.Forms.RadioButton();
@@ -77,7 +78,6 @@
             this.label18 = new System.Windows.Forms.Label();
             this.panel1 = new System.Windows.Forms.Panel();
             this.pictureBox2 = new System.Windows.Forms.PictureBox();
-            this.linkLabel2 = new System.Windows.Forms.LinkLabel();
             this.pnlRegister.SuspendLayout();
             this.pnlMessages.SuspendLayout();
             this.pnlDownloadCert.SuspendLayout();
@@ -127,6 +127,20 @@
             this.pnlRegister.Size = new System.Drawing.Size(660, 387);
             this.pnlRegister.TabIndex = 6;
             // 
+            // linkLabel2
+            // 
+            this.linkLabel2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.linkLabel2.AutoSize = true;
+            this.linkLabel2.LinkColor = System.Drawing.Color.FromArgb(((int)(((byte)(102)))), ((int)(((byte)(153)))), ((int)(((byte)(255)))));
+            this.linkLabel2.Location = new System.Drawing.Point(3, 370);
+            this.linkLabel2.Name = "linkLabel2";
+            this.linkLabel2.Size = new System.Drawing.Size(153, 13);
+            this.linkLabel2.TabIndex = 45;
+            this.linkLabel2.TabStop = true;
+            this.linkLabel2.Text = "Help: How To Register Profile?";
+            this.linkLabel2.VisitedLinkColor = System.Drawing.Color.White;
+            this.linkLabel2.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel2_LinkClicked);
+            // 
             // label16
             // 
             this.label16.AutoSize = true;
@@ -152,6 +166,7 @@
             // rbImportRSA
             // 
             this.rbImportRSA.AutoSize = true;
+            this.rbImportRSA.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
             this.rbImportRSA.Location = new System.Drawing.Point(30, 218);
             this.rbImportRSA.Name = "rbImportRSA";
             this.rbImportRSA.Size = new System.Drawing.Size(197, 17);
@@ -164,6 +179,7 @@
             // 
             this.rbAutoGenRSA.AutoSize = true;
             this.rbAutoGenRSA.Checked = true;
+            this.rbAutoGenRSA.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
             this.rbAutoGenRSA.Location = new System.Drawing.Point(30, 195);
             this.rbAutoGenRSA.Name = "rbAutoGenRSA";
             this.rbAutoGenRSA.Size = new System.Drawing.Size(279, 17);
@@ -175,6 +191,7 @@
             // linkLabel1
             // 
             this.linkLabel1.AutoSize = true;
+            this.linkLabel1.LinkColor = System.Drawing.Color.FromArgb(((int)(((byte)(102)))), ((int)(((byte)(153)))), ((int)(((byte)(255)))));
             this.linkLabel1.Location = new System.Drawing.Point(356, 343);
             this.linkLabel1.Name = "linkLabel1";
             this.linkLabel1.Size = new System.Drawing.Size(224, 13);
@@ -787,20 +804,6 @@
             this.pictureBox2.SizeMode = System.Windows.Forms.PictureBoxSizeMode.CenterImage;
             this.pictureBox2.TabIndex = 12;
             this.pictureBox2.TabStop = false;
-            // 
-            // linkLabel2
-            // 
-            this.linkLabel2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
-            this.linkLabel2.AutoSize = true;
-            this.linkLabel2.LinkColor = System.Drawing.Color.Blue;
-            this.linkLabel2.Location = new System.Drawing.Point(3, 370);
-            this.linkLabel2.Name = "linkLabel2";
-            this.linkLabel2.Size = new System.Drawing.Size(153, 13);
-            this.linkLabel2.TabIndex = 45;
-            this.linkLabel2.TabStop = true;
-            this.linkLabel2.Text = "Help: How To Register Profile?";
-            this.linkLabel2.VisitedLinkColor = System.Drawing.Color.White;
-            this.linkLabel2.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel2_LinkClicked);
             // 
             // frmRegister
             // 

@@ -86,8 +86,10 @@
   <PropertyGroup />
   <ItemGroup>
     <Reference Include="System" />
+    <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Xml" />
     <Reference Include="TechnitiumLibrary.IO, Version=2.0.1.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\References\TechnitiumLibrary.IO.dll</HintPath>
@@ -122,6 +124,12 @@
     <Compile Include="frmAddTracker.Designer.cs">
       <DependentUpon>frmAddTracker.cs</DependentUpon>
     </Compile>
+    <Compile Include="frmImageDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmImageDialog.Designer.cs">
+      <DependentUpon>frmImageDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="frmImportPEM.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -133,6 +141,12 @@
     </Compile>
     <Compile Include="frmNetworkInfo.Designer.cs">
       <DependentUpon>frmNetworkInfo.cs</DependentUpon>
+    </Compile>
+    <Compile Include="frmViewProfile.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmViewProfile.Designer.cs">
+      <DependentUpon>frmViewProfile.cs</DependentUpon>
     </Compile>
     <Compile Include="frmProfileManager.cs">
       <SubType>Form</SubType>
@@ -152,11 +166,11 @@
     <Compile Include="frmViewCertificate.Designer.cs">
       <DependentUpon>frmViewCertificate.cs</DependentUpon>
     </Compile>
-    <Compile Include="frmViewUser.cs">
+    <Compile Include="frmViewUserDetails.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="frmViewUser.Designer.cs">
-      <DependentUpon>frmViewUser.cs</DependentUpon>
+    <Compile Include="frmViewUserDetails.Designer.cs">
+      <DependentUpon>frmViewUserDetails.cs</DependentUpon>
     </Compile>
     <Compile Include="frmWelcome.cs">
       <SubType>Form</SubType>
@@ -278,11 +292,17 @@
     <EmbeddedResource Include="frmAddTracker.resx">
       <DependentUpon>frmAddTracker.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="frmImageDialog.resx">
+      <DependentUpon>frmImageDialog.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="frmImportPEM.resx">
       <DependentUpon>frmImportPEM.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmNetworkInfo.resx">
       <DependentUpon>frmNetworkInfo.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmViewProfile.resx">
+      <DependentUpon>frmViewProfile.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmProfileManager.resx">
       <DependentUpon>frmProfileManager.cs</DependentUpon>
@@ -293,8 +313,8 @@
     <EmbeddedResource Include="frmViewCertificate.resx">
       <DependentUpon>frmViewCertificate.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="frmViewUser.resx">
-      <DependentUpon>frmViewUser.cs</DependentUpon>
+    <EmbeddedResource Include="frmViewUserDetails.resx">
+      <DependentUpon>frmViewUserDetails.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmWelcome.resx">
       <DependentUpon>frmWelcome.cs</DependentUpon>

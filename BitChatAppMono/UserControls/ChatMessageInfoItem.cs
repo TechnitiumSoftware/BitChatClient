@@ -44,13 +44,13 @@ namespace BitChatAppMono.UserControls
 
             if (string.IsNullOrEmpty(_message.Message))
             {
-                label1.Text = _message.MessageDate.ToString("dddd, MMMM d, yyyy");
+                label1.Text = _message.MessageDate.ToLocalTime().ToString("dddd, MMMM d, yyyy");
                 label2.Visible = false;
             }
             else
             {
                 label1.Text = _message.Message;
-                label2.Text = _message.MessageDate.ToShortTimeString();
+                label2.Text = _message.MessageDate.ToLocalTime().ToShortTimeString();
             }
         }
 

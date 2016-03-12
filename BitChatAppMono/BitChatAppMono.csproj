@@ -82,6 +82,12 @@
     <Compile Include="frmChatProperties.Designer.cs">
       <DependentUpon>frmChatProperties.cs</DependentUpon>
     </Compile>
+    <Compile Include="frmImageDialog.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmImageDialog.Designer.cs">
+      <DependentUpon>frmImageDialog.cs</DependentUpon>
+    </Compile>
     <Compile Include="frmImportPEM.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -136,11 +142,17 @@
     <Compile Include="frmViewCertificate.Designer.cs">
       <DependentUpon>frmViewCertificate.cs</DependentUpon>
     </Compile>
-    <Compile Include="frmViewUser.cs">
+    <Compile Include="frmViewProfile.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="frmViewUser.Designer.cs">
-      <DependentUpon>frmViewUser.cs</DependentUpon>
+    <Compile Include="frmViewProfile.Designer.cs">
+      <DependentUpon>frmViewProfile.cs</DependentUpon>
+    </Compile>
+    <Compile Include="frmViewUserDetails.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmViewUserDetails.Designer.cs">
+      <DependentUpon>frmViewUserDetails.cs</DependentUpon>
     </Compile>
     <Compile Include="frmWelcome.cs">
       <SubType>Form</SubType>
@@ -233,6 +245,9 @@
     <EmbeddedResource Include="frmChatProperties.resx">
       <DependentUpon>frmChatProperties.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="frmImageDialog.resx">
+      <DependentUpon>frmImageDialog.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="frmImportPEM.resx">
       <DependentUpon>frmImportPEM.cs</DependentUpon>
     </EmbeddedResource>
@@ -260,8 +275,11 @@
     <EmbeddedResource Include="frmViewCertificate.resx">
       <DependentUpon>frmViewCertificate.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="frmViewUser.resx">
-      <DependentUpon>frmViewUser.cs</DependentUpon>
+    <EmbeddedResource Include="frmViewProfile.resx">
+      <DependentUpon>frmViewProfile.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmViewUserDetails.resx">
+      <DependentUpon>frmViewUserDetails.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmWelcome.resx">
       <DependentUpon>frmWelcome.cs</DependentUpon>

@@ -18,19 +18,16 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 using BitChatClient;
-using TechnitiumLibrary.Security.Cryptography;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Drawing;
-using System.Linq;
+using System.IO;
 using System.Net;
-using System.Text;
 using System.Windows.Forms;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatAppMono
 {
-    public partial class frmViewUser : Form
+    public partial class frmViewUserDetails : Form
     {
         #region variables
 
@@ -40,12 +37,12 @@ namespace BitChatAppMono
 
         #region constructor
 
-        public frmViewUser()
+        public frmViewUserDetails()
         {
             InitializeComponent();
         }
 
-        public frmViewUser(BitChat.Peer peer)
+        public frmViewUserDetails(BitChat.Peer peer)
         {
             InitializeComponent();
 
@@ -119,6 +116,18 @@ namespace BitChatAppMono
             {
                 labLocation.Text = "{missing location}";
                 labLocation.ForeColor = Color.Red;
+            }
+
+            //image icon
+            if (_peer.ProfileImageSmall != null)
+            {
+                using (MemoryStream mS = new MemoryStream(_peer.ProfileImageSmall))
+                {
+                    picIcon.Image = Image.FromStream(mS);
+                }
+
+                picIcon.Visible = true;
+                labIcon.Visible = false;
             }
 
             //network status

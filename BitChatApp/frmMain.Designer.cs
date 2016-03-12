@@ -32,7 +32,9 @@ namespace BitChatApp
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmMain));
             this.mnuChat = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.mnuGoOffline = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuLeaveChat = new System.Windows.Forms.ToolStripMenuItem();
+            this.toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
             this.mnuProperties = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.mnuAddPrivateChat2 = new System.Windows.Forms.ToolStripMenuItem();
@@ -48,13 +50,10 @@ namespace BitChatApp
             this.mnuExit = new System.Windows.Forms.ToolStripMenuItem();
             this.mainContainer = new System.Windows.Forms.SplitContainer();
             this.panel1 = new System.Windows.Forms.Panel();
-            this.btnPlusButton = new BitChatApp.UserControls.CustomButton();
             this.lblUserName = new System.Windows.Forms.Label();
-            this.lstChats = new BitChatApp.UserControls.CustomListView();
             this.panelGetStarted = new System.Windows.Forms.Panel();
             this.label2 = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
-            this.btnCreateChat = new BitChatApp.UserControls.CustomButton();
             this.mnuAddGroupChat1 = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
             this.mnuProfileSettings = new System.Windows.Forms.ToolStripMenuItem();
@@ -66,8 +65,9 @@ namespace BitChatApp
             this.mnuAbout2 = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.mnuExit2 = new System.Windows.Forms.ToolStripMenuItem();
-            this.mnuGoOffline = new System.Windows.Forms.ToolStripMenuItem();
-            this.toolStripSeparator6 = new System.Windows.Forms.ToolStripSeparator();
+            this.btnPlusButton = new BitChatApp.UserControls.CustomButton();
+            this.lstChats = new BitChatApp.UserControls.CustomListView();
+            this.btnCreateChat = new BitChatApp.UserControls.CustomButton();
             this.mnuChat.SuspendLayout();
             this.mnuSysTray.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.mainContainer)).BeginInit();
@@ -75,10 +75,10 @@ namespace BitChatApp
             this.mainContainer.Panel2.SuspendLayout();
             this.mainContainer.SuspendLayout();
             this.panel1.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.btnPlusButton)).BeginInit();
             this.panelGetStarted.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.btnCreateChat)).BeginInit();
             this.mnuPlus.SuspendLayout();
+            ((System.ComponentModel.ISupportInitialize)(this.btnPlusButton)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.btnCreateChat)).BeginInit();
             this.SuspendLayout();
             // 
             // mnuChat
@@ -92,7 +92,14 @@ namespace BitChatApp
             this.mnuAddPrivateChat2,
             this.mnuAddGroupChat2});
             this.mnuChat.Name = "chatContextMenu";
-            this.mnuChat.Size = new System.Drawing.Size(164, 148);
+            this.mnuChat.Size = new System.Drawing.Size(164, 126);
+            // 
+            // mnuGoOffline
+            // 
+            this.mnuGoOffline.Name = "mnuGoOffline";
+            this.mnuGoOffline.Size = new System.Drawing.Size(163, 22);
+            this.mnuGoOffline.Text = "Go Offline";
+            this.mnuGoOffline.Click += new System.EventHandler(this.mnuGoOffline_Click);
             // 
             // mnuLeaveChat
             // 
@@ -100,6 +107,11 @@ namespace BitChatApp
             this.mnuLeaveChat.Size = new System.Drawing.Size(163, 22);
             this.mnuLeaveChat.Text = "&Leave Chat";
             this.mnuLeaveChat.Click += new System.EventHandler(this.mnuLeaveChat_Click);
+            // 
+            // toolStripSeparator6
+            // 
+            this.toolStripSeparator6.Name = "toolStripSeparator6";
+            this.toolStripSeparator6.Size = new System.Drawing.Size(160, 6);
             // 
             // mnuProperties
             // 
@@ -222,35 +234,25 @@ namespace BitChatApp
             // 
             // panel1
             // 
-            this.panel1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(102)))), ((int)(((byte)(153)))), ((int)(((byte)(255)))));
+            this.panel1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(78)))));
             this.panel1.Controls.Add(this.btnPlusButton);
             this.panel1.Controls.Add(this.lblUserName);
+            this.panel1.Cursor = System.Windows.Forms.Cursors.Hand;
             this.panel1.Dock = System.Windows.Forms.DockStyle.Top;
             this.panel1.Location = new System.Drawing.Point(0, 0);
             this.panel1.Name = "panel1";
             this.panel1.Size = new System.Drawing.Size(277, 36);
             this.panel1.TabIndex = 14;
-            // 
-            // btnPlusButton
-            // 
-            this.btnPlusButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnPlusButton.Image = ((System.Drawing.Image)(resources.GetObject("btnPlusButton.Image")));
-            this.btnPlusButton.ImageHover = ((System.Drawing.Image)(resources.GetObject("btnPlusButton.ImageHover")));
-            this.btnPlusButton.ImageMouseDown = ((System.Drawing.Image)(resources.GetObject("btnPlusButton.ImageMouseDown")));
-            this.btnPlusButton.Location = new System.Drawing.Point(250, 7);
-            this.btnPlusButton.Name = "btnPlusButton";
-            this.btnPlusButton.Size = new System.Drawing.Size(24, 24);
-            this.btnPlusButton.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
-            this.btnPlusButton.TabIndex = 14;
-            this.btnPlusButton.TabStop = false;
-            this.btnPlusButton.Click += new System.EventHandler(this.btnPlusButton_Click);
+            this.panel1.Click += new System.EventHandler(this.lblUserName_Click);
+            this.panel1.MouseEnter += new System.EventHandler(this.lblUserName_MouseEnter);
+            this.panel1.MouseLeave += new System.EventHandler(this.lblUserName_MouseLeave);
             // 
             // lblUserName
             // 
             this.lblUserName.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.lblUserName.AutoEllipsis = true;
-            this.lblUserName.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(102)))), ((int)(((byte)(153)))), ((int)(((byte)(255)))));
+            this.lblUserName.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(78)))));
             this.lblUserName.Cursor = System.Windows.Forms.Cursors.Hand;
             this.lblUserName.Font = new System.Drawing.Font("Arial", 14F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblUserName.ForeColor = System.Drawing.Color.White;
@@ -263,28 +265,6 @@ namespace BitChatApp
             this.lblUserName.Click += new System.EventHandler(this.lblUserName_Click);
             this.lblUserName.MouseEnter += new System.EventHandler(this.lblUserName_MouseEnter);
             this.lblUserName.MouseLeave += new System.EventHandler(this.lblUserName_MouseLeave);
-            // 
-            // lstChats
-            // 
-            this.lstChats.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
-            | System.Windows.Forms.AnchorStyles.Right)));
-            this.lstChats.AutoScroll = true;
-            this.lstChats.AutoScrollToBottom = false;
-            this.lstChats.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
-            this.lstChats.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
-            this.lstChats.Location = new System.Drawing.Point(0, 36);
-            this.lstChats.Name = "lstChats";
-            this.lstChats.SeparatorColor = System.Drawing.Color.FromArgb(((int)(((byte)(39)))), ((int)(((byte)(53)))), ((int)(((byte)(65)))));
-            this.lstChats.Size = new System.Drawing.Size(277, 462);
-            this.lstChats.SortItems = true;
-            this.lstChats.TabIndex = 13;
-            this.lstChats.ItemClick += new System.EventHandler(this.lstChats_ItemClick);
-            this.lstChats.ItemMouseUp += new System.Windows.Forms.MouseEventHandler(this.lstChats_ItemMouseUp);
-            this.lstChats.ItemKeyUp += new System.Windows.Forms.KeyEventHandler(this.lstChats_ItemKeyUp);
-            this.lstChats.DoubleClick += new System.EventHandler(this.lstChats_DoubleClick);
-            this.lstChats.KeyUp += new System.Windows.Forms.KeyEventHandler(this.lstChats_KeyUp);
-            this.lstChats.MouseUp += new System.Windows.Forms.MouseEventHandler(this.lstChats_MouseUp);
             // 
             // panelGetStarted
             // 
@@ -317,20 +297,6 @@ namespace BitChatApp
             this.label4.Size = new System.Drawing.Size(275, 36);
             this.label4.TabIndex = 20;
             this.label4.Text = "create a chat now!";
-            // 
-            // btnCreateChat
-            // 
-            this.btnCreateChat.BackColor = System.Drawing.Color.Transparent;
-            this.btnCreateChat.Image = ((System.Drawing.Image)(resources.GetObject("btnCreateChat.Image")));
-            this.btnCreateChat.ImageHover = ((System.Drawing.Image)(resources.GetObject("btnCreateChat.ImageHover")));
-            this.btnCreateChat.ImageMouseDown = ((System.Drawing.Image)(resources.GetObject("btnCreateChat.ImageMouseDown")));
-            this.btnCreateChat.Location = new System.Drawing.Point(178, 139);
-            this.btnCreateChat.Name = "btnCreateChat";
-            this.btnCreateChat.Size = new System.Drawing.Size(134, 44);
-            this.btnCreateChat.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
-            this.btnCreateChat.TabIndex = 2;
-            this.btnCreateChat.TabStop = false;
-            this.btnCreateChat.Click += new System.EventHandler(this.btnCreateChat_Click);
             // 
             // mnuAddGroupChat1
             // 
@@ -417,17 +383,56 @@ namespace BitChatApp
             this.mnuExit2.Text = "E&xit";
             this.mnuExit2.Click += new System.EventHandler(this.mnuExit_Click);
             // 
-            // mnuGoOffline
+            // btnPlusButton
             // 
-            this.mnuGoOffline.Name = "mnuGoOffline";
-            this.mnuGoOffline.Size = new System.Drawing.Size(163, 22);
-            this.mnuGoOffline.Text = "Go Offline";
-            this.mnuGoOffline.Click += new System.EventHandler(this.mnuGoOffline_Click);
+            this.btnPlusButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnPlusButton.Image = ((System.Drawing.Image)(resources.GetObject("btnPlusButton.Image")));
+            this.btnPlusButton.ImageHover = ((System.Drawing.Image)(resources.GetObject("btnPlusButton.ImageHover")));
+            this.btnPlusButton.ImageMouseDown = ((System.Drawing.Image)(resources.GetObject("btnPlusButton.ImageMouseDown")));
+            this.btnPlusButton.Location = new System.Drawing.Point(250, 7);
+            this.btnPlusButton.Name = "btnPlusButton";
+            this.btnPlusButton.Size = new System.Drawing.Size(24, 24);
+            this.btnPlusButton.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
+            this.btnPlusButton.TabIndex = 14;
+            this.btnPlusButton.TabStop = false;
+            this.btnPlusButton.Click += new System.EventHandler(this.btnPlusButton_Click);
             // 
-            // toolStripSeparator6
+            // lstChats
             // 
-            this.toolStripSeparator6.Name = "toolStripSeparator6";
-            this.toolStripSeparator6.Size = new System.Drawing.Size(160, 6);
+            this.lstChats.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Left) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.lstChats.AutoScroll = true;
+            this.lstChats.AutoScrollToBottom = false;
+            this.lstChats.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
+            this.lstChats.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
+            this.lstChats.Location = new System.Drawing.Point(0, 36);
+            this.lstChats.Name = "lstChats";
+            this.lstChats.Padding = new System.Windows.Forms.Padding(0, 1, 0, 0);
+            this.lstChats.SeparatorColor = System.Drawing.Color.FromArgb(((int)(((byte)(39)))), ((int)(((byte)(53)))), ((int)(((byte)(65)))));
+            this.lstChats.Size = new System.Drawing.Size(277, 462);
+            this.lstChats.SortItems = true;
+            this.lstChats.TabIndex = 13;
+            this.lstChats.ItemClick += new System.EventHandler(this.lstChats_ItemClick);
+            this.lstChats.ItemMouseUp += new System.Windows.Forms.MouseEventHandler(this.lstChats_ItemMouseUp);
+            this.lstChats.ItemKeyUp += new System.Windows.Forms.KeyEventHandler(this.lstChats_ItemKeyUp);
+            this.lstChats.DoubleClick += new System.EventHandler(this.lstChats_DoubleClick);
+            this.lstChats.KeyUp += new System.Windows.Forms.KeyEventHandler(this.lstChats_KeyUp);
+            this.lstChats.MouseUp += new System.Windows.Forms.MouseEventHandler(this.lstChats_MouseUp);
+            // 
+            // btnCreateChat
+            // 
+            this.btnCreateChat.BackColor = System.Drawing.Color.Transparent;
+            this.btnCreateChat.Image = ((System.Drawing.Image)(resources.GetObject("btnCreateChat.Image")));
+            this.btnCreateChat.ImageHover = ((System.Drawing.Image)(resources.GetObject("btnCreateChat.ImageHover")));
+            this.btnCreateChat.ImageMouseDown = ((System.Drawing.Image)(resources.GetObject("btnCreateChat.ImageMouseDown")));
+            this.btnCreateChat.Location = new System.Drawing.Point(178, 139);
+            this.btnCreateChat.Name = "btnCreateChat";
+            this.btnCreateChat.Size = new System.Drawing.Size(134, 44);
+            this.btnCreateChat.SizeMode = System.Windows.Forms.PictureBoxSizeMode.AutoSize;
+            this.btnCreateChat.TabIndex = 2;
+            this.btnCreateChat.TabStop = false;
+            this.btnCreateChat.Click += new System.EventHandler(this.btnCreateChat_Click);
             // 
             // frmMain
             // 
@@ -454,11 +459,11 @@ namespace BitChatApp
             this.mainContainer.ResumeLayout(false);
             this.panel1.ResumeLayout(false);
             this.panel1.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.btnPlusButton)).EndInit();
             this.panelGetStarted.ResumeLayout(false);
             this.panelGetStarted.PerformLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.btnCreateChat)).EndInit();
             this.mnuPlus.ResumeLayout(false);
+            ((System.ComponentModel.ISupportInitialize)(this.btnPlusButton)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.btnCreateChat)).EndInit();
             this.ResumeLayout(false);
 
         }

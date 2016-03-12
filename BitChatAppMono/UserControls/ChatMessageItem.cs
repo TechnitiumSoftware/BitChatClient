@@ -43,7 +43,7 @@ namespace BitChatAppMono.UserControls
 
             lblUsername.Text = _senderPeer.PeerCertificate.IssuedTo.Name;
             lblMessage.Text = _message.Message;
-            lblDateTime.Text = _message.MessageDate.ToShortTimeString();
+            lblDateTime.Text = _message.MessageDate.ToLocalTime().ToShortTimeString();
 
             if (myMessage)
                 lblUsername.ForeColor = Color.FromArgb(63, 186, 228);
@@ -81,7 +81,7 @@ namespace BitChatAppMono.UserControls
 
         private void lblUsername_Click(object sender, EventArgs e)
         {
-            using (frmViewUser frm = new frmViewUser(_senderPeer))
+            using (frmViewProfile frm = new frmViewProfile(_senderPeer))
             {
                 frm.ShowDialog();
             }

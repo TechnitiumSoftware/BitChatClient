@@ -125,7 +125,7 @@ namespace BitChatAppMono.UserControls
 
             if (item != null)
             {
-                using (frmViewUser frm = new frmViewUser(item.Peer))
+                using (frmViewProfile frm = new frmViewProfile(item.Peer))
                 {
                     frm.ShowDialog(this);
                 }

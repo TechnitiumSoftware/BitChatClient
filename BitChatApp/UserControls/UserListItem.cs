@@ -18,13 +18,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 using BitChatClient;
-using TechnitiumLibrary.Security.Cryptography;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Drawing;
-using System.Text;
-using System.Windows.Forms;
+using System.IO;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatApp.UserControls
 {
@@ -46,6 +43,7 @@ namespace BitChatApp.UserControls
 
             _peer.StateChanged += _peer_StateChanged;
             _peer.NetworkStatusUpdated += _peer_NetworkStatusUpdated;
+            _peer.ProfileImageChanged += _peer_ProfileImageChanged;
 
             if (_peer.PeerCertificate.IssuedTo.FieldExists(CertificateProfileFlags.Name))
             {
@@ -92,9 +90,16 @@ namespace BitChatApp.UserControls
         private void _peer_StateChanged(object sender, EventArgs e)
         {
             if (_peer.IsOnline)
-                labIcon.BackColor = Color.FromArgb(102, 153, 255);
+            {
+                _peer_ProfileImageChanged(null, null);
+            }
             else
+            {
                 labIcon.BackColor = Color.Gray;
+
+                labIcon.Visible = true;
+                picIcon.Visible = false;
+            }
 
             SortListView();
         }
@@ -117,6 +122,27 @@ namespace BitChatApp.UserControls
                     //labName.Text = _peer.PeerCertificate.IssuedTo.Name + " [F]";
                     picNetwork.Image = BitChatApp.Properties.Resources.FullNetwork;
                     break;
+            }
+        }
+
+        private void _peer_ProfileImageChanged(object sender, EventArgs e)
+        {
+            if (_peer.ProfileImageSmall == null)
+            {
+                labIcon.BackColor = Color.FromArgb(102, 153, 255);
+
+                labIcon.Visible = true;
+                picIcon.Visible = false;
+            }
+            else
+            {
+                using (MemoryStream mS = new MemoryStream(_peer.ProfileImageSmall))
+                {
+                    picIcon.Image = Image.FromStream(mS);
+                }
+
+                labIcon.Visible = false;
+                picIcon.Visible = true;
             }
         }
 
