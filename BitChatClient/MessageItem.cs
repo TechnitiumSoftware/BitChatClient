@@ -49,7 +49,7 @@ namespace BitChatClient
             _messageNumber = -1;
 
             _type = MessageType.TextMessage;
-            _messageDate = DateTime.Now;
+            _messageDate = DateTime.UtcNow;
             _sender = sender;
             _message = message;
         }
@@ -59,7 +59,7 @@ namespace BitChatClient
             _messageNumber = -1;
 
             _type = MessageType.Info;
-            _messageDate = DateTime.Now;
+            _messageDate = DateTime.UtcNow;
             _message = info;
         }
 
