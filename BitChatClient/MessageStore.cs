@@ -31,8 +31,9 @@ namespace BitChatClient
 
         Stream _index;
         Stream _data;
-
         byte[] _key;
+
+        SymmetricCryptoKey _crypto;
 
         readonly object _lock = new object();
 
@@ -44,8 +45,9 @@ namespace BitChatClient
         {
             _index = index;
             _data = data;
-
             _key = key;
+
+            _crypto = new SymmetricCryptoKey(SymmetricEncryptionAlgorithm.Rijndael, key, null, PaddingMode.ISO10126);
         }
 
         #endregion
@@ -71,11 +73,13 @@ namespace BitChatClient
             {
                 lock (_lock)
                 {
+                    _index.Dispose();
+                    _data.Dispose();
+
                     for (int i = 0; i < _key.Length; i++)
                         _key[i] = 255;
 
-                    _index.Dispose();
-                    _data.Dispose();
+                    _crypto.Dispose();
                 }
 
                 _disposed = true;
@@ -88,29 +92,30 @@ namespace BitChatClient
 
         public int WriteMessage(byte[] data, int offset, int count)
         {
-            //encrypt message data
-            SymmetricCryptoKey key = new SymmetricCryptoKey(SymmetricEncryptionAlgorithm.Rijndael, _key, null, System.Security.Cryptography.PaddingMode.ISO10126);
-            byte[] encryptedData;
-
-            using (MemoryStream mS = new MemoryStream(count))
-            {
-                using (MemoryStream src = new MemoryStream(data, offset, count))
-                {
-                    key.Encrypt(src, mS);
-                }
-
-                encryptedData = mS.ToArray();
-            }
-
-            byte[] aeHmac;
-            using (HMAC hmac = new HMACSHA256(_key))
-            {
-                aeHmac = hmac.ComputeHash(encryptedData);
-            }
-
-            //writing encrypted message data
             lock (_lock)
             {
+                //encrypt message data
+                byte[] encryptedData;
+
+                using (MemoryStream mS = new MemoryStream(count))
+                {
+                    using (MemoryStream src = new MemoryStream(data, offset, count))
+                    {
+                        _crypto.GenerateIV();
+                        _crypto.Encrypt(src, mS);
+                    }
+
+                    encryptedData = mS.ToArray();
+                }
+
+                byte[] aeHmac;
+                using (HMAC hmac = new HMACSHA256(_key))
+                {
+                    aeHmac = hmac.ComputeHash(encryptedData);
+                }
+
+                //write encrypted message data
+
                 //seek to end of stream
                 _index.Position = _index.Length;
                 _data.Position = _data.Length;
@@ -121,7 +126,7 @@ namespace BitChatClient
                 BincodingEncoder encoder = new BincodingEncoder(_data);
 
                 encoder.Encode((byte)1); //version
-                encoder.Encode(key.IV);
+                encoder.Encode(_crypto.IV);
                 encoder.Encode(encryptedData);
                 encoder.Encode(aeHmac);
 
@@ -135,9 +140,6 @@ namespace BitChatClient
 
         public byte[] ReadMessage(int number)
         {
-            byte[] IV;
-            byte[] encryptedData;
-
             lock (_lock)
             {
                 //seek to index location
@@ -158,6 +160,8 @@ namespace BitChatClient
 
                 //read data
                 BincodingDecoder decoder = new BincodingDecoder(_data);
+                byte[] IV;
+                byte[] encryptedData;
 
                 switch (decoder.DecodeNext().GetByteValue()) //version
                 {
@@ -183,13 +187,12 @@ namespace BitChatClient
                         throw new IOException("Cannot read message from message store: message version not supported.");
                 }
 
-                SymmetricCryptoKey key = new SymmetricCryptoKey(SymmetricEncryptionAlgorithm.Rijndael, _key, IV, System.Security.Cryptography.PaddingMode.ISO10126);
-
                 using (MemoryStream mS = new MemoryStream(encryptedData.Length))
                 {
                     using (MemoryStream src = new MemoryStream(encryptedData, 0, encryptedData.Length))
                     {
-                        key.Decrypt(src, mS);
+                        _crypto.IV = IV;
+                        _crypto.Decrypt(src, mS);
                     }
 
                     return mS.ToArray();
