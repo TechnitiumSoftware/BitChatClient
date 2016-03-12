@@ -280,16 +280,20 @@ namespace BitChatAppMono.UserControls
                         break;
 
                     case Keys.Back:
-                        int i = txtMessage.Text.LastIndexOf(' ');
+                        string msgRight = txtMessage.Text.Substring(0, txtMessage.SelectionStart);
+                        string msgLeft = txtMessage.Text.Substring(txtMessage.SelectionStart);
+
+                        int i = msgRight.TrimEnd().LastIndexOfAny(new char[] { ' ', '\n' });
 
                         if (i > -1)
                         {
-                            txtMessage.Text = txtMessage.Text.Substring(0, i);
+                            i++;
+                            txtMessage.Text = msgRight.Substring(0, i) + msgLeft;
                             txtMessage.SelectionStart = i;
                         }
                         else
                         {
-                            txtMessage.Text = "";
+                            txtMessage.Text = msgLeft;
                             txtMessage.SelectionStart = 0;
                         }
 
