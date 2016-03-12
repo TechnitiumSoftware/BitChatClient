@@ -27,6 +27,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Mail;
+using System.Text;
 using System.Threading;
 using TechnitiumLibrary.Net.BitTorrent;
 using TechnitiumLibrary.Security.Cryptography;
@@ -961,6 +962,7 @@ namespace BitChatClient
 
             public event EventHandler StateChanged;
             public event EventHandler NetworkStatusUpdated;
+            public event EventHandler ProfileImageChanged;
 
             #endregion
 
@@ -968,6 +970,9 @@ namespace BitChatClient
 
             BitChatNetwork.VirtualPeer _virtualPeer;
             BitChat _bitchat;
+
+            byte[] _profileImageSmall;
+            byte[] _profileImageLarge;
 
             List<PeerInfo> _connectedPeerList = new List<PeerInfo>();
             List<PeerInfo> _disconnectedPeerList = new List<PeerInfo>();
@@ -989,6 +994,8 @@ namespace BitChatClient
 
                 _virtualPeer.MessageReceived += virtualPeer_MessageReceived;
                 _virtualPeer.StreamStateChanged += virtualPeer_StreamStateChanged;
+
+                _bitchat._profile.ProfileImageChanged += profile_ProfileImageChanged;
             }
 
             #endregion
@@ -1023,6 +1030,20 @@ namespace BitChatClient
                 catch { }
             }
 
+            private void RaiseEventProfileImageChanged()
+            {
+                _bitchat._syncCxt.Post(ProfileImageChangedCallback, null);
+            }
+
+            private void ProfileImageChangedCallback(object state)
+            {
+                try
+                {
+                    ProfileImageChanged(this, EventArgs.Empty);
+                }
+                catch { }
+            }
+
             #endregion
 
             #region private
@@ -1034,6 +1055,7 @@ namespace BitChatClient
 
                 if (_virtualPeer.IsOnline)
                 {
+                    DoSendProfileImages();
                     DoSendSharedFileMetaData();
                 }
                 else
@@ -1086,7 +1108,7 @@ namespace BitChatClient
                     case BitChatMessageType.Text:
                         #region Text
                         {
-                            string message = BitChatMessage.ReadTextMessage(messageDataStream);
+                            string message = Encoding.UTF8.GetString(BitChatMessage.ReadData(messageDataStream));
 
                             MessageItem msg = new MessageItem(_virtualPeer.PeerCertificate.IssuedTo.EmailAddress.Address, message);
                             msg.WriteTo(_bitchat._store);
@@ -1227,9 +1249,48 @@ namespace BitChatClient
 
                         #endregion
 
+                    case BitChatMessageType.ProfileImageSmall:
+                        #region Profile Image Small
+                        {
+                            _profileImageSmall = BitChatMessage.ReadData(messageDataStream);
+
+                            if (_profileImageSmall.Length == 0)
+                                _profileImageSmall = null;
+
+                            if (_isSelfPeer)
+                                _bitchat._profile.ProfileImageSmall = _profileImageSmall;
+
+                            RaiseEventProfileImageChanged();
+                            break;
+                        }
+                        #endregion
+
+                    case BitChatMessageType.ProfileImageLarge:
+                        #region Profile Image Large
+                        {
+                            _profileImageLarge = BitChatMessage.ReadData(messageDataStream);
+
+                            if (_profileImageLarge.Length == 0)
+                                _profileImageLarge = null;
+
+                            if (_isSelfPeer)
+                                _bitchat._profile.ProfileImageLarge = _profileImageLarge;
+
+                            break;
+                        }
+                        #endregion
+
                     case BitChatMessageType.NOOP:
                         break;
                 }
+            }
+
+            private void profile_ProfileImageChanged(object sender, EventArgs e)
+            {
+                if (_isSelfPeer)
+                    RaiseEventProfileImageChanged();
+
+                DoSendProfileImages();
             }
 
             private void ProcessFileSharingMessagesAsync(object state)
@@ -1368,6 +1429,19 @@ namespace BitChatClient
                 { }
             }
 
+            private void DoSendProfileImages()
+            {
+                {
+                    byte[] messageData = BitChatMessage.CreateProfileImageSmall(_bitchat._profile.ProfileImageSmall);
+                    _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
+                }
+
+                {
+                    byte[] messageData = BitChatMessage.CreateProfileImageLarge(_bitchat._profile.ProfileImageLarge);
+                    _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
+                }
+            }
+
             private void DoSendSharedFileMetaData()
             {
                 foreach (KeyValuePair<BinaryID, SharedFile> sharedFile in _bitchat._sharedFiles)
@@ -1504,6 +1578,28 @@ namespace BitChatClient
                         return _bitchat._profile.LocalCertificateStore.Certificate;
                     else
                         return _virtualPeer.PeerCertificate;
+                }
+            }
+
+            public byte[] ProfileImageSmall
+            {
+                get
+                {
+                    if (_isSelfPeer)
+                        return _bitchat._profile.ProfileImageSmall;
+                    else
+                        return _profileImageSmall;
+                }
+            }
+
+            public byte[] ProfileImageLarge
+            {
+                get
+                {
+                    if (_isSelfPeer)
+                        return _bitchat._profile.ProfileImageLarge;
+                    else
+                        return _profileImageLarge;
                 }
             }
 

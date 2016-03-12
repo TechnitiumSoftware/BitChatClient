@@ -37,6 +37,7 @@ namespace BitChatClient
         #region event
 
         public event EventHandler ProxyUpdated;
+        public event EventHandler ProfileImageChanged;
 
         #endregion
 
@@ -76,6 +77,8 @@ namespace BitChatClient
         string _profileFolder;
 
         CertificateStore _localCertStore;
+        byte[] _profileImageSmall = null;
+        byte[] _profileImageLarge = null;
 
         int _localPort;
         string _downloadFolder;
@@ -467,6 +470,14 @@ namespace BitChatClient
                         _localCertStore = new CertificateStore(item.Value.GetValueStream());
                         break;
 
+                    case "profile_image_small":
+                        _profileImageSmall = item.Value.Value;
+                        break;
+
+                    case "profile_image_large":
+                        _profileImageLarge = item.Value.Value;
+                        break;
+
                     case "tracker_list":
                         {
                             List<Bincoding> trackerList = item.Value.GetList();
@@ -577,6 +588,13 @@ namespace BitChatClient
             if (_localCertStore != null)
                 encoder.Encode("local_cert_store", _localCertStore);
 
+            //profile image
+            if (_profileImageSmall != null)
+                encoder.Encode("profile_image_small", _profileImageSmall);
+
+            if (_profileImageLarge != null)
+                encoder.Encode("profile_image_large", _profileImageLarge);
+
             //tracker urls
             {
                 List<Bincoding> trackerList = new List<Bincoding>(_trackerURIs.Length);
@@ -674,6 +692,15 @@ namespace BitChatClient
                 ProxyUpdated(this, EventArgs.Empty);
         }
 
+        public void SetProfileImage(byte[] imageSmall, byte[] imageLarge)
+        {
+            _profileImageSmall = imageSmall;
+            _profileImageLarge = imageLarge;
+
+            if (ProfileImageChanged != null)
+                ProfileImageChanged(this, EventArgs.Empty);
+        }
+
         #endregion
 
         #region properties
@@ -684,6 +711,18 @@ namespace BitChatClient
         public CertificateStore LocalCertificateStore
         {
             get { return _localCertStore; }
+        }
+
+        public byte[] ProfileImageSmall
+        {
+            get { return _profileImageSmall; }
+            set { _profileImageSmall = value; }
+        }
+
+        public byte[] ProfileImageLarge
+        {
+            get { return _profileImageLarge; }
+            set { _profileImageLarge = value; }
         }
 
         public int LocalPort

@@ -37,7 +37,9 @@ namespace BitChatClient
         FileBlockWanted = 7,
         FileBlockAvailable = 8,
         FileBlockRequest = 9,
-        FileBlockResponse = 10
+        FileBlockResponse = 10,
+        ProfileImageSmall = 11,
+        ProfileImageLarge = 12,
     }
 
     class BitChatMessage
@@ -162,6 +164,32 @@ namespace BitChatClient
             }
         }
 
+        public static byte[] CreateProfileImageSmall(byte[] image)
+        {
+            using (MemoryStream mS = new MemoryStream(4096))
+            {
+                mS.WriteByte((byte)BitChatMessageType.ProfileImageSmall); //1 byte
+
+                if (image != null)
+                    mS.Write(image, 0, image.Length);
+
+                return mS.ToArray();
+            }
+        }
+
+        public static byte[] CreateProfileImageLarge(byte[] image)
+        {
+            using (MemoryStream mS = new MemoryStream(4096))
+            {
+                mS.WriteByte((byte)BitChatMessageType.ProfileImageLarge); //1 byte
+
+                if (image != null)
+                    mS.Write(image, 0, image.Length);
+
+                return mS.ToArray();
+            }
+        }
+
         #endregion
 
         #region static read
@@ -171,13 +199,21 @@ namespace BitChatClient
             return (BitChatMessageType)s.ReadByte();
         }
 
-        public static string ReadTextMessage(Stream s)
+        public static byte[] ReadData(Stream s)
         {
             int dataLen = Convert.ToInt32(s.Length - s.Position);
-            byte[] buffer = new byte[dataLen];
-            s.Read(buffer, 0, dataLen);
 
-            return Encoding.UTF8.GetString(buffer);
+            if (dataLen > 0)
+            {
+                byte[] buffer = new byte[dataLen];
+                s.Read(buffer, 0, dataLen);
+
+                return buffer;
+            }
+            else
+            {
+                return new byte[] { };
+            }
         }
 
         public static List<PeerInfo> ReadPeerExchange(Stream s)
