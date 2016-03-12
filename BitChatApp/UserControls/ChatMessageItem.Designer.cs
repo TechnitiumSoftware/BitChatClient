@@ -30,10 +30,10 @@
         {
             this.components = new System.ComponentModel.Container();
             this.lblUsername = new System.Windows.Forms.Label();
-            this.lblMessage = new System.Windows.Forms.Label();
-            this.lblDateTime = new System.Windows.Forms.Label();
             this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.copyMessageToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.lblMessage = new System.Windows.Forms.Label();
+            this.lblDateTime = new System.Windows.Forms.Label();
             this.contextMenuStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -41,6 +41,7 @@
             // 
             this.lblUsername.AutoEllipsis = true;
             this.lblUsername.ContextMenuStrip = this.contextMenuStrip1;
+            this.lblUsername.Cursor = System.Windows.Forms.Cursors.Hand;
             this.lblUsername.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblUsername.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(78)))));
             this.lblUsername.Location = new System.Drawing.Point(2, 0);
@@ -52,6 +53,20 @@
             this.lblUsername.Click += new System.EventHandler(this.lblUsername_Click);
             this.lblUsername.MouseEnter += new System.EventHandler(this.lblUsername_MouseEnter);
             this.lblUsername.MouseLeave += new System.EventHandler(this.lblUsername_MouseLeave);
+            // 
+            // contextMenuStrip1
+            // 
+            this.contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.copyMessageToolStripMenuItem});
+            this.contextMenuStrip1.Name = "contextMenuStrip1";
+            this.contextMenuStrip1.Size = new System.Drawing.Size(152, 26);
+            // 
+            // copyMessageToolStripMenuItem
+            // 
+            this.copyMessageToolStripMenuItem.Name = "copyMessageToolStripMenuItem";
+            this.copyMessageToolStripMenuItem.Size = new System.Drawing.Size(151, 22);
+            this.copyMessageToolStripMenuItem.Text = "Copy Message";
+            this.copyMessageToolStripMenuItem.Click += new System.EventHandler(this.copyMessageToolStripMenuItem_Click);
             // 
             // lblMessage
             // 
@@ -79,20 +94,6 @@
             this.lblDateTime.TabIndex = 2;
             this.lblDateTime.Text = "12:00 PM";
             this.lblDateTime.TextAlign = System.Drawing.ContentAlignment.TopRight;
-            // 
-            // contextMenuStrip1
-            // 
-            this.contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.copyMessageToolStripMenuItem});
-            this.contextMenuStrip1.Name = "contextMenuStrip1";
-            this.contextMenuStrip1.Size = new System.Drawing.Size(153, 48);
-            // 
-            // copyMessageToolStripMenuItem
-            // 
-            this.copyMessageToolStripMenuItem.Name = "copyMessageToolStripMenuItem";
-            this.copyMessageToolStripMenuItem.Size = new System.Drawing.Size(152, 22);
-            this.copyMessageToolStripMenuItem.Text = "Copy Message";
-            this.copyMessageToolStripMenuItem.Click += new System.EventHandler(this.copyMessageToolStripMenuItem_Click);
             // 
             // ChatMessageItem
             // 

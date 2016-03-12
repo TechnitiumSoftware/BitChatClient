@@ -37,13 +37,13 @@
             // labIcon
             // 
             this.labIcon.BackColor = System.Drawing.Color.White;
-            this.labIcon.Font = new System.Drawing.Font("Arial", 16F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.labIcon.Font = new System.Drawing.Font("Arial", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.labIcon.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(78)))));
             this.labIcon.Location = new System.Drawing.Point(3, 4);
             this.labIcon.Name = "labIcon";
             this.labIcon.Size = new System.Drawing.Size(32, 32);
             this.labIcon.TabIndex = 0;
-            this.labIcon.Text = "T";
+            this.labIcon.Text = "TO";
             this.labIcon.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // labTitle

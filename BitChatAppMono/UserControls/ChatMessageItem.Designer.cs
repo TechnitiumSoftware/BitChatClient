@@ -41,6 +41,7 @@
             // 
             this.lblUsername.AutoEllipsis = true;
             this.lblUsername.ContextMenuStrip = this.contextMenuStrip1;
+            this.lblUsername.Cursor = System.Windows.Forms.Cursors.Hand;
             this.lblUsername.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblUsername.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(78)))));
             this.lblUsername.Location = new System.Drawing.Point(2, 0);

@@ -125,7 +125,14 @@ namespace BitChatAppMono.UserControls
             AddMessage(new ChatMessageItem(sender, message, myMessage));
 
             if (!_chatItem.Selected)
-                _chatItem.SetNewMessage(sender.PeerCertificate.IssuedTo.Name + ": " + message);
+            {
+                string msg = message.Message;
+
+                if (msg.Length > 100)
+                    msg = msg.Substring(0, 100);
+
+                _chatItem.SetNewMessage(sender.PeerCertificate.IssuedTo.Name + ": " + msg);
+            }
 
             ShowPeerTypingNotification(sender.PeerCertificate.IssuedTo.Name, false);
         }

@@ -44,6 +44,16 @@ namespace BitChatAppMono.UserControls
             labTitle.Text = title;
             labIcon.Text = title.Substring(0, 1).ToUpper();
 
+            int x = title.LastIndexOf(" ", StringComparison.CurrentCultureIgnoreCase);
+            if (x > 0)
+            {
+                labIcon.Text += title.Substring(x + 1, 1).ToUpper();
+            }
+            else if (title.Length > 1)
+            {
+                labIcon.Text += title.Substring(1, 1).ToLower();
+            }
+
             ResetNewMessages();
         }
 

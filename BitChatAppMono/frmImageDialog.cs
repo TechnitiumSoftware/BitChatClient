@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.IO;
 using System.Windows.Forms;
 
 namespace BitChatAppMono
@@ -118,7 +119,17 @@ namespace BitChatAppMono
                     oFD.Multiselect = false;
                     oFD.Title = "Select Image";
 
-                    picImage.Image = Image.FromFile(oFD.FileName);
+                    try
+                    {
+                        using (FileStream fS = new FileStream(oFD.FileName, FileMode.Open, FileAccess.Read))
+                        {
+                            picImage.Image = Image.FromStream(fS);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Error occured while opening the selected file:\n\n" + ex.Message, "Error!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
                 }
             }
         }
