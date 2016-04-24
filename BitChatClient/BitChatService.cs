@@ -50,6 +50,12 @@ namespace BitChatClient
 
         #region constructor
 
+        static BitChatService()
+        {
+            if (ServicePointManager.DefaultConnectionLimit < 100)
+                ServicePointManager.DefaultConnectionLimit = 100;
+        }
+
         public BitChatService(BitChatProfile profile, Certificate[] trustedRootCertificates, SecureChannelCryptoOptionFlags supportedCryptoOptions, InvalidCertificateEvent invalidCertEventHandler)
         {
             //verify root certs

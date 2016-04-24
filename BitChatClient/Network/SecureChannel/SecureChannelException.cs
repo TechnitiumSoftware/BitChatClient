@@ -36,7 +36,7 @@ namespace BitChatClient.Network.SecureChannel
         InvalidRemoteKeyExchangeSignature = 7,
         InvalidMessageHMACReceived = 8,
         ProtocolAuthenticationFailed = 9,
-        EndOfStream = 10
+        EndOfStream = 255
     }
 
     public class SecureChannelException : IOException
