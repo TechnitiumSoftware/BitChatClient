@@ -692,7 +692,13 @@ namespace BitChatClient.Network.Connections
                 {
                     _upnpExternalIP = _upnpDevice.GetExternalIPAddress();
 
-                    if (NetUtilities.IsPrivateIP(_upnpExternalIP))
+                    if (_upnpExternalIP.ToString() == "0.0.0.0")
+                    {
+                        newInternetStatus = InternetConnectivityStatus.NoInternetConnection;
+                        newUPnPStatus = UPnPDeviceStatus.Disabled;
+                        return; //external ip not available so no internet connection available
+                    }
+                    else if (NetUtilities.IsPrivateIP(_upnpExternalIP))
                     {
                         newUPnPStatus = UPnPDeviceStatus.ExternalIpPrivate;
                         return; //no use of doing port forwarding for private upnp ip address
