@@ -621,133 +621,146 @@ namespace BitChatClient
             try
             {
                 BitChatConnectivityStatus oldStatus = _connectivityStatus;
-
-                //find network wide connected peer ep list
-                List<PeerInfo> uniqueConnectedPeerList = new List<PeerInfo>();
-
-                List<Peer> onlinePeers = new List<Peer>();
-                List<Peer> offlinePeers = new List<Peer>();
-
-                lock (_peers)
-                {
-                    foreach (Peer currentPeer in _peers)
-                    {
-                        if (currentPeer.IsOnline)
-                            onlinePeers.Add(currentPeer);
-                        else
-                            offlinePeers.Add(currentPeer);
-                    }
-                }
-
-                foreach (Peer onlinePeer in onlinePeers)
-                {
-                    onlinePeer.UpdateUniqueConnectedPeerList(uniqueConnectedPeerList);
-                }
-
-                //find self connected & disconnected peer list
-                List<PeerInfo> connectedPeerList;
-                List<PeerInfo> disconnectedPeerList;
-
-                connectedPeerList = _network.GetConnectedPeerList();
-
-                //update self connected list
-                UpdateUniquePeerList(uniqueConnectedPeerList, connectedPeerList);
-
-                //remove self from unique connected peer list
-                PeerInfo selfPeerInfo = _network.GetSelfPeerInfo();
-                uniqueConnectedPeerList.Remove(selfPeerInfo);
-
-                //update connected peer's network status
-                foreach (Peer onlinePeer in onlinePeers)
-                {
-                    onlinePeer.UpdateNetworkStatus(uniqueConnectedPeerList);
-                }
-
-                foreach (Peer offlinePeer in offlinePeers)
-                {
-                    offlinePeer.SetNoNetworkStatus();
-                }
-
-                //find disconnected list
-                disconnectedPeerList = GetMissingPeerList(connectedPeerList, uniqueConnectedPeerList);
-
-                //update disconnected peer's network status
-                List<PeerInfo> dummyUniqueConnectedPeerList = new List<PeerInfo>(1);
-                dummyUniqueConnectedPeerList.Add(selfPeerInfo);
-
-                foreach (PeerInfo peerInfo in disconnectedPeerList)
-                {
-                    //search all offline peers for comparison
-                    foreach (Peer offlinePeer in offlinePeers)
-                    {
-                        if (offlinePeer.PeerCertificate.IssuedTo.EmailAddress.Address.Equals(peerInfo.PeerEmail))
-                        {
-                            offlinePeer.UpdateNetworkStatus(dummyUniqueConnectedPeerList);
-                            break;
-                        }
-                    }
-                }
-
                 BitChatConnectivityStatus connectivityStatus;
 
-                if (disconnectedPeerList.Count > 0)
+                if (_network.Status == BitChatNetworkStatus.Offline)
                 {
-                    connectivityStatus = BitChatConnectivityStatus.PartialNetwork;
+                    connectivityStatus = BitChatConnectivityStatus.NoNetwork;
+
+                    lock (_connectedPeerList)
+                    {
+                        _connectedPeerList.Clear();
+                        _disconnectedPeerList.Clear();
+                        _connectivityStatus = connectivityStatus;
+                    }
+                }
+                else
+                {
+                    //find network wide connected peer ep list
+                    List<PeerInfo> uniqueConnectedPeerList = new List<PeerInfo>();
+
+                    List<Peer> onlinePeers = new List<Peer>();
+                    List<Peer> offlinePeers = new List<Peer>();
+
+                    lock (_peers)
+                    {
+                        foreach (Peer currentPeer in _peers)
+                        {
+                            if (currentPeer.IsOnline)
+                                onlinePeers.Add(currentPeer);
+                            else
+                                offlinePeers.Add(currentPeer);
+                        }
+                    }
+
+                    foreach (Peer onlinePeer in onlinePeers)
+                    {
+                        onlinePeer.UpdateUniqueConnectedPeerList(uniqueConnectedPeerList);
+                    }
+
+                    //find self connected & disconnected peer list
+                    List<PeerInfo> connectedPeerList;
+                    List<PeerInfo> disconnectedPeerList;
+
+                    connectedPeerList = _network.GetConnectedPeerList();
+
+                    //update self connected list
+                    UpdateUniquePeerList(uniqueConnectedPeerList, connectedPeerList);
+
+                    //remove self from unique connected peer list
+                    PeerInfo selfPeerInfo = _network.GetSelfPeerInfo();
+                    uniqueConnectedPeerList.Remove(selfPeerInfo);
+
+                    //update connected peer's network status
+                    foreach (Peer onlinePeer in onlinePeers)
+                    {
+                        onlinePeer.UpdateNetworkStatus(uniqueConnectedPeerList);
+                    }
+
+                    foreach (Peer offlinePeer in offlinePeers)
+                    {
+                        offlinePeer.SetNoNetworkStatus();
+                    }
+
+                    //find disconnected list
+                    disconnectedPeerList = GetMissingPeerList(connectedPeerList, uniqueConnectedPeerList);
+
+                    //update disconnected peer's network status
+                    List<PeerInfo> dummyUniqueConnectedPeerList = new List<PeerInfo>(1);
+                    dummyUniqueConnectedPeerList.Add(selfPeerInfo);
 
                     foreach (PeerInfo peerInfo in disconnectedPeerList)
-                        _network.MakeConnection(peerInfo.PeerEPList);
-                }
-                else
-                {
-                    connectivityStatus = BitChatConnectivityStatus.FullNetwork;
-                }
-
-                lock (_connectedPeerList)
-                {
-                    _connectedPeerList.Clear();
-                    _connectedPeerList.AddRange(connectedPeerList);
-                    _disconnectedPeerList = disconnectedPeerList;
-                    _connectivityStatus = connectivityStatus;
-                }
-
-                if (_network.Type == BitChatNetworkType.PrivateChat)
-                {
-                    if (connectedPeerList.Count > 0)
                     {
-                        _manager.PauseLocalAnnouncement(_network.NetworkID);
+                        //search all offline peers for comparison
+                        foreach (Peer offlinePeer in offlinePeers)
+                        {
+                            if (offlinePeer.PeerCertificate.IssuedTo.EmailAddress.Address.Equals(peerInfo.PeerEmail))
+                            {
+                                offlinePeer.UpdateNetworkStatus(dummyUniqueConnectedPeerList);
+                                break;
+                            }
+                        }
+                    }
 
-                        if (_enableTracking)
-                            _trackerManager.StopTracking();
+                    if (disconnectedPeerList.Count > 0)
+                    {
+                        connectivityStatus = BitChatConnectivityStatus.PartialNetwork;
+
+                        foreach (PeerInfo peerInfo in disconnectedPeerList)
+                            _network.MakeConnection(peerInfo.PeerEPList);
                     }
                     else
                     {
-                        _manager.ResumeLocalAnnouncement(_network.NetworkID);
+                        connectivityStatus = BitChatConnectivityStatus.FullNetwork;
+                    }
 
-                        if (_enableTracking)
+                    lock (_connectedPeerList)
+                    {
+                        _connectedPeerList.Clear();
+                        _connectedPeerList.AddRange(connectedPeerList);
+                        _disconnectedPeerList = disconnectedPeerList;
+                        _connectivityStatus = connectivityStatus;
+                    }
+
+                    if (_network.Type == BitChatNetworkType.PrivateChat)
+                    {
+                        if (connectedPeerList.Count > 0)
                         {
-                            _trackerManager.StartTracking();
-                            _trackerManager.ForceUpdate();
+                            _manager.PauseLocalAnnouncement(_network.NetworkID);
+
+                            if (_enableTracking)
+                                _trackerManager.StopTracking();
+                        }
+                        else
+                        {
+                            _manager.ResumeLocalAnnouncement(_network.NetworkID);
+
+                            if (_enableTracking)
+                            {
+                                _trackerManager.StartTracking();
+                                _trackerManager.ForceUpdate();
+                            }
                         }
                     }
-                }
-                else
-                {
-                    if (connectedPeerList.Count > 0)
+                    else
                     {
-                        _manager.PauseLocalAnnouncement(_network.NetworkID);
-
-                        if (_enableTracking)
+                        if (connectedPeerList.Count > 0)
                         {
-                            if (disconnectedPeerList.Count > 0)
+                            _manager.PauseLocalAnnouncement(_network.NetworkID);
+
+                            if (_enableTracking)
+                            {
+                                if (disconnectedPeerList.Count > 0)
+                                    _trackerManager.ForceUpdate();
+                            }
+                        }
+                        else
+                        {
+                            _manager.ResumeLocalAnnouncement(_network.NetworkID);
+
+                            if (_enableTracking)
                                 _trackerManager.ForceUpdate();
                         }
-                    }
-                    else
-                    {
-                        _manager.ResumeLocalAnnouncement(_network.NetworkID);
-
-                        if (_enableTracking)
-                            _trackerManager.ForceUpdate();
                     }
                 }
 
@@ -936,6 +949,8 @@ namespace BitChatClient
                     StopAllTracking();
                 else
                     StartAllTracking();
+
+                TriggerUpdateNetworkStatus();
             }
         }
 
