@@ -93,20 +93,6 @@ NgEA
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
 
-                #region check for multiple instances
-
-                bool createdNewMutex;
-
-                _app = new Mutex(true, MUTEX_NAME, out createdNewMutex);
-
-                if (!createdNewMutex)
-                {
-                    MessageBox.Show("Bit Chat is already running. Please click on the Bit Chat system tray icon to open the chat window.", "Bit Chat Already Running!", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                    return;
-                }
-
-                #endregion
-
                 #region check for admin priviledge
 
                 if (!(new WindowsPrincipal(WindowsIdentity.GetCurrent())).IsInRole(WindowsBuiltInRole.Administrator))
@@ -125,6 +111,20 @@ NgEA
                     }
                     catch
                     { }
+                }
+
+                #endregion
+
+                #region check for multiple instances
+
+                bool createdNewMutex;
+
+                _app = new Mutex(true, MUTEX_NAME, out createdNewMutex);
+
+                if (!createdNewMutex)
+                {
+                    MessageBox.Show("Bit Chat is already running. Please click on the Bit Chat system tray icon to open the chat window.", "Bit Chat Already Running!", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    return;
                 }
 
                 #endregion
