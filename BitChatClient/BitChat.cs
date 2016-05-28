@@ -633,6 +633,14 @@ namespace BitChatClient
                         _disconnectedPeerList.Clear();
                         _connectivityStatus = connectivityStatus;
                     }
+
+                    lock (_peers)
+                    {
+                        foreach (Peer currentPeer in _peers)
+                        {
+                            currentPeer.SetNoNetworkStatus();
+                        }
+                    }
                 }
                 else
                 {
@@ -1118,7 +1126,7 @@ namespace BitChatClient
 
                             break;
                         }
-                        #endregion
+                    #endregion
 
                     case BitChatMessageType.Text:
                         #region Text
@@ -1133,7 +1141,7 @@ namespace BitChatClient
 
                             break;
                         }
-                        #endregion
+                    #endregion
 
                     case BitChatMessageType.FileAdvertisement:
                         #region FileAdvertisement
@@ -1170,7 +1178,7 @@ namespace BitChatClient
 
                             break;
                         }
-                        #endregion
+                    #endregion
 
                     case BitChatMessageType.FileBlockRequest:
                         #region FileBlockRequest
@@ -1180,7 +1188,7 @@ namespace BitChatClient
                             ThreadPool.QueueUserWorkItem(ProcessFileSharingMessagesAsync, new object[] { type, blockRequest });
                             break;
                         }
-                        #endregion
+                    #endregion
 
                     case BitChatMessageType.FileBlockResponse:
                         #region FileBlockResponse
@@ -1190,7 +1198,7 @@ namespace BitChatClient
                             ThreadPool.QueueUserWorkItem(ProcessFileSharingMessagesAsync, new object[] { type, blockData });
                             break;
                         }
-                        #endregion
+                    #endregion
 
                     case BitChatMessageType.FileBlockWanted:
                         #region FileBlockWanted
@@ -1200,7 +1208,7 @@ namespace BitChatClient
                             ThreadPool.QueueUserWorkItem(ProcessFileSharingMessagesAsync, new object[] { type, blockWanted });
                             break;
                         }
-                        #endregion
+                    #endregion
 
                     case BitChatMessageType.FileBlockAvailable:
                         #region FileBlockAvailable
@@ -1210,7 +1218,7 @@ namespace BitChatClient
                             ThreadPool.QueueUserWorkItem(ProcessFileSharingMessagesAsync, new object[] { type, blockWanted });
                             break;
                         }
-                        #endregion
+                    #endregion
 
                     case BitChatMessageType.FileShareParticipate:
                         #region FileShareParticipate
@@ -1224,7 +1232,7 @@ namespace BitChatClient
 
                             break;
                         }
-                        #endregion
+                    #endregion
 
                     case BitChatMessageType.FileShareUnparticipate:
                         #region FileShareUnparticipate
@@ -1238,7 +1246,7 @@ namespace BitChatClient
 
                             break;
                         }
-                        #endregion
+                    #endregion
 
                     case BitChatMessageType.PeerExchange:
                         #region PeerExchange
@@ -1262,7 +1270,7 @@ namespace BitChatClient
                         _bitchat.TriggerUpdateNetworkStatus();
                         break;
 
-                        #endregion
+                    #endregion
 
                     case BitChatMessageType.ProfileImageSmall:
                         #region Profile Image Small
@@ -1278,7 +1286,7 @@ namespace BitChatClient
                             RaiseEventProfileImageChanged();
                             break;
                         }
-                        #endregion
+                    #endregion
 
                     case BitChatMessageType.ProfileImageLarge:
                         #region Profile Image Large
@@ -1293,7 +1301,7 @@ namespace BitChatClient
 
                             break;
                         }
-                        #endregion
+                    #endregion
 
                     case BitChatMessageType.NOOP:
                         break;
@@ -1342,7 +1350,7 @@ namespace BitChatClient
 
                                 break;
                             }
-                            #endregion
+                        #endregion
 
                         case BitChatMessageType.FileBlockResponse:
                             #region FileBlockResponse
@@ -1376,7 +1384,7 @@ namespace BitChatClient
 
                                 break;
                             }
-                            #endregion
+                        #endregion
 
                         case BitChatMessageType.FileBlockWanted:
                             #region FileBlockWanted
@@ -1403,7 +1411,7 @@ namespace BitChatClient
 
                                 break;
                             }
-                            #endregion
+                        #endregion
 
                         case BitChatMessageType.FileBlockAvailable:
                             #region FileBlockAvailable
