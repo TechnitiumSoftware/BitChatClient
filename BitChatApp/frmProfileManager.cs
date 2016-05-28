@@ -20,10 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using BitChatClient;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
 using System.IO;
-using System.Text;
 using System.Windows.Forms;
 
 namespace BitChatApp
@@ -32,26 +29,23 @@ namespace BitChatApp
     {
         #region variables
 
-        string _localAppData;
+        static bool _firstRunComplete = false;
+
+        bool _isPortableApp;
+        string _profileFolder;
 
         BitChatProfile _profile;
         string _profileFilePath;
-
-        bool _loaded = false;
 
         #endregion
 
         #region constructor
 
-        public frmProfileManager(string localAppData, bool loaded)
+        public frmProfileManager()
         {
             InitializeComponent();
 
-            _localAppData = localAppData;
-
             RefreshProfileList();
-
-            _loaded = loaded;
         }
 
         #endregion
@@ -60,14 +54,23 @@ namespace BitChatApp
 
         private void RefreshProfileList()
         {
-            string[] profiles;
-
-            profiles = Directory.GetFiles(Environment.CurrentDirectory, "*.profile", SearchOption.TopDirectoryOnly);
+            string[] profiles = Directory.GetFiles(Environment.CurrentDirectory, "*.profile", SearchOption.TopDirectoryOnly);
 
             if (profiles.Length > 0)
-                _localAppData = Environment.CurrentDirectory;
+            {
+                _isPortableApp = true;
+                _profileFolder = Environment.CurrentDirectory;
+            }
             else
-                profiles = Directory.GetFiles(_localAppData, "*.profile", SearchOption.TopDirectoryOnly);
+            {
+                _profileFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Technitium", "BitChat");
+
+                if (!Directory.Exists(_profileFolder))
+                    Directory.CreateDirectory(_profileFolder);
+
+                profiles = Directory.GetFiles(_profileFolder, "*.profile", SearchOption.TopDirectoryOnly);
+                _isPortableApp = false;
+            }
 
             lstProfiles.Items.Clear();
 
@@ -88,13 +91,15 @@ namespace BitChatApp
 
         private void frmProfileManager_Load(object sender, EventArgs e)
         {
-            if (_loaded)
+            if (_firstRunComplete)
                 return;
+
+            _firstRunComplete = true;
 
             switch (lstProfiles.Items.Count)
             {
                 case 0:
-                    using (frmWelcome frm = new frmWelcome(_localAppData))
+                    using (frmWelcome frm = new frmWelcome(_isPortableApp, _profileFolder))
                     {
                         DialogResult result = frm.ShowDialog(this);
 
@@ -121,7 +126,7 @@ namespace BitChatApp
                     break;
 
                 case 1:
-                    _profileFilePath = Path.Combine(_localAppData, (lstProfiles.Items[0] as string) + ".profile");
+                    _profileFilePath = Path.Combine(_profileFolder, (lstProfiles.Items[0] as string) + ".profile");
 
                     Start();
                     break;
@@ -147,7 +152,7 @@ namespace BitChatApp
 
         private void btnStart_Click(object sender, EventArgs e)
         {
-            _profileFilePath = Path.Combine(_localAppData, (lstProfiles.SelectedItem as string) + ".profile");
+            _profileFilePath = Path.Combine(_profileFolder, (lstProfiles.SelectedItem as string) + ".profile");
 
             Start();
         }
@@ -162,7 +167,7 @@ namespace BitChatApp
         {
             this.Hide();
 
-            using (frmRegister frm = new frmRegister(_localAppData))
+            using (frmRegister frm = new frmRegister(_isPortableApp, _profileFolder))
             {
                 if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
                 {
@@ -186,15 +191,15 @@ namespace BitChatApp
             {
                 this.Hide();
 
-                _profileFilePath = Path.Combine(_localAppData, (lstProfiles.SelectedItem as string) + ".profile");
+                _profileFilePath = Path.Combine(_profileFolder, (lstProfiles.SelectedItem as string) + ".profile");
 
-                using (frmPassword frm = new frmPassword(_profileFilePath, _localAppData))
+                using (frmPassword frm = new frmPassword(_profileFilePath, _isPortableApp, _profileFolder))
                 {
                     if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
                     {
                         _profile = frm.Profile;
 
-                        using (frmRegister frmReg = new frmRegister(_profile, _profileFilePath, true))
+                        using (frmRegister frmReg = new frmRegister(_profile, _profileFilePath, _isPortableApp, _profileFolder, true))
                         {
                             if (frmReg.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
                             {
@@ -223,8 +228,8 @@ namespace BitChatApp
                 {
                     try
                     {
-                        File.Delete(Path.Combine(_localAppData, profile + ".profile"));
-                        File.Delete(Path.Combine(_localAppData, profile + ".profile.bak"));
+                        File.Delete(Path.Combine(_profileFolder, profile + ".profile"));
+                        File.Delete(Path.Combine(_profileFolder, profile + ".profile.bak"));
 
                         toRemove.Add(profile);
                     }
@@ -254,7 +259,7 @@ namespace BitChatApp
                     {
                         string profileName = Path.GetFileNameWithoutExtension(oFD.FileName);
 
-                        File.Copy(oFD.FileName, Path.Combine(_localAppData, profileName + ".profile"));
+                        File.Copy(oFD.FileName, Path.Combine(_profileFolder, profileName + ".profile"));
 
                         lstProfiles.Items.Add(profileName);
                     }
@@ -281,7 +286,7 @@ namespace BitChatApp
                 {
                     try
                     {
-                        File.Copy(Path.Combine(_localAppData, lstProfiles.SelectedItem + ".profile"), sFD.FileName, true);
+                        File.Copy(Path.Combine(_profileFolder, lstProfiles.SelectedItem + ".profile"), sFD.FileName, true);
                     }
                     catch (Exception ex)
                     {
@@ -299,7 +304,7 @@ namespace BitChatApp
 
         private void Start()
         {
-            using (frmPassword frm = new frmPassword(_profileFilePath, _localAppData))
+            using (frmPassword frm = new frmPassword(_profileFilePath, _isPortableApp, _profileFolder))
             {
                 switch (frm.ShowDialog(this))
                 {
@@ -347,6 +352,12 @@ namespace BitChatApp
         #endregion
 
         #region properties
+
+        public bool IsPortableApp
+        { get { return _isPortableApp; } }
+
+        public string ProfileFolder
+        { get { return _profileFolder; } }
 
         public BitChatProfile Profile
         { get { return _profile; } }
