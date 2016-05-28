@@ -88,7 +88,7 @@
             this.lblDateTime.ContextMenuStrip = this.contextMenuStrip1;
             this.lblDateTime.Font = new System.Drawing.Font("Arial", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.lblDateTime.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(100)))), ((int)(((byte)(100)))), ((int)(((byte)(100)))));
-            this.lblDateTime.Location = new System.Drawing.Point(544, 1);
+            this.lblDateTime.Location = new System.Drawing.Point(540, 1);
             this.lblDateTime.Name = "lblDateTime";
             this.lblDateTime.Size = new System.Drawing.Size(56, 31);
             this.lblDateTime.TabIndex = 2;
