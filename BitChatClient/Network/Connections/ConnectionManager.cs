@@ -52,7 +52,7 @@ namespace BitChatClient.Network.Connections
         PortForwardedNotAccessible = 6
     }
 
-    class ConnectionManager : IDisposable
+    class ConnectionManager : IDhtClientManager, IDisposable
     {
         #region events
 
@@ -1028,6 +1028,12 @@ namespace BitChatClient.Network.Connections
                     _makeVirtualConnectionList.Remove(remotePeerEP);
                 }
             }
+        }
+
+        public void SendDhtPacket(IPEndPoint remoteNodeEP, byte[] buffer, int offset, int size)
+        {
+            Connection connection = MakeConnection(remoteNodeEP);
+            connection.SendDhtPacket(buffer, offset, size);
         }
 
         #endregion

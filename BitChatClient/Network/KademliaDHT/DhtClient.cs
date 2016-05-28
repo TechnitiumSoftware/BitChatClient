@@ -17,7 +17,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient.Network.Connections;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -62,7 +61,7 @@ namespace BitChatClient.Network.KademliaDHT
         const int QUERY_TIMEOUT = 5000;
         const int KADEMLIA_ALPHA = 3;
 
-        ConnectionManager _connectionManager;
+        IDhtClientManager _manager;
         bool _proxyEnabled = false;
 
         Socket _udpListener;
@@ -91,9 +90,9 @@ namespace BitChatClient.Network.KademliaDHT
 
         #region constructor
 
-        public DhtClient(int udpDhtPort, ConnectionManager connectionManager)
+        public DhtClient(int udpDhtPort, IDhtClientManager manager)
         {
-            _connectionManager = connectionManager;
+            _manager = manager;
 
             IPEndPoint localEP;
 
@@ -345,7 +344,7 @@ namespace BitChatClient.Network.KademliaDHT
                                 response = DhtRpcPacket.CreatePingPacketResponse(packet.TransactionID, _currentNode);
                                 break;
                             }
-                            #endregion
+                        #endregion
 
                         case RpcQueryType.FIND_NODE:
                             #region FIND_NODE
@@ -355,7 +354,7 @@ namespace BitChatClient.Network.KademliaDHT
                                 response = DhtRpcPacket.CreateFindNodePacketResponse(packet.TransactionID, _currentNode, packet.NetworkID, contacts);
                                 break;
                             }
-                            #endregion
+                        #endregion
 
                         case RpcQueryType.FIND_PEERS:
                             #region GET_PEERS
@@ -371,7 +370,7 @@ namespace BitChatClient.Network.KademliaDHT
                                 response = DhtRpcPacket.CreateFindPeersPacketResponse(packet.TransactionID, _currentNode, packet.NetworkID, contacts, peers, GetToken(packet.SourceNode.NodeEP.Address));
                                 break;
                             }
-                            #endregion
+                        #endregion
 
                         case RpcQueryType.ANNOUNCE_PEER:
                             #region ANNOUNCE_PEER
@@ -389,7 +388,7 @@ namespace BitChatClient.Network.KademliaDHT
 
                     return response;
 
-                    #endregion
+                #endregion
 
                 case RpcPacketType.Response:
                     #region Response
@@ -557,14 +556,9 @@ namespace BitChatClient.Network.KademliaDHT
                         packet.WriteTo(_sendBufferStream);
 
                         if (_proxyEnabled)
-                        {
-                            Connection connection = _connectionManager.MakeConnection(contact.NodeEP);
-                            connection.SendDhtPacket(_sendBufferStream.Buffer, 0, (int)_sendBufferStream.Position);
-                        }
+                            _manager.SendDhtPacket(contact.NodeEP, _sendBufferStream.Buffer, 0, (int)_sendBufferStream.Position);
                         else
-                        {
                             _udpClient.SendTo(_sendBufferStream.Buffer, 0, (int)_sendBufferStream.Position, SocketFlags.None, contact.NodeEP);
-                        }
                     }
 
                     if (!Monitor.Wait(transaction, QUERY_TIMEOUT))
