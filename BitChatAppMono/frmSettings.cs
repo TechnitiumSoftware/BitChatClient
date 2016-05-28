@@ -18,17 +18,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 using BitChatClient;
-using BitChatClient.Network.Connections;
-using TechnitiumLibrary.Net.BitTorrent;
-using TechnitiumLibrary.Security.Cryptography;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
-using System.Text;
-using System.Windows.Forms;
 using System.IO;
 using System.Net;
+using System.Windows.Forms;
 using TechnitiumLibrary.Net.Proxy;
 
 namespace BitChatAppMono
@@ -58,6 +52,7 @@ namespace BitChatAppMono
             BitChatProfile profile = service.Profile;
 
             txtDownloadFolder.Text = profile.DownloadFolder;
+            btnBrowseDLFolder.Enabled = !profile.IsPortableApp;
 
             foreach (Uri tracker in profile.TrackerURIs)
             {

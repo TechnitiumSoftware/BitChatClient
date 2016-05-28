@@ -26,7 +26,6 @@ using System.Net;
 using System.Text;
 using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Net;
-using TechnitiumLibrary.Net.BitTorrent;
 using TechnitiumLibrary.Net.Proxy;
 using TechnitiumLibrary.Security.Cryptography;
 
@@ -44,8 +43,8 @@ namespace BitChatClient
         #region variables
 
         public static Uri[] DefaultTrackerURIs
-            = new Uri[] 
-            { 
+            = new Uri[]
+            {
                 new Uri("udp://tracker.publicbt.com:80"),
                 new Uri("udp://tracker.openbittorrent.com:80"),
                 new Uri("udp://tracker.istole.it:80"),
@@ -74,7 +73,10 @@ namespace BitChatClient
                 new Uri("http://tracker.ilibr.org:6969/announce")
             };
 
+        bool _isPortableApp;
         string _profileFolder;
+
+        string _portableDownloadFolder;
 
         CertificateStore _localCertStore;
         byte[] _profileImageSmall = null;
@@ -100,19 +102,51 @@ namespace BitChatClient
 
         #region constructor
 
-        public BitChatProfile(int localPort, string downloadFolder, Uri[] trackerURIs, string profileFolder)
+        public BitChatProfile(int localPort, string downloadFolder, Uri[] trackerURIs, bool isPortableApp, string profileFolder)
         {
             _localPort = localPort;
             _downloadFolder = downloadFolder;
             _trackerURIs = trackerURIs;
 
+            _isPortableApp = isPortableApp;
             _profileFolder = profileFolder;
+
+            if (_isPortableApp)
+            {
+                _portableDownloadFolder = Path.Combine(_profileFolder, "Downloads");
+
+                if (!Directory.Exists(_portableDownloadFolder))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(_portableDownloadFolder);
+                    }
+                    catch
+                    { }
+                }
+            }
         }
 
-        public BitChatProfile(Stream s, string password, string profileFolder)
+        public BitChatProfile(Stream s, string password, bool isPortableApp, string profileFolder)
             : base(s, password)
         {
+            _isPortableApp = isPortableApp;
             _profileFolder = profileFolder;
+
+            if (_isPortableApp)
+            {
+                _portableDownloadFolder = Path.Combine(_profileFolder, "Downloads");
+
+                if (!Directory.Exists(_portableDownloadFolder))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(_portableDownloadFolder);
+                    }
+                    catch
+                    { }
+                }
+            }
         }
 
         #endregion
@@ -209,24 +243,6 @@ namespace BitChatClient
 
             switch (decoder.Version)
             {
-                case 1:
-                    ReadSettingsVersion1(new BinaryReader(s));
-                    break;
-
-                case 2:
-                case 3:
-                    ReadSettingsVersion2And3(decoder.Version, new BinaryReader(s));
-                    break;
-
-                case 4:
-                case 5:
-                    ReadSettingsVersion4And5(decoder.Version, new BinaryReader(s));
-                    break;
-
-                case 6:
-                    ReadSettingsVersion6(new BinaryReader(s));
-                    break;
-
                 case 7:
                     ReadSettingsVersion7(decoder);
                     break;
@@ -234,201 +250,6 @@ namespace BitChatClient
                 default:
                     throw new BitChatException("BitChatProfile data version not supported.");
             }
-        }
-
-        private void ReadSettingsVersion1(BinaryReader bR)
-        {
-            //tracker client id
-            TrackerClientID localClientID = new TrackerClientID(bR.BaseStream);
-
-            //local cert store
-            if (bR.ReadByte() == 1)
-                _localCertStore = new CertificateStore(bR.BaseStream);
-
-            //bitchat local service end point
-            IPEndPoint localEP = new IPEndPoint(new IPAddress(bR.ReadBytes(bR.ReadByte())), bR.ReadInt32());
-            _localPort = localEP.Port;
-
-            _downloadFolder = @"C:\";
-
-            //default tracker urls
-            _trackerURIs = DefaultTrackerURIs;
-        }
-
-        private void ReadSettingsVersion2And3(byte version, BinaryReader bR)
-        {
-            //local cert store
-            if (bR.ReadByte() == 1)
-                _localCertStore = new CertificateStore(bR.BaseStream);
-
-            //bitchat local service end point
-            IPEndPoint localEP = new IPEndPoint(new IPAddress(bR.ReadBytes(bR.ReadByte())), bR.ReadInt32());
-            _localPort = localEP.Port;
-
-            //download folder
-            _downloadFolder = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadUInt16()));
-            if (_downloadFolder == null)
-                _downloadFolder = @"C:\";
-
-            //load tracker urls
-            _trackerURIs = new Uri[bR.ReadByte()];
-            for (int i = 0; i < _trackerURIs.Length; i++)
-                _trackerURIs[i] = new Uri(Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte())));
-
-            //load bitchat info
-            _bitChatInfoList = new BitChatInfo[bR.ReadByte()];
-            for (int i = 0; i < _bitChatInfoList.Length; i++)
-                _bitChatInfoList[i] = new BitChatInfo(bR);
-
-            if (version > 2)
-            {
-                //check CertificateRevocationList
-                _checkCertificateRevocationList = bR.ReadBoolean();
-            }
-            else
-            {
-                _checkCertificateRevocationList = true;
-            }
-
-            //generic client data
-            int dataCount = bR.ReadInt32();
-            if (dataCount > 0)
-                _clientData = bR.ReadBytes(dataCount);
-        }
-
-        private void ReadSettingsVersion4And5(byte version, BinaryReader bR)
-        {
-            //local cert store
-            if (bR.ReadByte() == 1)
-                _localCertStore = new CertificateStore(bR.BaseStream);
-
-            //bitchat local port
-            _localPort = bR.ReadInt32();
-
-            //download folder
-            _downloadFolder = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadUInt16()));
-            if (_downloadFolder == null)
-                _downloadFolder = @"C:\";
-
-            //load tracker urls
-            _trackerURIs = new Uri[bR.ReadByte()];
-            for (int i = 0; i < _trackerURIs.Length; i++)
-                _trackerURIs[i] = new Uri(Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte())));
-
-            //load bitchat info
-            _bitChatInfoList = new BitChatInfo[bR.ReadByte()];
-            for (int i = 0; i < _bitChatInfoList.Length; i++)
-                _bitChatInfoList[i] = new BitChatInfo(bR);
-
-            //check CertificateRevocationList
-            _checkCertificateRevocationList = bR.ReadBoolean();
-
-            //bootstrap dht nodes
-            _bootstrapDhtNodes = new IPEndPoint[bR.ReadInt32()];
-            for (int i = 0; i < _bootstrapDhtNodes.Length; i++)
-                _bootstrapDhtNodes[i] = IPEndPointParser.Parse(bR.BaseStream);
-
-            //upnp enabled
-            _enableUPnP = bR.ReadBoolean();
-
-            if (version > 4)
-            {
-                NetProxyType proxyType;
-
-                //socks proxy enabled
-                bool proxyEnabled = bR.ReadBoolean();
-
-                if (proxyEnabled)
-                    proxyType = NetProxyType.Socks5;
-                else
-                    proxyType = NetProxyType.None;
-
-                //socks proxy ep
-                IPEndPoint socksEP = IPEndPointParser.Parse(bR.BaseStream);
-                string proxyAddress = socksEP.Address.ToString();
-                int proxyPort = socksEP.Port;
-
-                //socks proxy credentials
-                NetworkCredential proxyCredentials = null;
-                bool auth = bR.ReadBoolean();
-                if (auth)
-                {
-                    string username = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
-                    string password = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
-
-                    proxyCredentials = new NetworkCredential(username, password);
-                }
-
-                ConfigureProxy(proxyType, proxyAddress, proxyPort, proxyCredentials);
-            }
-
-            //generic client data
-            int dataCount = bR.ReadInt32();
-            if (dataCount > 0)
-                _clientData = bR.ReadBytes(dataCount);
-        }
-
-        private void ReadSettingsVersion6(BinaryReader bR)
-        {
-            //local cert store
-            if (bR.ReadByte() == 1)
-                _localCertStore = new CertificateStore(bR.BaseStream);
-
-            //bitchat local port
-            _localPort = bR.ReadInt32();
-
-            //download folder
-            _downloadFolder = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadUInt16()));
-            if (_downloadFolder == null)
-                _downloadFolder = @"C:\";
-
-            //load tracker urls
-            _trackerURIs = new Uri[bR.ReadByte()];
-            for (int i = 0; i < _trackerURIs.Length; i++)
-                _trackerURIs[i] = new Uri(Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte())));
-
-            //load bitchat info
-            _bitChatInfoList = new BitChatInfo[bR.ReadByte()];
-            for (int i = 0; i < _bitChatInfoList.Length; i++)
-                _bitChatInfoList[i] = new BitChatInfo(bR);
-
-            //check CertificateRevocationList
-            _checkCertificateRevocationList = bR.ReadBoolean();
-
-            //bootstrap dht nodes
-            _bootstrapDhtNodes = new IPEndPoint[bR.ReadInt32()];
-            for (int i = 0; i < _bootstrapDhtNodes.Length; i++)
-                _bootstrapDhtNodes[i] = IPEndPointParser.Parse(bR.BaseStream);
-
-            //upnp enabled
-            _enableUPnP = bR.ReadBoolean();
-
-            //proxy type
-            NetProxyType proxyType = (NetProxyType)bR.ReadByte();
-
-            //proxy address
-            string proxyAddress = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
-
-            //proxy port
-            int proxyPort = bR.ReadInt32();
-
-            //proxy credentials
-            NetworkCredential proxyCredentials = null;
-            bool auth = bR.ReadBoolean();
-            if (auth)
-            {
-                string username = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
-                string password = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
-
-                proxyCredentials = new NetworkCredential(username, password);
-            }
-
-            ConfigureProxy(proxyType, proxyAddress, proxyPort, proxyCredentials);
-
-            //generic client data
-            int dataCount = bR.ReadInt32();
-            if (dataCount > 0)
-                _clientData = bR.ReadBytes(dataCount);
         }
 
         private void ReadSettingsVersion7(BincodingDecoder decoder)
@@ -542,17 +363,18 @@ namespace BitChatClient
                 }
             }
 
-            if (_downloadFolder == null)
+            if (string.IsNullOrEmpty(_downloadFolder))
             {
-                switch (Environment.OSVersion.Platform)
-                {
-                    case PlatformID.Win32NT:
-                        _downloadFolder = @"C:\";
-                        break;
+                _downloadFolder = Path.Combine(_profileFolder, "Downloads");
 
-                    default:
-                        _downloadFolder = @"/";
-                        break;
+                if (!Directory.Exists(_downloadFolder))
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(_downloadFolder);
+                    }
+                    catch
+                    { }
                 }
             }
 
@@ -705,6 +527,9 @@ namespace BitChatClient
 
         #region properties
 
+        public bool IsPortableApp
+        { get { return _isPortableApp; } }
+
         public string ProfileFolder
         { get { return _profileFolder; } }
 
@@ -739,7 +564,13 @@ namespace BitChatClient
 
         public string DownloadFolder
         {
-            get { return _downloadFolder; }
+            get
+            {
+                if (_isPortableApp)
+                    return _portableDownloadFolder;
+                else
+                    return _downloadFolder;
+            }
             set { _downloadFolder = value; }
         }
 

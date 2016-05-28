@@ -36,7 +36,8 @@ namespace BitChatApp
 
         BitChatProfile _profile;
         string _profileFilePath;
-        string _localAppData;
+        bool _isPortableApp;
+        string _profileFolder;
 
         RSAParameters _parameters;
 
@@ -50,9 +51,10 @@ namespace BitChatApp
 
         #region constructor
 
-        public frmRegister(string localAppData)
+        public frmRegister(bool isPortableApp, string profileFolder)
         {
-            _localAppData = localAppData;
+            _isPortableApp = isPortableApp;
+            _profileFolder = profileFolder;
 
             InitializeComponent();
 
@@ -71,11 +73,12 @@ namespace BitChatApp
             pnlDownloadCert.Top = 12;
         }
 
-        public frmRegister(BitChatProfile profile, string profileFilePath, bool reissue)
+        public frmRegister(BitChatProfile profile, string profileFilePath, bool isPortableApp, string profileFolder, bool reissue)
         {
-            _localAppData = Path.GetDirectoryName(profileFilePath);
             _profile = profile;
             _profileFilePath = profileFilePath;
+            _isPortableApp = isPortableApp;
+            _profileFolder = profileFolder;
 
             if (profile.Proxy != null)
                 _proxyType = profile.Proxy.Type;
@@ -367,7 +370,7 @@ namespace BitChatApp
                 selfSignedCert.SelfSign("SHA256", privateKey, null);
 
                 if (_profile == null)
-                    _profile = new BitChatProfile((new Random(DateTime.UtcNow.Millisecond)).Next(1024, 65535), GetDownloadsPath(), BitChatProfile.DefaultTrackerURIs, _localAppData);
+                    _profile = new BitChatProfile((new Random(DateTime.UtcNow.Millisecond)).Next(1024, 65535), GetDownloadsPath(), BitChatProfile.DefaultTrackerURIs, _isPortableApp, _profileFolder);
 
                 if (_enableProxy)
                     _profile.ConfigureProxy(_proxyType, _proxyAddress, _proxyPort, _proxyCredentials);
@@ -375,7 +378,7 @@ namespace BitChatApp
                 _profile.Register(Program.SIGNUP_URI, new CertificateStore(selfSignedCert, privateKey));
                 _profile.SetPassword(SymmetricEncryptionAlgorithm.Rijndael, 256, txtProfilePassword.Text);
 
-                _profileFilePath = Path.Combine(_localAppData, _profile.LocalCertificateStore.Certificate.IssuedTo.Name + ".profile");
+                _profileFilePath = Path.Combine(_profileFolder, _profile.LocalCertificateStore.Certificate.IssuedTo.Name + ".profile");
 
                 using (FileStream fS = new FileStream(_profileFilePath, FileMode.Create, FileAccess.ReadWrite))
                 {

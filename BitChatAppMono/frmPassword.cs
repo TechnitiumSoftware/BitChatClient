@@ -18,13 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 using BitChatClient;
-using TechnitiumLibrary.Security.Cryptography;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
 using System.IO;
-using System.Text;
 using System.Windows.Forms;
 
 namespace BitChatAppMono
@@ -34,6 +29,7 @@ namespace BitChatAppMono
         #region variables
 
         string _profileFilePath;
+        bool _isPortableApp;
         string _profileFolder;
 
         BitChatProfile _profile;
@@ -42,11 +38,12 @@ namespace BitChatAppMono
 
         #region constructor
 
-        public frmPassword(string profileFilePath, string profileFolder)
+        public frmPassword(string profileFilePath, bool isPortableApp, string profileFolder)
         {
             InitializeComponent();
 
             _profileFilePath = profileFilePath;
+            _isPortableApp = isPortableApp;
             _profileFolder = profileFolder;
 
             labProfileName.Text = Path.GetFileNameWithoutExtension(_profileFilePath);
@@ -62,7 +59,7 @@ namespace BitChatAppMono
             {
                 using (FileStream fS = new FileStream(_profileFilePath, FileMode.Open, FileAccess.Read))
                 {
-                    _profile = new BitChatProfile(fS, txtPassword.Text, _profileFolder);
+                    _profile = new BitChatProfile(fS, txtPassword.Text, _isPortableApp, _profileFolder);
                 }
 
                 DialogResult = System.Windows.Forms.DialogResult.OK;
@@ -74,7 +71,7 @@ namespace BitChatAppMono
                 {
                     using (FileStream fS = new FileStream(_profileFilePath + ".bak", FileMode.Open, FileAccess.Read))
                     {
-                        _profile = new BitChatProfile(fS, txtPassword.Text, _profileFolder);
+                        _profile = new BitChatProfile(fS, txtPassword.Text, _isPortableApp, _profileFolder);
                     }
 
                     DialogResult = System.Windows.Forms.DialogResult.OK;

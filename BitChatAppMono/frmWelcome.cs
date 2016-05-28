@@ -19,10 +19,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using BitChatClient;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
-using System.Text;
 using System.Windows.Forms;
 
 namespace BitChatAppMono
@@ -31,7 +27,8 @@ namespace BitChatAppMono
     {
         #region variables
 
-        string _localAppData;
+        bool _isPortableApp;
+        string _profileFolder;
 
         BitChatProfile _profile;
         string _profileFilePath;
@@ -40,16 +37,12 @@ namespace BitChatAppMono
 
         #region constructors
 
-        public frmWelcome()
-        {
-            InitializeComponent();
-        }
-
-        public frmWelcome(string localAppData)
+        public frmWelcome(bool isPortableApp, string profileFolder)
         {
             InitializeComponent();
 
-            _localAppData = localAppData;
+            _isPortableApp = isPortableApp;
+            _profileFolder = profileFolder;
         }
 
         #endregion
@@ -70,7 +63,7 @@ namespace BitChatAppMono
         {
             this.Hide();
 
-            using (frmRegister frm = new frmRegister(_localAppData))
+            using (frmRegister frm = new frmRegister(_isPortableApp, _profileFolder))
             {
                 DialogResult result = frm.ShowDialog(this);
 
