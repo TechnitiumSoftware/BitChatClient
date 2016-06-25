@@ -91,7 +91,7 @@
     <Compile Include="PeerInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Network\TcpRelayNetwork.cs" />
-    <Compile Include="Network\SecureChannel\ISecureChannelManager.cs" />
+    <Compile Include="Network\SecureChannel\ISecureChannelSecurityManager.cs" />
     <Compile Include="Network\SecureChannel\SecureChannelStream.cs" />
     <Compile Include="Network\SecureChannel\SecureChannelClientStream.cs" />
     <Compile Include="Network\SecureChannel\SecureChannelException.cs" />
