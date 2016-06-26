@@ -240,8 +240,8 @@ namespace BitChatClient
             const int TCP_RELAY_MAX_CONNECTIONS = 3;
             const int TCP_RELAY_CHECK_INTERVAL = 30000; //30sec
 
-            Dictionary<IPEndPoint, Connection> _relayConnections = new Dictionary<IPEndPoint, Connection>();
-            Timer _relayConnectionCheckTimer;
+            Dictionary<IPEndPoint, Connection> _tcpRelayConnections = new Dictionary<IPEndPoint, Connection>();
+            Timer _tcpRelayConnectionCheckTimer;
 
             const int RE_NEGOTIATE_AFTER_BYTES_SENT = 104857600; //100mb
             const int RE_NEGOTIATE_AFTER_SECONDS = 3600; //1hr
@@ -257,7 +257,7 @@ namespace BitChatClient
                 _trustedRootCertificates = trustedRootCertificates;
                 _supportedCryptoOptions = supportedCryptoOptions;
 
-                _connectionManager = new ConnectionManager(_profile, BitChatNetworkChannelRequest, RelayNetworkPeersAvailable);
+                _connectionManager = new ConnectionManager(_profile, BitChatNetworkChannelRequest, TcpRelayPeersAvailable);
                 _connectionManager.InternetConnectivityStatusChanged += ConnectionManager_InternetConnectivityStatusChanged;
 
                 LocalPeerDiscovery.StartListener(41733);
@@ -286,10 +286,10 @@ namespace BitChatClient
             {
                 if (!_disposed)
                 {
-                    if (_relayConnectionCheckTimer != null)
+                    if (_tcpRelayConnectionCheckTimer != null)
                     {
-                        _relayConnectionCheckTimer.Dispose();
-                        _relayConnectionCheckTimer = null;
+                        _tcpRelayConnectionCheckTimer.Dispose();
+                        _tcpRelayConnectionCheckTimer = null;
                     }
 
                     if (_connectionManager != null)
@@ -312,19 +312,19 @@ namespace BitChatClient
 
                 if (externalEP == null)
                 {
-                    //no incoming connection possible; setup relay network
+                    //no incoming connection possible; setup tcp relay
                     AddTcpRelayNodes();
 
-                    if (_relayConnectionCheckTimer == null)
-                        _relayConnectionCheckTimer = new Timer(RelayConnectionCheckTimerCallback, null, TCP_RELAY_CHECK_INTERVAL, Timeout.Infinite);
+                    if (_tcpRelayConnectionCheckTimer == null)
+                        _tcpRelayConnectionCheckTimer = new Timer(RelayConnectionCheckTimerCallback, null, TCP_RELAY_CHECK_INTERVAL, Timeout.Infinite);
                 }
                 else
                 {
-                    //can receive incoming connection; no need for setting up relay network;
-                    if (_relayConnectionCheckTimer != null)
+                    //can receive incoming connection; no need for setting up tcp relay
+                    if (_tcpRelayConnectionCheckTimer != null)
                     {
-                        _relayConnectionCheckTimer.Dispose();
-                        _relayConnectionCheckTimer = null;
+                        _tcpRelayConnectionCheckTimer.Dispose();
+                        _tcpRelayConnectionCheckTimer = null;
 
                         BinaryID[] networkIDs;
 
@@ -334,14 +334,14 @@ namespace BitChatClient
                             _networks.Keys.CopyTo(networkIDs, 0);
                         }
 
-                        lock (_relayConnections)
+                        lock (_tcpRelayConnections)
                         {
-                            foreach (Connection connection in _relayConnections.Values)
+                            foreach (Connection connection in _tcpRelayConnections.Values)
                             {
-                                ThreadPool.QueueUserWorkItem(RemoveRelayNetworksFromConnectionAsync, new object[] { connection, networkIDs });
+                                ThreadPool.QueueUserWorkItem(RemoveTcpRelayFromConnectionAsync, new object[] { connection, networkIDs });
                             }
 
-                            _relayConnections.Clear();
+                            _tcpRelayConnections.Clear();
                         }
                     }
                 }
@@ -353,9 +353,9 @@ namespace BitChatClient
 
                 bool addRelayNodes;
 
-                lock (_relayConnections)
+                lock (_tcpRelayConnections)
                 {
-                    addRelayNodes = (_relayConnections.Count < TCP_RELAY_MAX_CONNECTIONS);
+                    addRelayNodes = (_tcpRelayConnections.Count < TCP_RELAY_MAX_CONNECTIONS);
                 }
 
                 if (addRelayNodes)
@@ -364,12 +364,12 @@ namespace BitChatClient
 
                     foreach (IPEndPoint relayNodeEP in nodeEPs)
                     {
-                        lock (_relayConnections)
+                        lock (_tcpRelayConnections)
                         {
-                            if (_relayConnections.Count >= TCP_RELAY_MAX_CONNECTIONS)
+                            if (_tcpRelayConnections.Count >= TCP_RELAY_MAX_CONNECTIONS)
                                 return;
 
-                            if (_relayConnections.ContainsKey(relayNodeEP))
+                            if (_tcpRelayConnections.ContainsKey(relayNodeEP))
                                 continue;
                         }
 
@@ -389,15 +389,15 @@ namespace BitChatClient
                 {
                     Connection viaConnection = _connectionManager.MakeConnection(relayNodeEP);
 
-                    lock (_relayConnections)
+                    lock (_tcpRelayConnections)
                     {
-                        if (_relayConnections.Count < TCP_RELAY_MAX_CONNECTIONS)
+                        if (_tcpRelayConnections.Count < TCP_RELAY_MAX_CONNECTIONS)
                         {
-                            if (!_relayConnections.ContainsKey(relayNodeEP))
+                            if (!_tcpRelayConnections.ContainsKey(relayNodeEP))
                             {
                                 //new tcp relay, add to list
                                 viaConnection.Disposed += RelayConnection_Disposed;
-                                _relayConnections.Add(relayNodeEP, viaConnection);
+                                _tcpRelayConnections.Add(relayNodeEP, viaConnection);
                             }
                         }
                         else
@@ -414,19 +414,19 @@ namespace BitChatClient
                         _networks.Keys.CopyTo(networkIDs, 0);
                     }
 
-                    if (!viaConnection.RequestStartRelayNetwork(networkIDs, _profile.TrackerURIs))
+                    if (!viaConnection.RequestStartTcpRelay(networkIDs, _profile.TrackerURIs))
                     {
-                        lock (_relayConnections)
+                        lock (_tcpRelayConnections)
                         {
-                            _relayConnections.Remove(relayNodeEP);
+                            _tcpRelayConnections.Remove(relayNodeEP);
                         }
                     }
                 }
                 catch
                 {
-                    lock (_relayConnections)
+                    lock (_tcpRelayConnections)
                     {
-                        _relayConnections.Remove(relayNodeEP);
+                        _tcpRelayConnections.Remove(relayNodeEP);
                     }
                 }
             }
@@ -436,9 +436,9 @@ namespace BitChatClient
                 try
                 {
                     //send noop to all connections
-                    lock (_relayConnections)
+                    lock (_tcpRelayConnections)
                     {
-                        foreach (Connection connection in _relayConnections.Values)
+                        foreach (Connection connection in _tcpRelayConnections.Values)
                         {
                             try
                             {
@@ -455,8 +455,8 @@ namespace BitChatClient
                 { }
                 finally
                 {
-                    if (_relayConnectionCheckTimer != null)
-                        _relayConnectionCheckTimer.Change(TCP_RELAY_CHECK_INTERVAL, Timeout.Infinite);
+                    if (_tcpRelayConnectionCheckTimer != null)
+                        _tcpRelayConnectionCheckTimer.Change(TCP_RELAY_CHECK_INTERVAL, Timeout.Infinite);
                 }
             }
 
@@ -464,13 +464,13 @@ namespace BitChatClient
             {
                 Connection relayConnection = sender as Connection;
 
-                lock (_relayConnections)
+                lock (_tcpRelayConnections)
                 {
-                    _relayConnections.Remove(relayConnection.RemotePeerEP);
+                    _tcpRelayConnections.Remove(relayConnection.RemotePeerEP);
                 }
             }
 
-            private void SetupRelayNetworkOnConnectionAsync(object state)
+            private void SetupTcpRelayOnConnectionAsync(object state)
             {
                 try
                 {
@@ -480,13 +480,13 @@ namespace BitChatClient
                     BinaryID networkID = parameters[1] as BinaryID;
                     Uri[] trackerURIs = parameters[2] as Uri[];
 
-                    viaConnection.RequestStartRelayNetwork(new BinaryID[] { networkID }, trackerURIs);
+                    viaConnection.RequestStartTcpRelay(new BinaryID[] { networkID }, trackerURIs);
                 }
                 catch
                 { }
             }
 
-            private void RemoveRelayNetworksFromConnectionAsync(object state)
+            private void RemoveTcpRelayFromConnectionAsync(object state)
             {
                 try
                 {
@@ -495,7 +495,7 @@ namespace BitChatClient
                     Connection viaConnection = parameters[0] as Connection;
                     BinaryID[] networkIDs = parameters[1] as BinaryID[];
 
-                    viaConnection.RequestStopRelayNetwork(networkIDs);
+                    viaConnection.RequestStopTcpRelay(networkIDs);
                 }
                 catch
                 { }
@@ -522,11 +522,11 @@ namespace BitChatClient
 
                 if (trackerURIs.Length > 0)
                 {
-                    lock (_relayConnections)
+                    lock (_tcpRelayConnections)
                     {
-                        foreach (Connection connection in _relayConnections.Values)
+                        foreach (Connection connection in _tcpRelayConnections.Values)
                         {
-                            ThreadPool.QueueUserWorkItem(SetupRelayNetworkOnConnectionAsync, new object[] { connection, networkID, trackerURIs });
+                            ThreadPool.QueueUserWorkItem(SetupTcpRelayOnConnectionAsync, new object[] { connection, networkID, trackerURIs });
                         }
                     }
                 }
@@ -551,11 +551,11 @@ namespace BitChatClient
 
                 if (trackerURIs.Length > 0)
                 {
-                    lock (_relayConnections)
+                    lock (_tcpRelayConnections)
                     {
-                        foreach (Connection connection in _relayConnections.Values)
+                        foreach (Connection connection in _tcpRelayConnections.Values)
                         {
-                            ThreadPool.QueueUserWorkItem(SetupRelayNetworkOnConnectionAsync, new object[] { connection, networkID, trackerURIs });
+                            ThreadPool.QueueUserWorkItem(SetupTcpRelayOnConnectionAsync, new object[] { connection, networkID, trackerURIs });
                         }
                     }
                 }
@@ -595,11 +595,11 @@ namespace BitChatClient
                     _service._bitChats.Remove(chat);
                 }
 
-                lock (_relayConnections)
+                lock (_tcpRelayConnections)
                 {
-                    foreach (Connection connection in _relayConnections.Values)
+                    foreach (Connection connection in _tcpRelayConnections.Values)
                     {
-                        ThreadPool.QueueUserWorkItem(RemoveRelayNetworksFromConnectionAsync, new object[] { connection, new BinaryID[] { chat.NetworkID } });
+                        ThreadPool.QueueUserWorkItem(RemoveTcpRelayFromConnectionAsync, new object[] { connection, new BinaryID[] { chat.NetworkID } });
                     }
                 }
             }
@@ -694,7 +694,7 @@ namespace BitChatClient
                     {
                         BitChatNetwork network = item.Value;
 
-                        if (network.Status != Network.BitChatNetworkStatus.Offline)
+                        if (network.Status != BitChatNetworkStatus.Offline)
                         {
                             BinaryID computedChannelName = network.GetChannelName(connection.LocalPeerID, connection.RemotePeerID);
 
@@ -714,7 +714,10 @@ namespace BitChatClient
                     BitChatNetwork network = FindBitChatNetwork(connection, channelName);
 
                     if (network == null)
-                        throw new BitChatException("Network not found for given channel name.");
+                    {
+                        channel.Dispose();
+                        return;
+                    }
 
                     SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _profile.LocalCertificateStore, _trustedRootCertificates, this, _supportedCryptoOptions, RE_NEGOTIATE_AFTER_BYTES_SENT, RE_NEGOTIATE_AFTER_SECONDS, network.SharedSecret);
 
@@ -726,16 +729,14 @@ namespace BitChatClient
                 }
             }
 
-            private void RelayNetworkPeersAvailable(Connection viaConnection, BinaryID channelName, IEnumerable<IPEndPoint> peerEPs)
+            private void TcpRelayPeersAvailable(Connection viaConnection, BinaryID channelName, IEnumerable<IPEndPoint> peerEPs)
             {
                 try
                 {
                     BitChatNetwork network = FindBitChatNetwork(viaConnection, channelName);
 
-                    if (network == null)
-                        throw new BitChatException("Network not found for given channel name.");
-
-                    network.MakeConnection(viaConnection, peerEPs);
+                    if (network != null)
+                        network.MakeConnection(viaConnection, peerEPs);
                 }
                 catch
                 { }
@@ -796,10 +797,10 @@ namespace BitChatClient
             {
                 get
                 {
-                    lock (_relayConnections)
+                    lock (_tcpRelayConnections)
                     {
-                        IPEndPoint[] relayNodeEPs = new IPEndPoint[_relayConnections.Count];
-                        _relayConnections.Keys.CopyTo(relayNodeEPs, 0);
+                        IPEndPoint[] relayNodeEPs = new IPEndPoint[_tcpRelayConnections.Count];
+                        _tcpRelayConnections.Keys.CopyTo(relayNodeEPs, 0);
 
                         return relayNodeEPs;
                     }

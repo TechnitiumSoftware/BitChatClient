@@ -69,7 +69,7 @@ namespace BitChatClient.Network.Connections
 
         BinaryID _localPeerID;
         BitChatNetworkChannelRequest _channelRequestHandler;
-        RelayNetworkPeersAvailable _relayNetworkPeersHandler;
+        TcpRelayPeersAvailable _tcpRelayPeersHandler;
 
         Dictionary<IPEndPoint, object> _makeConnectionList = new Dictionary<IPEndPoint, object>();
         Dictionary<IPEndPoint, object> _makeVirtualConnectionList = new Dictionary<IPEndPoint, object>();
@@ -104,7 +104,7 @@ namespace BitChatClient.Network.Connections
 
         #region constructor
 
-        public ConnectionManager(BitChatProfile profile, BitChatNetworkChannelRequest channelRequestHandler, RelayNetworkPeersAvailable relayNetworkPeersHandler)
+        public ConnectionManager(BitChatProfile profile, BitChatNetworkChannelRequest channelRequestHandler, TcpRelayPeersAvailable tcpRelayPeersHandler)
         {
             IPEndPoint localEP;
 
@@ -165,7 +165,7 @@ namespace BitChatClient.Network.Connections
             _localPort = (_tcpListener.LocalEndPoint as IPEndPoint).Port;
             _localPeerID = BinaryID.GenerateRandomID160();
             _channelRequestHandler = channelRequestHandler;
-            _relayNetworkPeersHandler = relayNetworkPeersHandler;
+            _tcpRelayPeersHandler = tcpRelayPeersHandler;
 
             //start dht
             _dhtClient = new DhtClient(_localPort, this);
@@ -353,7 +353,7 @@ namespace BitChatClient.Network.Connections
                 }
 
                 //add connection
-                Connection connection = new Connection(networkStream, remotePeerID, remotePeerEP, this, _channelRequestHandler, _relayNetworkPeersHandler, ProcessDhtPacketDataAsync);
+                Connection connection = new Connection(networkStream, remotePeerID, remotePeerEP, this, _channelRequestHandler, _tcpRelayPeersHandler, ProcessDhtPacketDataAsync);
                 _connectionListByConnectionID.Add(remotePeerEP, connection);
                 _connectionListByPeerID.Add(remotePeerID, connection);
 
@@ -476,28 +476,32 @@ namespace BitChatClient.Network.Connections
             switch (version)
             {
                 case 1:
-                    //read service port
-                    byte[] remoteServicePort = new byte[2];
-                    networkStream.Read(remoteServicePort, 0, 2);
-                    remotePeerEP = new IPEndPoint(remotePeerEP.Address, BitConverter.ToUInt16(remoteServicePort, 0));
-
                     //read peer id
                     byte[] peerID = new byte[20];
                     networkStream.Read(peerID, 0, 20);
                     BinaryID remotePeerID = new BinaryID(peerID);
+
+                    //read service port
+                    byte[] remoteServicePort = new byte[2];
+                    networkStream.Read(remoteServicePort, 0, 2);
+                    remotePeerEP = new IPEndPoint(remotePeerEP.Address, BitConverter.ToUInt16(remoteServicePort, 0));
 
                     //add
                     Connection connection = AddConnection(networkStream, remotePeerID, remotePeerEP);
                     if (connection != null)
                     {
                         //send ok
-                        networkStream.WriteByte(0);
-                        networkStream.Write(_localPeerID.ID, 0, 20);
+                        byte[] buffer = new byte[21];
+
+                        buffer[0] = 0; //signal ok
+                        Buffer.BlockCopy(_localPeerID.ID, 0, buffer, 1, 20); //peer id
+
+                        networkStream.Write(buffer, 0, 21);
                     }
                     else
                     {
                         //send cancel
-                        networkStream.WriteByte(1);
+                        networkStream.WriteByte(1); //signal cancel
                         networkStream.Close();
                     }
 
@@ -513,14 +517,16 @@ namespace BitChatClient.Network.Connections
         {
             try
             {
-                //send version
-                networkStream.WriteByte(1);
+                //send request
+                {
+                    byte[] buffer = new byte[23]; //request buffer
 
-                //send service port
-                networkStream.Write(BitConverter.GetBytes(Convert.ToUInt16(_localPort)), 0, 2);
+                    buffer[0] = 1; //version
+                    Buffer.BlockCopy(_localPeerID.ID, 0, buffer, 1, 20); //peer id
+                    Buffer.BlockCopy(BitConverter.GetBytes(Convert.ToUInt16(_localPort)), 0, buffer, 21, 2); //service port
 
-                //send peer id
-                networkStream.Write(_localPeerID.ID, 0, 20);
+                    networkStream.Write(buffer, 0, 23);
+                }
 
                 //read response
                 int response = networkStream.ReadByte();
@@ -581,7 +587,7 @@ namespace BitChatClient.Network.Connections
             _dhtClient.ProxyEnabled = (proxy != null);
             _dhtSeedingTracker.Proxy = proxy;
 
-            TcpRelayNetwork.UpdateSocksProxy(proxy);
+            TcpRelay.UpdateSocksProxy(proxy);
         }
 
         public void ProcessDhtPacketDataAsync(Connection viaConnection, byte[] dhtPacketData)
