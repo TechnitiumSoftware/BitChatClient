@@ -36,6 +36,7 @@ namespace BitChatClient.Network.SecureChannel
         InvalidRemoteKeyExchangeSignature = 7,
         InvalidMessageHMACReceived = 8,
         ProtocolAuthenticationFailed = 9,
+        UnknownException = 254,
         EndOfStream = 255
     }
 

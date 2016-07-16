@@ -85,6 +85,20 @@ namespace BitChatClient.Network.SecureChannel
 
                 throw new SecureChannelException(ex.Code, _remotePeerEP, _remotePeerCert, ex.Message, ex.InnerException);
             }
+            catch (Exception ex)
+            {
+                try
+                {
+                    if (_baseStream == null)
+                        SecureChannelPacket.WritePacket(stream, SecureChannelCode.UnknownException);
+                    else
+                        SecureChannelPacket.WritePacket(this, SecureChannelCode.UnknownException);
+                }
+                catch
+                { }
+
+                throw new SecureChannelException(SecureChannelCode.UnknownException, _remotePeerEP, _remotePeerCert, ex.Message, ex);
+            }
         }
 
         #endregion
