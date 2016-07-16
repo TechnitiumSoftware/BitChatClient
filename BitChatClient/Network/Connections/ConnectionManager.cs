@@ -590,7 +590,7 @@ namespace BitChatClient.Network.Connections
             TcpRelay.UpdateSocksProxy(proxy);
         }
 
-        public void ProcessDhtPacketDataAsync(Connection viaConnection, byte[] dhtPacketData)
+        private void ProcessDhtPacketDataAsync(Connection viaConnection, byte[] dhtPacketData)
         {
             try
             {
@@ -716,13 +716,13 @@ namespace BitChatClient.Network.Connections
                 }
 
                 //do upnp port forwarding for Bit Chat
-                if (_upnpDevice.ForwardPort(ProtocolType.Tcp, _localPort, new IPEndPoint(defaultNetworkInfo.LocalIP, _localPort), "Bit Chat"))
+                if (_upnpDevice.ForwardPort(ProtocolType.Tcp, _localPort, new IPEndPoint(defaultNetworkInfo.LocalIP, _localPort), "Bit Chat", true))
                     newUPnPStatus = UPnPDeviceStatus.PortForwarded;
                 else
                     newUPnPStatus = UPnPDeviceStatus.PortForwardingFailed;
 
                 //do upnp port forwarding for DHT
-                _upnpDevice.ForwardPort(ProtocolType.Udp, _dhtClient.LocalPort, new IPEndPoint(defaultNetworkInfo.LocalIP, _dhtClient.LocalPort), "Bit Chat DHT");
+                _upnpDevice.ForwardPort(ProtocolType.Udp, _dhtClient.LocalPort, new IPEndPoint(defaultNetworkInfo.LocalIP, _dhtClient.LocalPort), "Bit Chat DHT", true);
             }
             catch (Exception ex)
             {
