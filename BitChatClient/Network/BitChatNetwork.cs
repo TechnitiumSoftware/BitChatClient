@@ -275,6 +275,51 @@ namespace BitChatClient.Network
             }
         }
 
+        private void JoinNetwork(string peerID, SecureChannelStream peerStream, bool checkCertificateRevocationList)
+        {
+            if (_status == BitChatNetworkStatus.Offline)
+                throw new BitChatException("BitChat network is offline.");
+
+            if (_type == BitChatNetworkType.PrivateChat)
+            {
+                if (!peerStream.RemotePeerCertificate.IssuedTo.EmailAddress.Equals(_peerEmailAddress))
+                    throw new BitChatException("User with email address '" + peerStream.RemotePeerCertificate.IssuedTo.EmailAddress.Address + " [" + peerStream.RemotePeerEP.Address.ToString() + "]' is trying to join this private chat.");
+
+                _peerName = peerStream.RemotePeerCertificate.IssuedTo.Name;
+            }
+
+            peerID = peerID.ToLower();
+
+            VirtualPeer vPeer;
+            bool peerAdded = false;
+
+            lock (_virtualPeers)
+            {
+                if (_virtualPeers.ContainsKey(peerID))
+                {
+                    vPeer = _virtualPeers[peerID];
+                }
+                else
+                {
+                    vPeer = new VirtualPeer(peerStream.RemotePeerCertificate, this);
+                    _virtualPeers.Add(peerID, vPeer);
+
+                    peerAdded = true;
+                }
+            }
+
+            if (peerAdded)
+                VirtualPeerAdded(this, vPeer);
+
+            vPeer.AddStream(peerStream);
+
+            if (checkCertificateRevocationList)
+            {
+                //start async revocation list check process
+                ThreadPool.QueueUserWorkItem(CheckCertificateRevocationListAsync, peerStream);
+            }
+        }
+
         private bool IsPeerConnected(IPEndPoint peerEP)
         {
             //check if peer already connected
@@ -373,48 +418,29 @@ namespace BitChatClient.Network
             }
         }
 
-        public void JoinNetwork(string peerID, SecureChannelStream peerStream, bool checkCertificateRevocationList)
+        public void AcceptConnectionAndJoinNetwork(Connection connection, Stream channel)
         {
-            if (_status == BitChatNetworkStatus.Offline)
-                throw new BitChatException("BitChat network is offline.");
-
-            if (_type == BitChatNetworkType.PrivateChat)
+            try
             {
-                if (!peerStream.RemotePeerCertificate.IssuedTo.EmailAddress.Equals(_peerEmailAddress))
-                    throw new BitChatException("User with email address '" + peerStream.RemotePeerCertificate.IssuedTo.EmailAddress.Address + " [" + peerStream.RemotePeerEP.Address.ToString() + "]' is trying to join this private chat.");
+                //get secure channel
+                SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _networkManager.GetLocalCredentials(), _networkManager.GetTrustedRootCertificates(), _securityManager, _networkManager.GetSupportedCryptoOptions(), _networkManager.GetReNegotiateOnBytesSent(), _networkManager.GetReNegotiateAfterSeconds(), _sharedSecret);
 
-                _peerName = peerStream.RemotePeerCertificate.IssuedTo.Name;
+                //join network
+                JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel, _networkManager.CheckCertificateRevocationList());
             }
-
-            peerID = peerID.ToLower();
-
-            VirtualPeer vPeer;
-            bool peerAdded = false;
-
-            lock (_virtualPeers)
+            catch (SecureChannelException ex)
             {
-                if (_virtualPeers.ContainsKey(peerID))
+                if (ex.Code != SecureChannelCode.EndOfStream)
                 {
-                    vPeer = _virtualPeers[peerID];
+                    if (VirtualPeerSecureChannelException != null)
+                        VirtualPeerSecureChannelException(this, ex);
                 }
-                else
-                {
-                    vPeer = new VirtualPeer(peerStream.RemotePeerCertificate, this);
-                    _virtualPeers.Add(peerID, vPeer);
 
-                    peerAdded = true;
-                }
+                channel.Dispose();
             }
-
-            if (peerAdded)
-                VirtualPeerAdded(this, vPeer);
-
-            vPeer.AddStream(peerStream);
-
-            if (checkCertificateRevocationList)
+            catch
             {
-                //start async revocation list check process
-                ThreadPool.QueueUserWorkItem(CheckCertificateRevocationListAsync, peerStream);
+                channel.Dispose();
             }
         }
 

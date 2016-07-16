@@ -719,9 +719,7 @@ namespace BitChatClient
                         return;
                     }
 
-                    SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _profile.LocalCertificateStore, _trustedRootCertificates, this, _supportedCryptoOptions, RE_NEGOTIATE_AFTER_BYTES_SENT, RE_NEGOTIATE_AFTER_SECONDS, network.SharedSecret);
-
-                    network.JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel, _profile.CheckCertificateRevocationList);
+                    network.AcceptConnectionAndJoinNetwork(connection, channel);
                 }
                 catch
                 {
