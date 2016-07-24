@@ -220,9 +220,9 @@ namespace BitChatClient.Network
 
         public void StartTracking(IEnumerable<Uri> trackerURIs = null)
         {
-            if (trackerURIs != null)
+            lock (_trackers)
             {
-                lock (_trackers)
+                if (trackerURIs != null)
                 {
                     _trackers.Clear();
 
@@ -234,11 +234,8 @@ namespace BitChatClient.Network
                         _trackers.Add(tracker);
                     }
                 }
-            }
 
-            if (_trackerUpdateTimer == null)
-            {
-                lock (_trackers)
+                if (_trackerUpdateTimer == null)
                 {
                     if ((_trackers.Count > 0) || (_dhtClient != null))
                         _trackerUpdateTimer = new Timer(TrackerUpdateTimerCallBack, TrackerClientEvent.Started, 1000, Timeout.Infinite);
@@ -248,16 +245,16 @@ namespace BitChatClient.Network
 
         public void StopTracking()
         {
-            if (_trackerUpdateTimer != null)
+            lock (_trackers)
             {
-                _trackerUpdateTimer.Dispose();
-                _trackerUpdateTimer = null;
-
-                //update trackers
-                IPEndPoint localEP = new IPEndPoint(IPAddress.Any, _servicePort);
-
-                lock (_trackers)
+                if (_trackerUpdateTimer != null)
                 {
+                    _trackerUpdateTimer.Dispose();
+                    _trackerUpdateTimer = null;
+
+                    //update trackers
+                    IPEndPoint localEP = new IPEndPoint(IPAddress.Any, _servicePort);
+
                     foreach (TrackerClient tracker in _trackers)
                     {
                         ThreadPool.QueueUserWorkItem(new WaitCallback(UpdateTrackerAsync), new object[] { tracker, TrackerClientEvent.Stopped, localEP });
