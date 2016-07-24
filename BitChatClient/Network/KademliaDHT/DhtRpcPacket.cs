@@ -39,7 +39,7 @@ namespace BitChatClient.Network.KademliaDHT
         ANNOUNCE_PEER = 3
     }
 
-    class DhtRpcPacket : WriteStream
+    class DhtRpcPacket : IWriteStream
     {
         #region variables
 
@@ -239,7 +239,7 @@ namespace BitChatClient.Network.KademliaDHT
 
         #region public
 
-        public override void WriteTo(Stream s)
+        public void WriteTo(Stream s)
         {
             s.WriteByte((byte)1); //version
             s.Write(BitConverter.GetBytes(_transactionID), 0, 4); //transaction id
@@ -299,6 +299,23 @@ namespace BitChatClient.Network.KademliaDHT
                     }
                     break;
             }
+        }
+
+        public byte[] ToArray()
+        {
+            using (MemoryStream mS = new MemoryStream())
+            {
+                WriteTo(mS);
+                return mS.ToArray();
+            }
+        }
+
+        public Stream ToStream()
+        {
+            MemoryStream mS = new MemoryStream();
+            WriteTo(mS);
+            mS.Position = 0;
+            return mS;
         }
 
         #endregion

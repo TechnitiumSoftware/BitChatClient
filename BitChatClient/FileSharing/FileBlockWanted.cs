@@ -23,7 +23,7 @@ using TechnitiumLibrary.IO;
 
 namespace BitChatClient.FileSharing
 {
-    class FileBlockWanted : WriteStream
+    class FileBlockWanted : IWriteStream
     {
         #region variables
 
@@ -52,11 +52,28 @@ namespace BitChatClient.FileSharing
 
         #region public
 
-        public override void WriteTo(Stream s)
+        public void WriteTo(Stream s)
         {
             s.WriteByte(Convert.ToByte(_fileID.ID.Length));
             s.Write(_fileID.ID, 0, _fileID.ID.Length);
             s.Write(BitConverter.GetBytes(_blockNumber), 0, 4);
+        }
+
+        public byte[] ToArray()
+        {
+            using (MemoryStream mS = new MemoryStream())
+            {
+                WriteTo(mS);
+                return mS.ToArray();
+            }
+        }
+
+        public Stream ToStream()
+        {
+            MemoryStream mS = new MemoryStream();
+            WriteTo(mS);
+            mS.Position = 0;
+            return mS;
         }
 
         #endregion

@@ -25,7 +25,7 @@ using TechnitiumLibrary.IO;
 
 namespace BitChatClient.Network.KademliaDHT
 {
-    class NodeContact : WriteStream
+    class NodeContact : IWriteStream
     {
         #region variables
 
@@ -114,7 +114,7 @@ namespace BitChatClient.Network.KademliaDHT
             _failRpcCount++;
         }
 
-        public override void WriteTo(Stream s)
+        public void WriteTo(Stream s)
         {
             s.Write(_nodeID.ID, 0, 20);
 
@@ -137,6 +137,23 @@ namespace BitChatClient.Network.KademliaDHT
 
             s.Write(address, 0, address.Length);
             s.Write(port, 0, 2);
+        }
+
+        public byte[] ToArray()
+        {
+            using (MemoryStream mS = new MemoryStream())
+            {
+                WriteTo(mS);
+                return mS.ToArray();
+            }
+        }
+
+        public Stream ToStream()
+        {
+            MemoryStream mS = new MemoryStream();
+            WriteTo(mS);
+            mS.Position = 0;
+            return mS;
         }
 
         public override bool Equals(object obj)

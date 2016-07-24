@@ -24,7 +24,7 @@ using TechnitiumLibrary.IO;
 
 namespace BitChatClient
 {
-    public class BinaryID : WriteStream, IEquatable<BinaryID>
+    public class BinaryID : IWriteStream, IEquatable<BinaryID>
     {
         #region variables
 
@@ -134,10 +134,27 @@ namespace BitChatClient
             return BitConverter.ToString(_id).Replace("-", "").ToLower();
         }
 
-        public override void WriteTo(Stream s)
+        public void WriteTo(Stream s)
         {
             s.WriteByte(Convert.ToByte(_id.Length));
             s.Write(_id, 0, _id.Length);
+        }
+
+        public byte[] ToArray()
+        {
+            using (MemoryStream mS = new MemoryStream())
+            {
+                WriteTo(mS);
+                return mS.ToArray();
+            }
+        }
+
+        public Stream ToStream()
+        {
+            MemoryStream mS = new MemoryStream();
+            WriteTo(mS);
+            mS.Position = 0;
+            return mS;
         }
 
         #endregion

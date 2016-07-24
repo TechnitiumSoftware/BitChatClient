@@ -26,7 +26,7 @@ using TechnitiumLibrary.IO;
 
 namespace BitChatClient
 {
-    public class PeerInfo : WriteStream
+    public class PeerInfo : IWriteStream
     {
         #region variables
 
@@ -60,7 +60,7 @@ namespace BitChatClient
 
         #region public
 
-        public override void WriteTo(Stream s)
+        public void WriteTo(Stream s)
         {
             byte[] buffer = Encoding.UTF8.GetBytes(_peerEmail);
 
@@ -71,6 +71,23 @@ namespace BitChatClient
 
             foreach (IPEndPoint peerEP in _peerEPList)
                 IPEndPointParser.WriteTo(peerEP, s);
+        }
+
+        public byte[] ToArray()
+        {
+            using (MemoryStream mS = new MemoryStream())
+            {
+                WriteTo(mS);
+                return mS.ToArray();
+            }
+        }
+
+        public Stream ToStream()
+        {
+            MemoryStream mS = new MemoryStream();
+            WriteTo(mS);
+            mS.Position = 0;
+            return mS;
         }
 
         public override bool Equals(object obj)

@@ -146,7 +146,7 @@ namespace BitChatClient.Network.SecureChannel
 
         #endregion
 
-        public class Hello : WriteStream
+        public class Hello : IWriteStream
         {
             #region variables
 
@@ -171,12 +171,29 @@ namespace BitChatClient.Network.SecureChannel
 
             #endregion
 
-            #region override
+            #region public
 
-            public override void WriteTo(Stream s)
+            public void WriteTo(Stream s)
             {
                 _nonce.WriteTo(s);
                 s.WriteByte((byte)_cryptoOptions);
+            }
+
+            public byte[] ToArray()
+            {
+                using (MemoryStream mS = new MemoryStream())
+                {
+                    WriteTo(mS);
+                    return mS.ToArray();
+                }
+            }
+
+            public Stream ToStream()
+            {
+                MemoryStream mS = new MemoryStream();
+                WriteTo(mS);
+                mS.Position = 0;
+                return mS;
             }
 
             #endregion
@@ -192,7 +209,7 @@ namespace BitChatClient.Network.SecureChannel
             #endregion
         }
 
-        public class KeyExchange : WriteStream
+        public class KeyExchange : IWriteStream
         {
             #region variables
 
@@ -235,11 +252,7 @@ namespace BitChatClient.Network.SecureChannel
                 return AsymmetricCryptoKey.Verify(new MemoryStream(Encoding.UTF8.GetBytes(_publicKeyXML), false), _signature, hashAlgo, signingCert);
             }
 
-            #endregion
-
-            #region override
-
-            public override void WriteTo(Stream s)
+            public void WriteTo(Stream s)
             {
                 byte[] publicKey = Encoding.UTF8.GetBytes(_publicKeyXML);
                 s.Write(BitConverter.GetBytes(Convert.ToUInt16(publicKey.Length)), 0, 2);
@@ -248,7 +261,24 @@ namespace BitChatClient.Network.SecureChannel
                 s.Write(BitConverter.GetBytes(Convert.ToUInt16(_signature.Length)), 0, 2);
                 s.Write(_signature, 0, _signature.Length);
             }
-            
+
+            public byte[] ToArray()
+            {
+                using (MemoryStream mS = new MemoryStream())
+                {
+                    WriteTo(mS);
+                    return mS.ToArray();
+                }
+            }
+
+            public Stream ToStream()
+            {
+                MemoryStream mS = new MemoryStream();
+                WriteTo(mS);
+                mS.Position = 0;
+                return mS;
+            }
+
             #endregion
 
             #region properties
@@ -262,7 +292,7 @@ namespace BitChatClient.Network.SecureChannel
             #endregion
         }
 
-        public class Authentication : WriteStream
+        public class Authentication : IWriteStream
         {
             #region variables
 
@@ -292,13 +322,26 @@ namespace BitChatClient.Network.SecureChannel
                 return _hmac.Equals(computedHmac);
             }
 
-            #endregion
-
-            #region override
-
-            public override void WriteTo(Stream s)
+            public void WriteTo(Stream s)
             {
                 _hmac.WriteTo(s);
+            }
+
+            public byte[] ToArray()
+            {
+                using (MemoryStream mS = new MemoryStream())
+                {
+                    WriteTo(mS);
+                    return mS.ToArray();
+                }
+            }
+
+            public Stream ToStream()
+            {
+                MemoryStream mS = new MemoryStream();
+                WriteTo(mS);
+                mS.Position = 0;
+                return mS;
             }
 
             #endregion
