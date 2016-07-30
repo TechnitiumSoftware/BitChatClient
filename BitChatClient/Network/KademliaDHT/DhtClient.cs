@@ -825,8 +825,6 @@ namespace BitChatClient.Network.KademliaDHT
                                 if (!peers.Contains(peer))
                                     peers.Add(peer);
                             }
-
-                            Monitor.Pulse(peers);
                         }
                     }
 
