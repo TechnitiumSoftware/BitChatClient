@@ -44,7 +44,8 @@ namespace BitChatClient.Network
         BinaryID _networkID;
         int _servicePort;
         DhtClient _dhtClient;
-        bool _lookupOnly = false;
+        int _customUpdateInterval;
+        bool _lookupOnly;
 
         NetProxy _proxy;
 
@@ -60,11 +61,13 @@ namespace BitChatClient.Network
 
         #region constructor
 
-        public TrackerManager(BinaryID networkID, int servicePort, DhtClient dhtClient)
+        public TrackerManager(BinaryID networkID, int servicePort, DhtClient dhtClient, int customUpdateInterval, bool lookupOnly = false)
         {
             _networkID = networkID;
             _servicePort = servicePort;
             _dhtClient = dhtClient;
+            _customUpdateInterval = customUpdateInterval;
+            _lookupOnly = lookupOnly;
         }
 
         #endregion
@@ -228,7 +231,7 @@ namespace BitChatClient.Network
 
                     foreach (Uri trackerURI in trackerURIs)
                     {
-                        TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID());
+                        TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID(), _customUpdateInterval);
                         tracker.Proxy = _proxy;
 
                         _trackers.Add(tracker);
@@ -302,7 +305,7 @@ namespace BitChatClient.Network
                 }
 
                 {
-                    TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID());
+                    TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID(), _customUpdateInterval);
                     tracker.Proxy = _proxy;
 
                     _trackers.Add(tracker);
@@ -330,7 +333,7 @@ namespace BitChatClient.Network
 
                     if (!trackerExists)
                     {
-                        TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID());
+                        TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID(), _customUpdateInterval);
                         tracker.Proxy = _proxy;
 
                         _trackers.Add(tracker);
@@ -388,6 +391,9 @@ namespace BitChatClient.Network
 
         public bool IsTrackerRunning
         { get { return (_trackerUpdateTimer != null); } }
+
+        public int CustomUpdateInterval
+        { get { return _customUpdateInterval; } }
 
         public bool LookupOnly
         {
