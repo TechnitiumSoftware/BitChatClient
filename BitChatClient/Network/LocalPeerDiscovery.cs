@@ -35,15 +35,15 @@ using TechnitiumLibrary.Net;
  BROADCAST QUERY
  ===============
  * version = 5
- * query_challenge
- * HMAC(query_challenge, network_id)
+ * query_salt
+ * HMAC(query_salt, network_id)
  
  UNICAST RESPONSE
  ================
  * version = 6
  * service_port
- * query_challenge
- * HMAC(query_challenge + sender_ip_address + service_port, network_id)
+ * query_salt
+ * HMAC(query_salt + sender_ip_address + service_port, network_id)
 
 */
 
@@ -158,12 +158,7 @@ namespace BitChatClient.Network
             lock (_trackedNetworkIDs)
             {
                 if (!_trackedNetworkIDs.Contains(networkID))
-                {
                     _trackedNetworkIDs.Add(networkID);
-                    _announceNetworkIDs.Add(networkID);
-
-                    AnnounceAsync(new BinaryID[] { networkID }, null, ANNOUNCEMENT_RETRY_COUNT);
-                }
             }
         }
 
@@ -171,30 +166,28 @@ namespace BitChatClient.Network
         {
             lock (_trackedNetworkIDs)
             {
-                if (_trackedNetworkIDs.Remove(networkID))
-                    _announceNetworkIDs.Remove(networkID);
+                _trackedNetworkIDs.Remove(networkID);
             }
         }
 
-        public void PauseAnnouncement(BinaryID networkID)
+        public void StartAnnouncement(BinaryID networkID)
         {
-            lock (_trackedNetworkIDs)
+            lock (_announceNetworkIDs)
             {
-                if (_trackedNetworkIDs.Contains(networkID))
-                    _announceNetworkIDs.Remove(networkID);
-            }
-        }
-
-        public void ResumeAnnouncement(BinaryID networkID)
-        {
-            lock (_trackedNetworkIDs)
-            {
-                if (_trackedNetworkIDs.Contains(networkID) && !_announceNetworkIDs.Contains(networkID))
+                if (!_announceNetworkIDs.Contains(networkID))
                 {
                     _announceNetworkIDs.Add(networkID);
 
                     AnnounceAsync(new BinaryID[] { networkID }, null, ANNOUNCEMENT_RETRY_COUNT);
                 }
+            }
+        }
+
+        public void StopAnnouncement(BinaryID networkID)
+        {
+            lock (_announceNetworkIDs)
+            {
+                _announceNetworkIDs.Remove(networkID);
             }
         }
 
@@ -295,7 +288,7 @@ namespace BitChatClient.Network
         {
             NetworkInfo network = NetUtilities.GetNetworkInfo(remotePeerIP);
 
-            DiscoveryPacket responsePacket = DiscoveryPacket.CreateResponsePacket(_announcePort, receivedQueryPacket.Challenge);
+            DiscoveryPacket responsePacket = DiscoveryPacket.CreateResponsePacket(_announcePort, receivedQueryPacket.Salt);
             byte[] packet = responsePacket.ToArray(networkID, network.LocalIP);
 
             _listener.SendTo(packet, 0, packet.Length, remotePeerIP);
@@ -309,7 +302,7 @@ namespace BitChatClient.Network
 
                 BinaryID[] networkIDs;
 
-                lock (_trackedNetworkIDs)
+                lock (_announceNetworkIDs)
                 {
                     networkIDs = _announceNetworkIDs.ToArray();
                 }
@@ -363,9 +356,9 @@ namespace BitChatClient.Network
 
                 BinaryID foundNetworkID = null;
 
-                lock (_trackedNetworkIDs)
+                lock (_announceNetworkIDs)
                 {
-                    foreach (BinaryID networkID in _trackedNetworkIDs)
+                    foreach (BinaryID networkID in _announceNetworkIDs)
                     {
                         if (packet.IsResponseValid(networkID, remotePeerIP))
                         {
@@ -800,7 +793,7 @@ namespace BitChatClient.Network
 
             bool _isResponse;
             ushort _servicePort;
-            BinaryID _challenge;
+            BinaryID _salt;
             BinaryID _hmac;
 
             DateTime _dateCreated;
@@ -809,11 +802,11 @@ namespace BitChatClient.Network
 
             #region constructor
 
-            private DiscoveryPacket(bool isResponse, ushort servicePort, BinaryID challenge)
+            private DiscoveryPacket(bool isResponse, ushort servicePort, BinaryID salt)
             {
                 _isResponse = isResponse;
                 _servicePort = servicePort;
-                _challenge = challenge;
+                _salt = salt;
 
                 _dateCreated = DateTime.UtcNow;
             }
@@ -824,14 +817,14 @@ namespace BitChatClient.Network
                 {
                     case 5: //query
                         {
-                            byte[] bufferChallenge = new byte[32];
+                            byte[] bufferSalt = new byte[32];
                             byte[] bufferHmac = new byte[32];
 
-                            s.Read(bufferChallenge, 0, 32);
+                            s.Read(bufferSalt, 0, 32);
                             s.Read(bufferHmac, 0, 32);
 
                             _isResponse = false;
-                            _challenge = new BinaryID(bufferChallenge);
+                            _salt = new BinaryID(bufferSalt);
                             _hmac = new BinaryID(bufferHmac);
                         }
                         break;
@@ -839,16 +832,16 @@ namespace BitChatClient.Network
                     case 6: //response
                         {
                             byte[] bufferServicePort = new byte[2];
-                            byte[] bufferChallenge = new byte[32];
+                            byte[] bufferSalt = new byte[32];
                             byte[] bufferHmac = new byte[32];
 
                             s.Read(bufferServicePort, 0, 2);
-                            s.Read(bufferChallenge, 0, 32);
+                            s.Read(bufferSalt, 0, 32);
                             s.Read(bufferHmac, 0, 32);
 
                             _isResponse = true;
                             _servicePort = BitConverter.ToUInt16(bufferServicePort, 0);
-                            _challenge = new BinaryID(bufferChallenge);
+                            _salt = new BinaryID(bufferSalt);
                             _hmac = new BinaryID(bufferHmac);
                         }
                         break;
@@ -867,9 +860,9 @@ namespace BitChatClient.Network
                 return new DiscoveryPacket(false, 0, BinaryID.GenerateRandomID256());
             }
 
-            public static DiscoveryPacket CreateResponsePacket(ushort servicePort, BinaryID challenge)
+            public static DiscoveryPacket CreateResponsePacket(ushort servicePort, BinaryID salt)
             {
-                return new DiscoveryPacket(true, servicePort, challenge);
+                return new DiscoveryPacket(true, servicePort, salt);
             }
 
             #endregion
@@ -885,7 +878,7 @@ namespace BitChatClient.Network
 
                 using (HMACSHA256 hmacSHA256 = new HMACSHA256(networkID.ID))
                 {
-                    computedHmac = new BinaryID(hmacSHA256.ComputeHash(_challenge.ID)); //computed hmac
+                    computedHmac = new BinaryID(hmacSHA256.ComputeHash(_salt.ID)); //computed hmac
                 }
 
                 return _hmac.Equals(computedHmac);
@@ -903,7 +896,7 @@ namespace BitChatClient.Network
                 {
                     using (MemoryStream mS2 = new MemoryStream(38))
                     {
-                        mS2.Write(_challenge.ID, 0, 32); //query_challenge
+                        mS2.Write(_salt.ID, 0, 32); //query_salt
                         mS2.Write(remotePeerIP.GetAddressBytes(), 0, 4); //peer_ip_address
                         mS2.Write(servicePort, 0, 2); //service_port
 
@@ -925,13 +918,13 @@ namespace BitChatClient.Network
 
                         mS.WriteByte(6); //version
                         mS.Write(servicePort, 0, 2); //service_port
-                        mS.Write(_challenge.ID, 0, 32); //query_challenge
+                        mS.Write(_salt.ID, 0, 32); //query_salt
 
                         using (HMACSHA256 hmacSHA256 = new HMACSHA256(networkID.ID))
                         {
                             using (MemoryStream mS2 = new MemoryStream(38))
                             {
-                                mS2.Write(_challenge.ID, 0, 32); //query_challenge
+                                mS2.Write(_salt.ID, 0, 32); //query_salt
                                 mS2.Write(senderPeerIP.GetAddressBytes(), 0, 4); //peer_ip_address
                                 mS2.Write(servicePort, 0, 2); //service_port
 
@@ -943,11 +936,11 @@ namespace BitChatClient.Network
                     else
                     {
                         mS.WriteByte(5); //version
-                        mS.Write(_challenge.ID, 0, 32); //challenge
+                        mS.Write(_salt.ID, 0, 32); //salt
 
                         using (HMACSHA256 hmacSHA256 = new HMACSHA256(networkID.ID))
                         {
-                            mS.Write(hmacSHA256.ComputeHash(_challenge.ID), 0, 32); //hmac
+                            mS.Write(hmacSHA256.ComputeHash(_salt.ID), 0, 32); //hmac
                         }
                     }
 
@@ -973,7 +966,7 @@ namespace BitChatClient.Network
                 if (ReferenceEquals(this, obj))
                     return true;
 
-                if (!_challenge.Equals(obj._challenge))
+                if (!_salt.Equals(obj._salt))
                     return false;
 
                 return true;
@@ -994,8 +987,8 @@ namespace BitChatClient.Network
             public ushort ServicePort
             { get { return _servicePort; } }
 
-            public BinaryID Challenge
-            { get { return _challenge; } }
+            public BinaryID Salt
+            { get { return _salt; } }
 
             #endregion
         }
