@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2016  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -32,6 +32,7 @@ namespace BitChatClient.Network.Connections
     delegate void BitChatNetworkChannelRequest(Connection connection, BinaryID channelName, Stream channel);
     delegate void TcpRelayPeersAvailable(Connection viaConnection, BinaryID channelName, List<IPEndPoint> peerEPs);
     delegate void DhtPacketData(Connection viaConnection, byte[] dhtPacketData);
+    delegate void BitChatNetworkInvitation(BinaryID networkID, IPEndPoint peerEP, string message);
 
     enum SignalType : byte
     {
@@ -51,7 +52,8 @@ namespace BitChatClient.Network.Connections
         StopTcpRelay = 13,
         TcpRelayResponseSuccess = 14,
         TcpRelayResponsePeerList = 15,
-        DhtPacketData = 16
+        DhtPacketData = 16,
+        BitChatNetworkInvitation = 17
     }
 
     enum ChannelType : byte
@@ -66,6 +68,7 @@ namespace BitChatClient.Network.Connections
         #region events
 
         public event EventHandler Disposed;
+        public event BitChatNetworkInvitation BitChatNetworkInvitation;
 
         #endregion
 
@@ -93,7 +96,7 @@ namespace BitChatClient.Network.Connections
         List<Joint> _proxyTunnelJointList = new List<Joint>();
 
         Dictionary<BinaryID, object> _tcpRelayRequestLockList = new Dictionary<BinaryID, object>();
-        Dictionary<BinaryID, TcpRelay> _tcpRelays = new Dictionary<BinaryID, TcpRelay>();
+        Dictionary<BinaryID, TcpRelayService> _tcpRelays = new Dictionary<BinaryID, TcpRelayService>();
 
         int _channelWriteTimeout = 30000;
 
@@ -180,9 +183,9 @@ namespace BitChatClient.Network.Connections
                     //remove this connection from tcp relays
                     lock (_tcpRelays)
                     {
-                        foreach (TcpRelay relay in _tcpRelays.Values)
+                        foreach (TcpRelayService relay in _tcpRelays.Values)
                         {
-                            relay.LeaveTcpRelay(this);
+                            relay.StopTcpRelay(this);
                         }
 
                         _tcpRelays.Clear();
@@ -311,7 +314,7 @@ namespace BitChatClient.Network.Connections
                                 //check if tcp relay is hosted for the channel. reply back tcp relay peers list if available
                                 try
                                 {
-                                    List<IPEndPoint> peerEPs = TcpRelay.GetTcpRelayPeers(channelName, this);
+                                    List<IPEndPoint> peerEPs = TcpRelayService.GetPeerEPs(channelName, this);
 
                                     if ((peerEPs != null) && (peerEPs.Count > 0))
                                     {
@@ -614,11 +617,8 @@ namespace BitChatClient.Network.Connections
                                     {
                                         if (!_tcpRelays.ContainsKey(networkID))
                                         {
-                                            TcpRelay relay = TcpRelay.JoinTcpRelay(networkID, _connectionManager.LocalPort, this, _connectionManager.DhtClient, _connectionManager.Profile.Proxy);
+                                            TcpRelayService relay = TcpRelayService.StartTcpRelay(networkID, this, _connectionManager.LocalPort, _connectionManager.DhtClient, trackerURIs);
                                             _tcpRelays.Add(networkID, relay);
-
-                                            relay.AddTrackers(trackerURIs);
-                                            relay.StartTracking();
                                         }
                                     }
                                 }
@@ -661,7 +661,7 @@ namespace BitChatClient.Network.Connections
                                     {
                                         if (_tcpRelays.ContainsKey(networkID))
                                         {
-                                            _tcpRelays[networkID].LeaveTcpRelay(this);
+                                            _tcpRelays[networkID].StopTcpRelay(this);
                                             _tcpRelays.Remove(networkID);
                                         }
                                     }
@@ -722,6 +722,14 @@ namespace BitChatClient.Network.Connections
 
                                 _dhtPacketDataHandler.BeginInvoke(this, dhtPacketData, null, null);
                             }
+
+                            #endregion
+                            break;
+
+                        case SignalType.BitChatNetworkInvitation:
+                            #region ChannelInvitationBitChatNetwork
+
+                            BitChatNetworkInvitation?.BeginInvoke(channelName.Clone(), _remotePeerEP, Encoding.UTF8.GetString(dataBuffer, 0, dataLength), null, null);
 
                             #endregion
                             break;
@@ -1061,6 +1069,14 @@ namespace BitChatClient.Network.Connections
         public void SendDhtPacket(byte[] buffer, int offset, int count)
         {
             WriteFrame(SignalType.DhtPacketData, BinaryID.GenerateRandomID160(), buffer, offset, count);
+        }
+
+        public void SendBitChatNetworkInvitation(BinaryID networkID, string message)
+        {
+            byte[] buffer = Encoding.UTF8.GetBytes(message);
+
+            //send invitation signal with message
+            WriteFrame(SignalType.BitChatNetworkInvitation, networkID, buffer, 0, buffer.Length);
         }
 
         #endregion

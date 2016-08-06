@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2016  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -57,6 +57,7 @@ namespace BitChatClient.Network.Connections
         #region events
 
         public event EventHandler InternetConnectivityStatusChanged;
+        public event BitChatNetworkInvitation BitChatNetworkChannelInvitation;
 
         #endregion
 
@@ -64,6 +65,8 @@ namespace BitChatClient.Network.Connections
 
         const int SOCKET_SEND_TIMEOUT = 30000; //30 sec socket timeout; application protocol NOOPs at 15 sec
         const int SOCKET_RECV_TIMEOUT = 90000; //keep socket open for long time to allow tunnelling requests between time
+
+        const int DHT_SEED_TRACKER_UPDATE_INTERVAL = 300;
 
         BitChatProfile _profile;
 
@@ -173,7 +176,7 @@ namespace BitChatClient.Network.Connections
             _dhtClient.AddNode(profile.BootstrapDhtNodes);
 
             //setup dht seeding tracker
-            _dhtSeedingTracker = new TrackerManager(_dhtSeedingNetworkID, _localPort, null);
+            _dhtSeedingTracker = new TrackerManager(_dhtSeedingNetworkID, _localPort, null, DHT_SEED_TRACKER_UPDATE_INTERVAL);
             _dhtSeedingTracker.Proxy = _profile.Proxy;
             _dhtSeedingTracker.DiscoveredPeers += dhtSeedingTracker_DiscoveredPeers;
             _dhtSeedingTracker.StartTracking(profile.TrackerURIs);
@@ -356,6 +359,10 @@ namespace BitChatClient.Network.Connections
                 Connection connection = new Connection(networkStream, remotePeerID, remotePeerEP, this, _channelRequestHandler, _tcpRelayPeersHandler, ProcessDhtPacketDataAsync);
                 _connectionListByConnectionID.Add(remotePeerEP, connection);
                 _connectionListByPeerID.Add(remotePeerID, connection);
+
+                //set event handlers
+                if (BitChatNetworkChannelInvitation != null)
+                    connection.BitChatNetworkInvitation += BitChatNetworkChannelInvitation;
 
                 //start service
                 connection.Start();
@@ -587,7 +594,11 @@ namespace BitChatClient.Network.Connections
             _dhtClient.ProxyEnabled = (proxy != null);
             _dhtSeedingTracker.Proxy = proxy;
 
-            TcpRelay.UpdateSocksProxy(proxy);
+            if (proxy != null)
+            {
+                //stop tcp relay for all networks since this client switched to proxy and can no longer provide tcp relay service
+                TcpRelayService.StopAllTcpRelays();
+            }
         }
 
         private void ProcessDhtPacketDataAsync(Connection viaConnection, byte[] dhtPacketData)
@@ -812,7 +823,7 @@ namespace BitChatClient.Network.Connections
                         {
                             //if no incoming connection possible
 
-                            if (_dhtClient.GetTotalNodes() < KademliaDHT.DhtClient.KADEMLIA_K)
+                            if (_dhtClient.GetTotalNodes() < DhtClient.KADEMLIA_K)
                                 _dhtSeedingTracker.LookupOnly = true;
                             else
                                 _dhtSeedingTracker.StopTracking(); //we have enough dht nodes and can stop seeding tracker
@@ -825,8 +836,7 @@ namespace BitChatClient.Network.Connections
                                 _dhtSeedingTracker.StartTracking(); //keep seeding tracker running for other peers to find dht bootstrap nodes
                         }
 
-                        if (InternetConnectivityStatusChanged != null)
-                            InternetConnectivityStatusChanged(this, EventArgs.Empty);
+                        InternetConnectivityStatusChanged?.Invoke(this, EventArgs.Empty);
                     }
 
                     //schedule next check
