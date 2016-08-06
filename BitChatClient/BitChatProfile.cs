@@ -23,6 +23,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.Mail;
 using System.Text;
 using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Net;
@@ -90,6 +91,7 @@ namespace BitChatClient
         bool _checkCertificateRevocationList = true;
         IPEndPoint[] _bootstrapDhtNodes = new IPEndPoint[] { };
         bool _enableUPnP = true;
+        bool _enableInvitation = true;
 
         string _proxyAddress = "127.0.0.1";
         int _proxyPort = 0;
@@ -241,19 +243,9 @@ namespace BitChatClient
         {
             BincodingDecoder decoder = new BincodingDecoder(s, "BP");
 
-            switch (decoder.Version)
-            {
-                case 7:
-                    ReadSettingsVersion7(decoder);
-                    break;
+            if (decoder.Version != 7)
+                throw new BitChatException("BitChatProfile data version not supported.");
 
-                default:
-                    throw new BitChatException("BitChatProfile data version not supported.");
-            }
-        }
-
-        private void ReadSettingsVersion7(BincodingDecoder decoder)
-        {
             NetProxyType proxyType = NetProxyType.None;
             string proxyAddress = "127.0.0.1";
             int proxyPort = 0;
@@ -281,6 +273,10 @@ namespace BitChatClient
 
                     case "enable_upnp":
                         _enableUPnP = item.Value.GetBooleanValue();
+                        break;
+
+                    case "enable_invitation":
+                        _enableInvitation = item.Value.GetBooleanValue();
                         break;
 
                     case "download_folder":
@@ -401,6 +397,9 @@ namespace BitChatClient
 
             //upnp enabled
             encoder.Encode("enable_upnp", _enableUPnP);
+
+            //enable invitation
+            encoder.Encode("enable_invitation", _enableInvitation);
 
             //download folder
             if (_downloadFolder != null)
@@ -534,9 +533,7 @@ namespace BitChatClient
         { get { return _profileFolder; } }
 
         public CertificateStore LocalCertificateStore
-        {
-            get { return _localCertStore; }
-        }
+        { get { return _localCertStore; } }
 
         public byte[] ProfileImageSmall
         {
@@ -556,7 +553,7 @@ namespace BitChatClient
             set { _localPort = value; }
         }
 
-        public IPEndPoint[] BootstrapDhtNodes
+        internal IPEndPoint[] BootstrapDhtNodes
         {
             get { return _bootstrapDhtNodes; }
             set { _bootstrapDhtNodes = value; }
@@ -574,7 +571,7 @@ namespace BitChatClient
             set { _downloadFolder = value; }
         }
 
-        public BitChatInfo[] BitChatInfoList
+        internal BitChatInfo[] BitChatInfoList
         {
             get { return _bitChatInfoList; }
             set { _bitChatInfoList = value; }
@@ -604,29 +601,27 @@ namespace BitChatClient
             set { _enableUPnP = value; }
         }
 
-        public NetProxy Proxy
+        public bool EnableInvitation
         {
-            get { return _proxy; }
+            get { return _enableInvitation; }
+            set { _enableInvitation = value; }
         }
+
+        public NetProxy Proxy
+        { get { return _proxy; } }
 
         public string ProxyAddress
-        {
-            get { return _proxyAddress; }
-        }
+        { get { return _proxyAddress; } }
 
         public int ProxyPort
-        {
-            get { return _proxyPort; }
-        }
+        { get { return _proxyPort; } }
 
         public NetworkCredential ProxyCredentials
-        {
-            get { return _proxyCredentials; }
-        }
+        { get { return _proxyCredentials; } }
 
         #endregion
 
-        public class BitChatInfo : WriteStream
+        internal class BitChatInfo : IWriteStream
         {
             #region variables
 
@@ -640,13 +635,16 @@ namespace BitChatClient
             SharedFileInfo[] _sharedFiles = new SharedFileInfo[] { };
             Uri[] _trackerURIs = new Uri[] { };
             bool _enableTracking = true;
+            bool _sendInvitation = false;
+            string _invitationSender;
+            string _invitationMessage;
             BitChatNetworkStatus _networkStatus = BitChatNetworkStatus.Online;
 
             #endregion
 
             #region constructor
 
-            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID networkID, string messageStoreID, byte[] messageStoreKey, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, BitChatNetworkStatus networkStatus)
+            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID networkID, string messageStoreID, byte[] messageStoreKey, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, bool sendInvitation, string invitationSender, string invitationMessage, BitChatNetworkStatus networkStatus)
             {
                 _type = type;
                 _networkNameOrPeerEmailAddress = networkNameOrPeerEmailAddress;
@@ -658,6 +656,9 @@ namespace BitChatClient
                 _sharedFiles = sharedFiles;
                 _trackerURIs = trackerURIs;
                 _enableTracking = enableTracking;
+                _sendInvitation = sendInvitation;
+                _invitationSender = invitationSender;
+                _invitationMessage = invitationMessage;
                 _networkStatus = networkStatus;
             }
 
@@ -690,6 +691,18 @@ namespace BitChatClient
 
                         case "enable_tracking":
                             _enableTracking = pair.Value.GetBooleanValue();
+                            break;
+
+                        case "send_invitation":
+                            _sendInvitation = pair.Value.GetBooleanValue();
+                            break;
+
+                        case "invitation_sender":
+                            _invitationSender = pair.Value.GetStringValue();
+                            break;
+
+                        case "invitation_message":
+                            _invitationMessage = pair.Value.GetStringValue();
                             break;
 
                         case "network_status":
@@ -747,84 +760,31 @@ namespace BitChatClient
                 }
             }
 
-            public BitChatInfo(BinaryReader bR)
-            {
-                if (Encoding.ASCII.GetString(bR.ReadBytes(2)) != "BI")
-                    throw new BitChatException("Invalid BitChatInfo data format.");
-
-                byte version = bR.ReadByte();
-
-                switch (version)
-                {
-                    case 1:
-                    case 2:
-                    case 3:
-                    case 4:
-                    case 5:
-                    case 6:
-                        if (version > 2)
-                            _type = (BitChatNetworkType)bR.ReadByte();
-                        else
-                            _type = BitChatNetworkType.GroupChat;
-
-                        _networkNameOrPeerEmailAddress = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
-                        _sharedSecret = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
-
-                        if (version > 3)
-                        {
-                            int networkIDLen = bR.ReadByte();
-                            if (networkIDLen > 0)
-                                _networkID = new BinaryID(bR.ReadBytes(networkIDLen));
-                        }
-
-                        _peerCerts = new Certificate[bR.ReadByte()];
-                        for (int i = 0; i < _peerCerts.Length; i++)
-                            _peerCerts[i] = new Certificate(bR.BaseStream);
-
-                        _sharedFiles = new SharedFileInfo[bR.ReadByte()];
-                        for (int i = 0; i < _sharedFiles.Length; i++)
-                            _sharedFiles[i] = new SharedFileInfo(bR);
-
-                        if (version > 1)
-                        {
-                            _trackerURIs = new Uri[bR.ReadByte()];
-
-                            for (int i = 0; i < _trackerURIs.Length; i++)
-                                _trackerURIs[i] = new Uri(Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte())));
-                        }
-
-                        if (version > 4)
-                            _enableTracking = bR.ReadBoolean();
-                        else
-                            _enableTracking = true;
-
-                        if (version > 5)
-                            _networkStatus = (BitChatNetworkStatus)bR.ReadByte();
-                        else
-                            _networkStatus = BitChatNetworkStatus.Online;
-
-                        _messageStoreID = BinaryID.GenerateRandomID160().ToString();
-                        _messageStoreKey = BinaryID.GenerateRandomID256().ID;
-
-                        break;
-
-                    default:
-                        throw new BitChatException("BitChatInfo data version not supported.");
-                }
-            }
-
             #endregion
 
             #region public
 
-            public override void WriteTo(Stream s)
+            public void WriteTo(Stream s)
             {
                 BincodingEncoder encoder = new BincodingEncoder(s, "BI", 7);
 
                 encoder.Encode("type", (byte)_type);
-                encoder.Encode("network_name", _networkNameOrPeerEmailAddress);
-                encoder.Encode("shared_secret", _sharedSecret);
+
+                if (_networkNameOrPeerEmailAddress != null)
+                    encoder.Encode("network_name", _networkNameOrPeerEmailAddress);
+
+                if (_sharedSecret != null)
+                    encoder.Encode("shared_secret", _sharedSecret);
+
                 encoder.Encode("enable_tracking", _enableTracking);
+                encoder.Encode("send_invitation", _sendInvitation);
+
+                if (_invitationSender != null)
+                    encoder.Encode("invitation_sender", _invitationSender);
+
+                if (_invitationMessage != null)
+                    encoder.Encode("invitation_message", _invitationMessage);
+
                 encoder.Encode("network_status", (byte)_networkStatus);
 
                 if (_networkID != null)
@@ -864,6 +824,23 @@ namespace BitChatClient
                 encoder.EncodeNull();
             }
 
+            public byte[] ToArray()
+            {
+                using (MemoryStream mS = new MemoryStream())
+                {
+                    WriteTo(mS);
+                    return mS.ToArray();
+                }
+            }
+
+            public Stream ToStream()
+            {
+                MemoryStream mS = new MemoryStream();
+                WriteTo(mS);
+                mS.Position = 0;
+                return mS;
+            }
+
             #endregion
 
             #region properties
@@ -871,8 +848,19 @@ namespace BitChatClient
             public BitChatNetworkType Type
             { get { return _type; } }
 
-            public string NetworkNameOrPeerEmailAddress
+            public string NetworkName
             { get { return _networkNameOrPeerEmailAddress; } }
+
+            public MailAddress PeerEmailAddress
+            {
+                get
+                {
+                    if (_networkNameOrPeerEmailAddress == null)
+                        return null;
+                    else
+                        return new MailAddress(_networkNameOrPeerEmailAddress);
+                }
+            }
 
             public string SharedSecret
             { get { return _sharedSecret; } }
@@ -898,13 +886,22 @@ namespace BitChatClient
             public bool EnableTracking
             { get { return _enableTracking; } }
 
+            public bool SendInvitation
+            { get { return _sendInvitation; } }
+
+            public string InvitationSender
+            { get { return _invitationSender; } }
+
+            public string InvitationMessage
+            { get { return _invitationMessage; } }
+
             public BitChatNetworkStatus NetworkStatus
             { get { return _networkStatus; } }
 
             #endregion
         }
 
-        public class SharedFileInfo : WriteStream
+        internal class SharedFileInfo : IWriteStream
         {
             #region variables
 
@@ -967,36 +964,11 @@ namespace BitChatClient
                 }
             }
 
-            public SharedFileInfo(BinaryReader bR)
-            {
-                if (Encoding.ASCII.GetString(bR.ReadBytes(2)) != "FI")
-                    throw new BitChatException("Invalid SharedFileInfo data format.");
-
-                byte version = bR.ReadByte();
-
-                switch (version)
-                {
-                    case 1:
-                        _filePath = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
-                        _fileMetaData = new SharedFileMetaData(bR.BaseStream);
-
-                        _blockAvailable = new FileBlockState[bR.ReadInt32()];
-                        for (int i = 0; i < _blockAvailable.Length; i++)
-                            _blockAvailable[i] = (FileBlockState)bR.ReadByte();
-
-                        _isPaused = bR.ReadBoolean();
-                        break;
-
-                    default:
-                        throw new BitChatException("SharedFileInfo data version not supported.");
-                }
-            }
-
             #endregion
 
             #region public
 
-            public override void WriteTo(Stream s)
+            public void WriteTo(Stream s)
             {
                 BincodingEncoder encoder = new BincodingEncoder(s, "FI", 2);
 
@@ -1015,6 +987,23 @@ namespace BitChatClient
 
                 //signal end
                 encoder.EncodeNull();
+            }
+
+            public byte[] ToArray()
+            {
+                using (MemoryStream mS = new MemoryStream())
+                {
+                    WriteTo(mS);
+                    return mS.ToArray();
+                }
+            }
+
+            public Stream ToStream()
+            {
+                MemoryStream mS = new MemoryStream();
+                WriteTo(mS);
+                mS.Position = 0;
+                return mS;
             }
 
             #endregion

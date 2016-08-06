@@ -33,9 +33,16 @@ using TechnitiumLibrary.Security.Cryptography;
 namespace BitChatClient
 {
     public delegate void InvalidCertificateEvent(BitChatService sender, InvalidCertificateException e);
+    public delegate void BitChatInvitation(BitChatService sender, BitChat chat);
 
     public class BitChatService : IDisposable
     {
+        #region events
+
+        public event BitChatInvitation BitChatInvitationReceived;
+
+        #endregion
+
         #region variables
 
         SynchronizationContext _syncCxt = SynchronizationContext.Current;
@@ -43,7 +50,7 @@ namespace BitChatClient
 
         BitChatProfile _profile;
 
-        InternalBitChatService _manager;
+        InternalBitChatService _internal;
         List<BitChat> _bitChats = new List<BitChat>();
 
         #endregion
@@ -68,14 +75,19 @@ namespace BitChatClient
             _profile = profile;
             _invalidCertEventHandler = invalidCertEventHandler;
 
-            _manager = new InternalBitChatService(this, profile, trustedRootCertificates, supportedCryptoOptions);
+            _internal = new InternalBitChatService(this, profile, trustedRootCertificates, supportedCryptoOptions);
 
             foreach (BitChatProfile.BitChatInfo bitChatInfo in profile.BitChatInfoList)
             {
+                BitChatNetwork network;
+
                 if (bitChatInfo.Type == BitChatNetworkType.PrivateChat)
-                    _bitChats.Add(_manager.CreateBitChat(new MailAddress(bitChatInfo.NetworkNameOrPeerEmailAddress), bitChatInfo.SharedSecret, bitChatInfo.NetworkID, bitChatInfo.MessageStoreID, bitChatInfo.MessageStoreKey, bitChatInfo.PeerCertificateList, bitChatInfo.SharedFileList, bitChatInfo.TrackerURIs, bitChatInfo.EnableTracking, bitChatInfo.NetworkStatus));
+                    network = new BitChatNetwork(bitChatInfo.PeerEmailAddress, bitChatInfo.SharedSecret, bitChatInfo.NetworkID, bitChatInfo.PeerCertificateList, _internal, _internal, bitChatInfo.NetworkStatus, bitChatInfo.InvitationSender, bitChatInfo.InvitationMessage);
                 else
-                    _bitChats.Add(_manager.CreateBitChat(bitChatInfo.NetworkNameOrPeerEmailAddress, bitChatInfo.SharedSecret, bitChatInfo.NetworkID, bitChatInfo.MessageStoreID, bitChatInfo.MessageStoreKey, bitChatInfo.PeerCertificateList, bitChatInfo.SharedFileList, bitChatInfo.TrackerURIs, bitChatInfo.EnableTracking, bitChatInfo.NetworkStatus));
+                    network = new BitChatNetwork(bitChatInfo.NetworkName, bitChatInfo.SharedSecret, bitChatInfo.NetworkID, bitChatInfo.PeerCertificateList, _internal, _internal, bitChatInfo.NetworkStatus);
+
+                BitChat chat = _internal.CreateBitChat(network, bitChatInfo.MessageStoreID, bitChatInfo.MessageStoreKey, bitChatInfo.SharedFileList, bitChatInfo.TrackerURIs, bitChatInfo.EnableTracking, bitChatInfo.SendInvitation);
+                _bitChats.Add(chat);
             }
 
             //check profile cert revocation
@@ -109,11 +121,31 @@ namespace BitChatClient
                 foreach (BitChat chat in _bitChats)
                     chat.Dispose();
 
-                if (_manager != null)
-                    _manager.Dispose();
+                if (_internal != null)
+                    _internal.Dispose();
+
+                TcpRelayService.StopAllTcpRelays();
 
                 _disposed = true;
             }
+        }
+
+        #endregion
+
+        #region private event functions
+
+        private void RaiseEventBitChatInvitationReceived(BitChat bitChat)
+        {
+            _syncCxt.Post(BitChatInvitationReceivedCallback, bitChat);
+        }
+
+        private void BitChatInvitationReceivedCallback(object state)
+        {
+            try
+            {
+                BitChatInvitationReceived?.Invoke(this, state as BitChat);
+            }
+            catch { }
         }
 
         #endregion
@@ -151,13 +183,27 @@ namespace BitChatClient
             { }
         }
 
+        private void CreateBitChat(BinaryID networkID, IPEndPoint peerEP, string message)
+        {
+            BitChatNetwork network = new BitChatNetwork(null, null, networkID, new Certificate[] { }, _internal, _internal, BitChatNetworkStatus.Offline, peerEP.ToString(), message);
+            BitChat bitChat = _internal.CreateBitChat(network, BinaryID.GenerateRandomID160().ToString(), BinaryID.GenerateRandomID256().ID, new BitChatProfile.SharedFileInfo[] { }, null, true, false);
+
+            lock (_bitChats)
+            {
+                _bitChats.Add(bitChat);
+            }
+
+            RaiseEventBitChatInvitationReceived(bitChat);
+        }
+
         #endregion
 
         #region public
 
-        public BitChat CreateBitChat(MailAddress peerEmailAddress, string sharedSecret, bool enableTracking)
+        public BitChat CreateBitChat(MailAddress peerEmailAddress, string sharedSecret, bool enableTracking, string invitationMessage)
         {
-            BitChat bitChat = _manager.CreateBitChat(peerEmailAddress, sharedSecret, null, BinaryID.GenerateRandomID160().ToString(), BinaryID.GenerateRandomID256().ID, new Certificate[] { }, new BitChatProfile.SharedFileInfo[] { }, null, enableTracking, BitChatNetworkStatus.Online);
+            BitChatNetwork network = new BitChatNetwork(peerEmailAddress, sharedSecret, null, new Certificate[] { }, _internal, _internal, BitChatNetworkStatus.Online, _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address, invitationMessage);
+            BitChat bitChat = _internal.CreateBitChat(network, BinaryID.GenerateRandomID160().ToString(), BinaryID.GenerateRandomID256().ID, new BitChatProfile.SharedFileInfo[] { }, null, enableTracking, true);
 
             lock (_bitChats)
             {
@@ -169,7 +215,8 @@ namespace BitChatClient
 
         public BitChat CreateBitChat(string networkName, string sharedSecret, bool enableTracking)
         {
-            BitChat bitChat = _manager.CreateBitChat(networkName, sharedSecret, null, BinaryID.GenerateRandomID160().ToString(), BinaryID.GenerateRandomID256().ID, new Certificate[] { }, new BitChatProfile.SharedFileInfo[] { }, null, enableTracking, BitChatNetworkStatus.Online);
+            BitChatNetwork network = new BitChatNetwork(networkName, sharedSecret, null, new Certificate[] { }, _internal, _internal, BitChatNetworkStatus.Online);
+            BitChat bitChat = _internal.CreateBitChat(network, BinaryID.GenerateRandomID160().ToString(), BinaryID.GenerateRandomID256().ID, new BitChatProfile.SharedFileInfo[] { }, null, enableTracking, false);
 
             lock (_bitChats)
             {
@@ -201,14 +248,19 @@ namespace BitChatClient
 
             _profile.BitChatInfoList = bitChatInfoList.ToArray();
 
-            IPEndPoint[] dhtNodes = _manager.GetDhtConnectedNodes();
+            IPEndPoint[] dhtNodes = _internal.GetDhtConnectedNodes();
             if (dhtNodes.Length > 0)
                 _profile.BootstrapDhtNodes = dhtNodes;
+
+            if (_profile.EnableInvitation)
+                _internal.EnableInvitationTracker();
+            else
+                _internal.DisableInvitationTracker();
         }
 
         public void ReCheckConnectivity()
         {
-            _manager.ReCheckConnectivity();
+            _internal.ReCheckConnectivity();
         }
 
         #endregion
@@ -216,16 +268,18 @@ namespace BitChatClient
         #region properties
 
         public BitChatProfile Profile
-        { get { return _manager.Profile; } }
+        { get { return _profile; } }
 
         public INetworkInfo NetworkInfo
-        { get { return _manager; } }
+        { get { return _internal; } }
 
         #endregion
 
         private class InternalBitChatService : IBitChatManager, IBitChatNetworkManager, ISecureChannelSecurityManager, INetworkInfo, IDisposable
         {
             #region variables
+
+            const int BIT_CHAT_INVITATION_TRACKER_UPDATE_INTERVAL = 120;
 
             BitChatService _service;
             BitChatProfile _profile;
@@ -236,12 +290,16 @@ namespace BitChatClient
             LocalPeerDiscovery _localDiscovery;
             Dictionary<BinaryID, BitChatNetwork> _networks = new Dictionary<BinaryID, BitChatNetwork>();
 
+            //invitation tracker
+            readonly BinaryID _maskedEmailAddress;
+            TrackerManager _invitationTrackerManager;
+
             //relay nodes
             const int TCP_RELAY_MAX_CONNECTIONS = 3;
-            const int TCP_RELAY_CHECK_INTERVAL = 30000; //30sec
+            const int TCP_RELAY_KEEP_ALIVE_INTERVAL = 30000; //30sec
 
             Dictionary<IPEndPoint, Connection> _tcpRelayConnections = new Dictionary<IPEndPoint, Connection>();
-            Timer _tcpRelayConnectionCheckTimer;
+            Timer _tcpRelayConnectionKeepAliveTimer;
 
             const int RE_NEGOTIATE_AFTER_BYTES_SENT = 104857600; //100mb
             const int RE_NEGOTIATE_AFTER_SECONDS = 3600; //1hr
@@ -257,12 +315,18 @@ namespace BitChatClient
                 _trustedRootCertificates = trustedRootCertificates;
                 _supportedCryptoOptions = supportedCryptoOptions;
 
+                _maskedEmailAddress = BitChatNetwork.GetMaskedEmailAddress(_profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress);
+
                 _connectionManager = new ConnectionManager(_profile, BitChatNetworkChannelRequest, TcpRelayPeersAvailable);
                 _connectionManager.InternetConnectivityStatusChanged += ConnectionManager_InternetConnectivityStatusChanged;
+                _connectionManager.BitChatNetworkChannelInvitation += ConnectionManager_BitChatNetworkChannelInvitation;
 
                 LocalPeerDiscovery.StartListener(41733);
                 _localDiscovery = new LocalPeerDiscovery(_connectionManager.LocalPort);
-                _localDiscovery.PeerDiscovered += _localDiscovery_PeerDiscovered;
+                _localDiscovery.PeerDiscovered += LocalDiscovery_PeerDiscovered;
+
+                if (_profile.EnableInvitation)
+                    EnableInvitationTracker();
             }
 
             #endregion
@@ -286,10 +350,10 @@ namespace BitChatClient
             {
                 if (!_disposed)
                 {
-                    if (_tcpRelayConnectionCheckTimer != null)
+                    if (_tcpRelayConnectionKeepAliveTimer != null)
                     {
-                        _tcpRelayConnectionCheckTimer.Dispose();
-                        _tcpRelayConnectionCheckTimer = null;
+                        _tcpRelayConnectionKeepAliveTimer.Dispose();
+                        _tcpRelayConnectionKeepAliveTimer = null;
                     }
 
                     if (_connectionManager != null)
@@ -312,42 +376,53 @@ namespace BitChatClient
 
                 if (externalEP == null)
                 {
-                    //no incoming connection possible; setup tcp relay
-                    AddTcpRelayNodes();
-
-                    if (_tcpRelayConnectionCheckTimer == null)
-                        _tcpRelayConnectionCheckTimer = new Timer(RelayConnectionCheckTimerCallback, null, TCP_RELAY_CHECK_INTERVAL, Timeout.Infinite);
+                    //no incoming connection possible; start tcp relay client
+                    StartTcpRelayClient();
                 }
                 else
                 {
-                    //can receive incoming connection; no need for setting up tcp relay
-                    if (_tcpRelayConnectionCheckTimer != null)
+                    //can receive incoming connection; no need for running tcp relay client
+                    StopTcpRelayClient();
+                }
+            }
+
+            private void StartTcpRelayClient()
+            {
+                FindAndConnectTcpRelayNodes();
+
+                if (_tcpRelayConnectionKeepAliveTimer == null)
+                    _tcpRelayConnectionKeepAliveTimer = new Timer(RelayConnectionKeepAliveTimerCallback, null, TCP_RELAY_KEEP_ALIVE_INTERVAL, Timeout.Infinite);
+            }
+
+            private void StopTcpRelayClient()
+            {
+                if (_tcpRelayConnectionKeepAliveTimer != null)
+                {
+                    _tcpRelayConnectionKeepAliveTimer.Dispose();
+                    _tcpRelayConnectionKeepAliveTimer = null;
+
+                    BinaryID[] networkIDs;
+
+                    lock (_networks)
                     {
-                        _tcpRelayConnectionCheckTimer.Dispose();
-                        _tcpRelayConnectionCheckTimer = null;
+                        networkIDs = new BinaryID[_networks.Keys.Count];
+                        _networks.Keys.CopyTo(networkIDs, 0);
+                    }
 
-                        BinaryID[] networkIDs;
-
-                        lock (_networks)
+                    //remove all networks from all tcp relay connections
+                    lock (_tcpRelayConnections)
+                    {
+                        foreach (Connection connection in _tcpRelayConnections.Values)
                         {
-                            networkIDs = new BinaryID[_networks.Keys.Count];
-                            _networks.Keys.CopyTo(networkIDs, 0);
+                            ThreadPool.QueueUserWorkItem(RemoveTcpRelayFromConnectionAsync, new object[] { connection, networkIDs });
                         }
 
-                        lock (_tcpRelayConnections)
-                        {
-                            foreach (Connection connection in _tcpRelayConnections.Values)
-                            {
-                                ThreadPool.QueueUserWorkItem(RemoveTcpRelayFromConnectionAsync, new object[] { connection, networkIDs });
-                            }
-
-                            _tcpRelayConnections.Clear();
-                        }
+                        _tcpRelayConnections.Clear();
                     }
                 }
             }
 
-            private void AddTcpRelayNodes()
+            private void FindAndConnectTcpRelayNodes()
             {
                 //if less number of relay node connections, try to find new relay nodes
 
@@ -376,12 +451,12 @@ namespace BitChatClient
                         if (NetUtilities.IsPrivateIP(relayNodeEP.Address))
                             continue;
 
-                        ThreadPool.QueueUserWorkItem(AddTcpRelayNodeAsync, relayNodeEP);
+                        ThreadPool.QueueUserWorkItem(ConnectTcpRelayNodeAsync, relayNodeEP);
                     }
                 }
             }
 
-            private void AddTcpRelayNodeAsync(object state)
+            private void ConnectTcpRelayNodeAsync(object state)
             {
                 IPEndPoint relayNodeEP = state as IPEndPoint;
 
@@ -406,15 +481,21 @@ namespace BitChatClient
                         }
                     }
 
-                    BinaryID[] networkIDs;
+                    List<BinaryID> networkIDs = new List<BinaryID>(10);
+
+                    if (_profile.EnableInvitation)
+                        networkIDs.Add(_maskedEmailAddress);
 
                     lock (_networks)
                     {
-                        networkIDs = new BinaryID[_networks.Keys.Count];
-                        _networks.Keys.CopyTo(networkIDs, 0);
+                        foreach (KeyValuePair<BinaryID, BitChatNetwork> network in _networks)
+                        {
+                            if (network.Value.Status == BitChatNetworkStatus.Online)
+                                networkIDs.Add(network.Key);
+                        }
                     }
 
-                    if (!viaConnection.RequestStartTcpRelay(networkIDs, _profile.TrackerURIs))
+                    if (!viaConnection.RequestStartTcpRelay(networkIDs.ToArray(), _profile.TrackerURIs))
                     {
                         lock (_tcpRelayConnections)
                         {
@@ -431,11 +512,11 @@ namespace BitChatClient
                 }
             }
 
-            private void RelayConnectionCheckTimerCallback(object state)
+            private void RelayConnectionKeepAliveTimerCallback(object state)
             {
                 try
                 {
-                    //send noop to all connections
+                    //send noop to all connections to keep them alive
                     lock (_tcpRelayConnections)
                     {
                         foreach (Connection connection in _tcpRelayConnections.Values)
@@ -449,14 +530,14 @@ namespace BitChatClient
                         }
                     }
 
-                    AddTcpRelayNodes();
+                    FindAndConnectTcpRelayNodes();
                 }
                 catch
                 { }
                 finally
                 {
-                    if (_tcpRelayConnectionCheckTimer != null)
-                        _tcpRelayConnectionCheckTimer.Change(TCP_RELAY_CHECK_INTERVAL, Timeout.Infinite);
+                    if (_tcpRelayConnectionKeepAliveTimer != null)
+                        _tcpRelayConnectionKeepAliveTimer.Change(TCP_RELAY_KEEP_ALIVE_INTERVAL, Timeout.Infinite);
                 }
             }
 
@@ -501,18 +582,43 @@ namespace BitChatClient
                 { }
             }
 
+            private void SetupTcpRelay(BinaryID networkID, Uri[] trackerURIs)
+            {
+                lock (_tcpRelayConnections)
+                {
+                    foreach (Connection connection in _tcpRelayConnections.Values)
+                    {
+                        ThreadPool.QueueUserWorkItem(SetupTcpRelayOnConnectionAsync, new object[] { connection, networkID, trackerURIs });
+                    }
+                }
+            }
+
+            private void RemoveTcpRelay(BinaryID networkID)
+            {
+                lock (_tcpRelayConnections)
+                {
+                    foreach (Connection connection in _tcpRelayConnections.Values)
+                    {
+                        ThreadPool.QueueUserWorkItem(RemoveTcpRelayFromConnectionAsync, new object[] { connection, new BinaryID[] { networkID } });
+                    }
+                }
+            }
+
             #endregion
 
             #region public
 
-            public BitChat CreateBitChat(MailAddress peerEmailAddress, string sharedSecret, BinaryID networkID, string messageStoreID, byte[] messageStoreKey, Certificate[] knownPeerCerts, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs, bool enableTracking, BitChatNetworkStatus networkStatus)
+            public BitChat CreateBitChat(BitChatNetwork network, string messageStoreID, byte[] messageStoreKey, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs, bool enableTracking, bool sendInvitation)
             {
-                BitChatNetwork network = new BitChatNetwork(peerEmailAddress, sharedSecret, networkID, knownPeerCerts, this, this, networkStatus);
-
                 lock (_networks)
                 {
                     if (_networks.ContainsKey(network.NetworkID))
-                        throw new BitChatException("Bit Chat for email address '" + peerEmailAddress.Address + "' already exists.");
+                    {
+                        if (network.Type == BitChatNetworkType.PrivateChat)
+                            throw new BitChatException("Bit Chat for '" + network.NetworkName + "' already exists.");
+                        else
+                            throw new BitChatException("Bit Chat group '" + network.NetworkName + "' already exists.");
+                    }
 
                     _networks.Add(network.NetworkID, network);
                 }
@@ -520,47 +626,10 @@ namespace BitChatClient
                 if (trackerURIs == null)
                     trackerURIs = _profile.TrackerURIs;
 
-                if (trackerURIs.Length > 0)
-                {
-                    lock (_tcpRelayConnections)
-                    {
-                        foreach (Connection connection in _tcpRelayConnections.Values)
-                        {
-                            ThreadPool.QueueUserWorkItem(SetupTcpRelayOnConnectionAsync, new object[] { connection, networkID, trackerURIs });
-                        }
-                    }
-                }
+                if (enableTracking && (network.Status == BitChatNetworkStatus.Online))
+                    SetupTcpRelay(network.NetworkID, trackerURIs); //starts tcp relay if available or needed
 
-                return new BitChat(this, _connectionManager, _profile, network, messageStoreID, messageStoreKey, sharedFileInfoList, trackerURIs, enableTracking);
-            }
-
-            public BitChat CreateBitChat(string networkName, string sharedSecret, BinaryID networkID, string messageStoreID, byte[] messageStoreKey, Certificate[] knownPeerCerts, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs, bool enableTracking, BitChatNetworkStatus networkStatus)
-            {
-                BitChatNetwork network = new BitChatNetwork(networkName, sharedSecret, networkID, knownPeerCerts, this, this, networkStatus);
-
-                lock (_networks)
-                {
-                    if (_networks.ContainsKey(network.NetworkID))
-                        throw new BitChatException("Bit Chat group with name '" + networkName + "' already exists.");
-
-                    _networks.Add(network.NetworkID, network);
-                }
-
-                if (trackerURIs == null)
-                    trackerURIs = _profile.TrackerURIs;
-
-                if (trackerURIs.Length > 0)
-                {
-                    lock (_tcpRelayConnections)
-                    {
-                        foreach (Connection connection in _tcpRelayConnections.Values)
-                        {
-                            ThreadPool.QueueUserWorkItem(SetupTcpRelayOnConnectionAsync, new object[] { connection, networkID, trackerURIs });
-                        }
-                    }
-                }
-
-                return new BitChat(this, _connectionManager, _profile, network, messageStoreID, messageStoreKey, sharedFileInfoList, trackerURIs, enableTracking);
+                return new BitChat(_service._syncCxt, this, _connectionManager, _profile, network, messageStoreID, messageStoreKey, sharedFileInfoList, trackerURIs, enableTracking, sendInvitation);
             }
 
             public IPEndPoint[] GetDhtConnectedNodes()
@@ -568,16 +637,55 @@ namespace BitChatClient
                 return _connectionManager.DhtClient.GetAllNodes();
             }
 
+            public void EnableInvitationTracker()
+            {
+                if (_invitationTrackerManager == null)
+                {
+                    _invitationTrackerManager = new TrackerManager(_maskedEmailAddress, _connectionManager.LocalPort, _connectionManager.DhtClient, BIT_CHAT_INVITATION_TRACKER_UPDATE_INTERVAL);
+                    _invitationTrackerManager.StartTracking();
+
+                    _localDiscovery.StartTracking(_maskedEmailAddress);
+
+                    SetupTcpRelay(_maskedEmailAddress, new Uri[] { });
+                }
+            }
+
+            public void DisableInvitationTracker()
+            {
+                if (_invitationTrackerManager != null)
+                {
+                    _invitationTrackerManager.StopTracking();
+                    _invitationTrackerManager = null;
+
+                    _localDiscovery.StopTracking(_maskedEmailAddress);
+
+                    RemoveTcpRelay(_maskedEmailAddress);
+                }
+            }
+
             #endregion
 
             #region LocalDiscovery support
 
-            private void _localDiscovery_PeerDiscovered(LocalPeerDiscovery sender, IPEndPoint peerEP, BinaryID networkID)
+            private void LocalDiscovery_PeerDiscovered(LocalPeerDiscovery sender, IPEndPoint peerEP, BinaryID networkID)
             {
                 lock (_networks)
                 {
                     if (_networks.ContainsKey(networkID))
+                    {
                         _networks[networkID].MakeConnection(peerEP);
+                    }
+                    else
+                    {
+                        foreach (KeyValuePair<BinaryID, BitChatNetwork> networkItem in _networks)
+                        {
+                            if (networkID.Equals(networkItem.Value.MaskedPeerEmailAddress))
+                            {
+                                networkItem.Value.SendInvitation(new IPEndPoint[] { peerEP });
+                                break;
+                            }
+                        }
+                    }
                 }
 
                 //add peerEP to DHT
@@ -595,13 +703,7 @@ namespace BitChatClient
                     _service._bitChats.Remove(chat);
                 }
 
-                lock (_tcpRelayConnections)
-                {
-                    foreach (Connection connection in _tcpRelayConnections.Values)
-                    {
-                        ThreadPool.QueueUserWorkItem(RemoveTcpRelayFromConnectionAsync, new object[] { connection, new BinaryID[] { chat.NetworkID } });
-                    }
-                }
+                RemoveTcpRelay(chat.NetworkID);
             }
 
             public void StartLocalTracking(BinaryID networkID)
@@ -614,14 +716,14 @@ namespace BitChatClient
                 _localDiscovery.StopTracking(networkID);
             }
 
-            public void PauseLocalAnnouncement(BinaryID networkID)
+            public void StartLocalAnnouncement(BinaryID networkID)
             {
-                _localDiscovery.PauseAnnouncement(networkID);
+                _localDiscovery.StartAnnouncement(networkID);
             }
 
-            public void ResumeLocalAnnouncement(BinaryID networkID)
+            public void StopLocalAnnouncement(BinaryID networkID)
             {
-                _localDiscovery.ResumeAnnouncement(networkID);
+                _localDiscovery.StopAnnouncement(networkID);
             }
 
             #endregion
@@ -684,6 +786,11 @@ namespace BitChatClient
             #endregion
 
             #region ConnectionManager handling
+
+            private void ConnectionManager_BitChatNetworkChannelInvitation(BinaryID networkID, IPEndPoint peerEP, string message)
+            {
+                _service.CreateBitChat(networkID, peerEP, message);
+            }
 
             private BitChatNetwork FindBitChatNetwork(Connection connection, BinaryID channelName)
             {
@@ -757,9 +864,6 @@ namespace BitChatClient
             #endregion
 
             #region properties
-
-            public BitChatProfile Profile
-            { get { return _profile; } }
 
             public BinaryID LocalPeerID
             { get { return _connectionManager.LocalPeerID; } }
