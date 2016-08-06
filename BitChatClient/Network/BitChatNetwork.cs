@@ -551,6 +551,27 @@ namespace BitChatClient.Network
             }
         }
 
+        public void GoOffline()
+        {
+            if (_status == BitChatNetworkStatus.Online)
+            {
+                lock (_virtualPeers)
+                {
+                    foreach (KeyValuePair<string, VirtualPeer> vPeer in _virtualPeers)
+                    {
+                        vPeer.Value.Disconnect();
+                    }
+                }
+
+                _status = BitChatNetworkStatus.Offline;
+            }
+        }
+
+        public void GoOnline()
+        {
+            _status = BitChatNetworkStatus.Online;
+        }
+
         #endregion
 
         #region properties
@@ -640,24 +661,7 @@ namespace BitChatClient.Network
         { get { return _networkID; } }
 
         public BitChatNetworkStatus Status
-        {
-            get { return _status; }
-            set
-            {
-                _status = value;
-
-                if (value == BitChatNetworkStatus.Offline)
-                {
-                    lock (_virtualPeers)
-                    {
-                        foreach (KeyValuePair<string, VirtualPeer> vPeer in _virtualPeers)
-                        {
-                            vPeer.Value.Disconnect();
-                        }
-                    }
-                }
-            }
-        }
+        { get { return _status; } }
 
         public string InvitationSender
         { get { return _invitationSender; } }
