@@ -37,14 +37,8 @@ namespace BitChatClient.Network
 
         SecureChannelCryptoOptionFlags GetSupportedCryptoOptions();
 
-        int GetReNegotiateOnBytesSent();
-
-        int GetReNegotiateAfterSeconds();
-
         bool CheckCertificateRevocationList();
-
-        void RemoveNetwork(BitChatNetwork network);
-
+        
         NetProxy GetProxy();
     }
 }

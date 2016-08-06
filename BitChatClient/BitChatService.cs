@@ -301,9 +301,6 @@ namespace BitChatClient
             Dictionary<IPEndPoint, Connection> _tcpRelayConnections = new Dictionary<IPEndPoint, Connection>();
             Timer _tcpRelayConnectionKeepAliveTimer;
 
-            const int RE_NEGOTIATE_AFTER_BYTES_SENT = 104857600; //100mb
-            const int RE_NEGOTIATE_AFTER_SECONDS = 3600; //1hr
-
             #endregion
 
             #region constructor
@@ -623,6 +620,7 @@ namespace BitChatClient
                     }
 
                     _networks.Add(network.NetworkID, network);
+                    network.Disposed += Network_Disposed;
                 }
 
                 if (trackerURIs == null)
@@ -667,8 +665,16 @@ namespace BitChatClient
 
             #endregion
 
-            #region LocalDiscovery support
+            #region private
 
+            private void Network_Disposed(object sender, EventArgs e)
+            {
+                lock (_networks)
+                {
+                    _networks.Remove((sender as BitChatNetwork).NetworkID);
+                }
+            }
+            
             private void LocalDiscovery_PeerDiscovered(LocalPeerDiscovery sender, IPEndPoint peerEP, BinaryID networkID)
             {
                 lock (_networks)
@@ -757,27 +763,9 @@ namespace BitChatClient
                 return _supportedCryptoOptions;
             }
 
-            public int GetReNegotiateOnBytesSent()
-            {
-                return RE_NEGOTIATE_AFTER_BYTES_SENT;
-            }
-
-            public int GetReNegotiateAfterSeconds()
-            {
-                return RE_NEGOTIATE_AFTER_SECONDS + 60;
-            }
-
             public bool CheckCertificateRevocationList()
             {
                 return _profile.CheckCertificateRevocationList;
-            }
-
-            public void RemoveNetwork(BitChatNetwork network)
-            {
-                lock (_networks)
-                {
-                    _networks.Remove(network.NetworkID);
-                }
             }
 
             public NetProxy GetProxy()

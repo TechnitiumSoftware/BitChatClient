@@ -57,6 +57,7 @@ namespace BitChatClient.Network
         public event VirtualPeerHasRevokedCertificate VirtualPeerHasRevokedCertificate;
         public event VirtualPeerSecureChannelException VirtualPeerSecureChannelException;
         public event VirtualPeerHasChangedCertificate VirtualPeerHasChangedCertificate;
+        public event EventHandler Disposed;
 
         #endregion
 
@@ -64,6 +65,9 @@ namespace BitChatClient.Network
 
         public const int MAX_MESSAGE_SIZE = 65220; //max payload size of secure channel packet
         const int BUFFER_SIZE = 65535;
+
+        const int RE_NEGOTIATE_AFTER_BYTES_SENT = 104857600; //100mb
+        const int RE_NEGOTIATE_AFTER_SECONDS = 3600; //1hr
 
         static readonly byte[] EMAIL_ADDRESS_HASH_SALT = new byte[] { 0x49, 0x42, 0x0C, 0x52, 0xC9, 0x3C, 0x5E, 0xB6, 0xAD, 0x83, 0x3F, 0x08, 0xBA, 0xD9, 0xB9, 0x6E, 0x23, 0x8F, 0xDC, 0xF3 };
         static readonly byte[] EMAIL_ADDRESS_MASK_SALT = new byte[] { 0x55, 0xBB, 0xB8, 0x5C, 0x21, 0xB3, 0xC3, 0x34, 0xBE, 0xF4, 0x4D, 0x9D, 0xD0, 0xAC, 0x8E, 0x8A, 0xE8, 0xED, 0x28, 0x3E };
@@ -171,6 +175,8 @@ namespace BitChatClient.Network
                     }
 
                     _disposed = true;
+
+                    Disposed?.Invoke(this, EventArgs.Empty);
                 }
             }
         }
@@ -291,7 +297,7 @@ namespace BitChatClient.Network
             try
             {
                 //get secure channel
-                SecureChannelStream secureChannel = new SecureChannelClientStream(channel, connection.RemotePeerEP, _networkManager.GetLocalCredentials(), _networkManager.GetTrustedRootCertificates(), _securityManager, _networkManager.GetSupportedCryptoOptions(), _networkManager.GetReNegotiateOnBytesSent(), _networkManager.GetReNegotiateAfterSeconds(), _sharedSecret);
+                SecureChannelStream secureChannel = new SecureChannelClientStream(channel, connection.RemotePeerEP, _networkManager.GetLocalCredentials(), _networkManager.GetTrustedRootCertificates(), _securityManager, _networkManager.GetSupportedCryptoOptions(), RE_NEGOTIATE_AFTER_BYTES_SENT, RE_NEGOTIATE_AFTER_SECONDS, _sharedSecret);
 
                 //join network
                 JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel, _networkManager.CheckCertificateRevocationList());
@@ -481,7 +487,7 @@ namespace BitChatClient.Network
             try
             {
                 //get secure channel
-                SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _networkManager.GetLocalCredentials(), _networkManager.GetTrustedRootCertificates(), _securityManager, _networkManager.GetSupportedCryptoOptions(), _networkManager.GetReNegotiateOnBytesSent(), _networkManager.GetReNegotiateAfterSeconds(), _sharedSecret);
+                SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _networkManager.GetLocalCredentials(), _networkManager.GetTrustedRootCertificates(), _securityManager, _networkManager.GetSupportedCryptoOptions(), RE_NEGOTIATE_AFTER_BYTES_SENT, RE_NEGOTIATE_AFTER_SECONDS, _sharedSecret);
 
                 //join network
                 JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel, _networkManager.CheckCertificateRevocationList());
@@ -537,11 +543,6 @@ namespace BitChatClient.Network
                     { }
                 }
             }
-        }
-
-        public void RemoveNetwork()
-        {
-            _networkManager.RemoveNetwork(this);
         }
 
         #endregion

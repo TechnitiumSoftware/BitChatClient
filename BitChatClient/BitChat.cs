@@ -494,9 +494,6 @@ namespace BitChatClient
             //remove chat
             _manager.RemoveBitChat(this);
 
-            //remove network
-            _network.RemoveNetwork();
-
             //dispose
             this.Dispose();
 
