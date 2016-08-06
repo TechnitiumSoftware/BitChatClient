@@ -104,7 +104,7 @@ namespace BitChatClient
 
         public static MessageItem[] GetLastMessageItems(MessageStore store, int index, int count)
         {
-            int totalMessages = store.TotalMessages();
+            int totalMessages = store.GetMessageCount();
 
             if (index > totalMessages)
                 index = totalMessages;

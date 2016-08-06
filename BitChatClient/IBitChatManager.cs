@@ -17,8 +17,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using System.Net;
-
 namespace BitChatClient
 {
     interface IBitChatManager
@@ -29,8 +27,8 @@ namespace BitChatClient
 
         void StopLocalTracking(BinaryID networkID);
 
-        void PauseLocalAnnouncement(BinaryID networkID);
+        void StartLocalAnnouncement(BinaryID networkID);
 
-        void ResumeLocalAnnouncement(BinaryID networkID);
+        void StopLocalAnnouncement(BinaryID networkID);
     }
 }

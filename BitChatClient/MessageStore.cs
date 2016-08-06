@@ -200,7 +200,7 @@ namespace BitChatClient
             }
         }
 
-        public int TotalMessages()
+        public int GetMessageCount()
         {
             lock (_lock)
             {
