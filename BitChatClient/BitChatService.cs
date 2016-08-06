@@ -31,13 +31,14 @@ using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatClient
 {
-    public delegate void InvalidCertificateEvent(BitChatService sender, InvalidCertificateException e);
+    public delegate void InvalidCertificateDetected(BitChatService sender, InvalidCertificateException e);
     public delegate void BitChatInvitation(BitChatService sender, BitChat chat);
 
     public class BitChatService : IDisposable
     {
         #region events
 
+        public event InvalidCertificateDetected InvalidCertificateDetected;
         public event BitChatInvitation BitChatInvitationReceived;
 
         #endregion
@@ -45,7 +46,6 @@ namespace BitChatClient
         #region variables
 
         SynchronizationContext _syncCxt = SynchronizationContext.Current;
-        InvalidCertificateEvent _invalidCertEventHandler;
 
         BitChatProfile _profile;
         Certificate[] _trustedRootCertificates;
@@ -64,40 +64,11 @@ namespace BitChatClient
                 ServicePointManager.DefaultConnectionLimit = 100;
         }
 
-        public BitChatService(BitChatProfile profile, Certificate[] trustedRootCertificates, SecureChannelCryptoOptionFlags supportedCryptoOptions, InvalidCertificateEvent invalidCertEventHandler)
+        public BitChatService(BitChatProfile profile, Certificate[] trustedRootCertificates, SecureChannelCryptoOptionFlags supportedCryptoOptions)
         {
-            //verify root certs
-            foreach (Certificate trustedCert in trustedRootCertificates)
-                trustedCert.Verify(trustedRootCertificates);
-
-            //verify profile cert
-            profile.LocalCertificateStore.Certificate.Verify(trustedRootCertificates);
-
             _profile = profile;
             _trustedRootCertificates = trustedRootCertificates;
             _supportedCryptoOptions = supportedCryptoOptions;
-            _invalidCertEventHandler = invalidCertEventHandler;
-
-            _internal = new InternalBitChatService(this);
-
-            foreach (BitChatProfile.BitChatInfo bitChatInfo in profile.BitChatInfoList)
-            {
-                BitChatNetwork network;
-
-                if (bitChatInfo.Type == BitChatNetworkType.PrivateChat)
-                    network = new BitChatNetwork(_profile, _internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, bitChatInfo.PeerEmailAddress, bitChatInfo.SharedSecret, bitChatInfo.NetworkID, bitChatInfo.PeerCertificateList, bitChatInfo.NetworkStatus, bitChatInfo.InvitationSender, bitChatInfo.InvitationMessage);
-                else
-                    network = new BitChatNetwork(_profile, _internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, bitChatInfo.NetworkName, bitChatInfo.SharedSecret, bitChatInfo.NetworkID, bitChatInfo.PeerCertificateList, bitChatInfo.NetworkStatus);
-
-                BitChat chat = _internal.CreateBitChat(network, bitChatInfo.MessageStoreID, bitChatInfo.MessageStoreKey, bitChatInfo.SharedFileList, bitChatInfo.TrackerURIs, bitChatInfo.EnableTracking, bitChatInfo.SendInvitation);
-                _bitChats.Add(chat);
-            }
-
-            //check profile cert revocation
-            ThreadPool.QueueUserWorkItem(CheckCertificateRevocationAsync, new Certificate[] { profile.LocalCertificateStore.Certificate });
-
-            //check trusted root cert revocation
-            ThreadPool.QueueUserWorkItem(CheckCertificateRevocationAsync, trustedRootCertificates);
         }
 
         #endregion
@@ -180,7 +151,7 @@ namespace BitChatClient
         {
             try
             {
-                _invalidCertEventHandler(this, state as InvalidCertificateException);
+                InvalidCertificateDetected?.Invoke(this, state as InvalidCertificateException);
             }
             catch
             { }
@@ -202,6 +173,40 @@ namespace BitChatClient
         #endregion
 
         #region public
+
+        public void Start()
+        {
+            if (_internal != null)
+                return;
+
+            //verify root certs
+            foreach (Certificate trustedCert in _trustedRootCertificates)
+                trustedCert.Verify(_trustedRootCertificates);
+
+            //verify profile cert
+            _profile.LocalCertificateStore.Certificate.Verify(_trustedRootCertificates);
+
+            _internal = new InternalBitChatService(this);
+
+            foreach (BitChatProfile.BitChatInfo bitChatInfo in _profile.BitChatInfoList)
+            {
+                BitChatNetwork network;
+
+                if (bitChatInfo.Type == BitChatNetworkType.PrivateChat)
+                    network = new BitChatNetwork(_profile, _internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, bitChatInfo.PeerEmailAddress, bitChatInfo.SharedSecret, bitChatInfo.NetworkID, bitChatInfo.PeerCertificateList, bitChatInfo.NetworkStatus, bitChatInfo.InvitationSender, bitChatInfo.InvitationMessage);
+                else
+                    network = new BitChatNetwork(_profile, _internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, bitChatInfo.NetworkName, bitChatInfo.SharedSecret, bitChatInfo.NetworkID, bitChatInfo.PeerCertificateList, bitChatInfo.NetworkStatus);
+
+                BitChat chat = _internal.CreateBitChat(network, bitChatInfo.MessageStoreID, bitChatInfo.MessageStoreKey, bitChatInfo.SharedFileList, bitChatInfo.TrackerURIs, bitChatInfo.EnableTracking, bitChatInfo.SendInvitation);
+                _bitChats.Add(chat);
+            }
+
+            //check profile cert revocation
+            ThreadPool.QueueUserWorkItem(CheckCertificateRevocationAsync, new Certificate[] { _profile.LocalCertificateStore.Certificate });
+
+            //check trusted root cert revocation
+            ThreadPool.QueueUserWorkItem(CheckCertificateRevocationAsync, _trustedRootCertificates);
+        }
 
         public BitChat CreateBitChat(MailAddress peerEmailAddress, string sharedSecret, bool enableTracking, string invitationMessage)
         {
@@ -656,7 +661,7 @@ namespace BitChatClient
                 if (enableTracking && (network.Status == BitChatNetworkStatus.Online))
                     SetupTcpRelay(network.NetworkID, trackerURIs); //starts tcp relay if available or needed
 
-                BitChat bitChat = new BitChat(_service._syncCxt, _localDiscovery, _connectionManager, _service._profile, network, messageStoreID, messageStoreKey, sharedFileInfoList, trackerURIs, enableTracking, sendInvitation);
+                BitChat bitChat = new BitChat(_service._syncCxt, _localDiscovery, network, messageStoreID, messageStoreKey, sharedFileInfoList, trackerURIs, enableTracking, sendInvitation);
 
                 bitChat.Leave += BitChat_Leave;
 
