@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2016  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -931,16 +931,16 @@ namespace BitChatClient.Network.KademliaDHT
         public void AddNode(IEnumerable<IPEndPoint> nodeEPs)
         {
             foreach (IPEndPoint nodeEP in nodeEPs)
-            {
-                if (!_routingTable.ContactExists(nodeEP))
-                    ThreadPool.QueueUserWorkItem(AddNodeAfterPingAsync, nodeEP);
-            }
+                AddNode(nodeEP);
         }
 
         public void AddNode(IPEndPoint nodeEP)
         {
-            if (!_routingTable.ContactExists(nodeEP))
-                ThreadPool.QueueUserWorkItem(AddNodeAfterPingAsync, nodeEP);
+            if (!NetUtilities.IsPrivateIP(nodeEP.Address))
+            {
+                if (!_routingTable.ContactExists(nodeEP))
+                    ThreadPool.QueueUserWorkItem(AddNodeAfterPingAsync, nodeEP);
+            }
         }
 
         public IPEndPoint[] FindPeers(BinaryID networkID)
