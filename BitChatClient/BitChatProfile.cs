@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using BitChatClient.FileSharing;
 using BitChatClient.Network;
+using BitChatClient.Network.SecureChannel;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,7 +33,7 @@ using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatClient
 {
-    public class BitChatProfile : CryptoContainer
+    public class BitChatProfile : CryptoContainer, ISecureChannelSecurityManager
     {
         #region event
 
@@ -501,16 +502,14 @@ namespace BitChatClient
                     break;
             }
 
-            if (ProxyUpdated != null)
-                ProxyUpdated(this, EventArgs.Empty);
+            ProxyUpdated?.Invoke(this, EventArgs.Empty);
         }
 
         public void DisableProxy()
         {
             _proxy = null;
 
-            if (ProxyUpdated != null)
-                ProxyUpdated(this, EventArgs.Empty);
+            ProxyUpdated?.Invoke(this, EventArgs.Empty);
         }
 
         public void SetProfileImage(byte[] imageSmall, byte[] imageLarge)
@@ -518,8 +517,12 @@ namespace BitChatClient
             _profileImageSmall = imageSmall;
             _profileImageLarge = imageLarge;
 
-            if (ProfileImageChanged != null)
-                ProfileImageChanged(this, EventArgs.Empty);
+            ProfileImageChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public bool ProceedConnection(Certificate remoteCertificate)
+        {
+            return true;
         }
 
         #endregion

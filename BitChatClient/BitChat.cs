@@ -19,8 +19,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using BitChatClient.FileSharing;
 using BitChatClient.Network;
-using BitChatClient.Network.Connections;
-using BitChatClient.Network.KademliaDHT;
 using BitChatClient.Network.SecureChannel;
 using System;
 using System.Collections.Generic;
@@ -68,7 +66,6 @@ namespace BitChatClient
 
         SynchronizationContext _syncCxt;
         LocalPeerDiscovery _localPeerDiscovery;
-        BitChatProfile _profile;
         BitChatNetwork _network;
         string _messageStoreID;
         byte[] _messageStoreKey;
@@ -80,7 +77,6 @@ namespace BitChatClient
 
         //tracker
         TrackerManager _trackerManager;
-        DhtClient _dhtClient;
         bool _enableTracking;
 
         //invitation
@@ -109,13 +105,10 @@ namespace BitChatClient
 
         #region constructor
 
-        internal BitChat(SynchronizationContext syncCxt, LocalPeerDiscovery localPeerDiscovery, ConnectionManager connectionManager, BitChatProfile profile, BitChatNetwork network, string messageStoreID, byte[] messageStoreKey, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs, bool enableTracking, bool sendInvitation)
+        internal BitChat(SynchronizationContext syncCxt, LocalPeerDiscovery localPeerDiscovery, BitChatNetwork network, string messageStoreID, byte[] messageStoreKey, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs, bool enableTracking, bool sendInvitation)
         {
             _syncCxt = syncCxt;
             _localPeerDiscovery = localPeerDiscovery;
-
-            _profile = profile;
-            _profile.ProxyUpdated += profile_ProxyUpdated;
 
             _network = network;
             _network.VirtualPeerAdded += network_VirtualPeerAdded;
@@ -123,10 +116,12 @@ namespace BitChatClient
             _network.VirtualPeerSecureChannelException += network_VirtualPeerSecureChannelException;
             _network.VirtualPeerHasChangedCertificate += network_VirtualPeerHasChangedCertificate;
 
+            _network.Profile.ProxyUpdated += profile_ProxyUpdated;
+
             _messageStoreID = messageStoreID;
             _messageStoreKey = messageStoreKey;
 
-            string messageStoreFolder = Path.Combine(_profile.ProfileFolder, "messages");
+            string messageStoreFolder = Path.Combine(_network.Profile.ProfileFolder, "messages");
             if (!Directory.Exists(messageStoreFolder))
                 Directory.CreateDirectory(messageStoreFolder);
 
@@ -153,9 +148,8 @@ namespace BitChatClient
             }
 
             //init tracking
-            _dhtClient = connectionManager.DhtClient;
-            _trackerManager = new TrackerManager(_network.NetworkID, connectionManager.LocalPort, _dhtClient, BIT_CHAT_TRACKER_UPDATE_INTERVAL);
-            _trackerManager.Proxy = _profile.Proxy;
+            _trackerManager = new TrackerManager(_network.NetworkID, _network.ConnectionManager.LocalPort, _network.ConnectionManager.DhtClient, BIT_CHAT_TRACKER_UPDATE_INTERVAL);
+            _trackerManager.Proxy = _network.Profile.Proxy;
             _trackerManager.DiscoveredPeers += TrackerManager_DiscoveredPeers;
             _enableTracking = enableTracking;
 
@@ -192,7 +186,7 @@ namespace BitChatClient
                 if (_sendInvitation)
                 {
                     //init invitation tracker
-                    _invitationTrackerClient = new TrackerManager(_network.MaskedPeerEmailAddress, connectionManager.LocalPort, _dhtClient, 30, true);
+                    _invitationTrackerClient = new TrackerManager(_network.MaskedPeerEmailAddress, _network.ConnectionManager.LocalPort, _network.ConnectionManager.DhtClient, 30, true);
                     _invitationTrackerClient.DiscoveredPeers += InvitationTrackerManager_DiscoveredPeers;
 
                     StartInvitationClient();
@@ -446,7 +440,7 @@ namespace BitChatClient
             byte[] messageData = BitChatMessage.CreateTextMessage(message);
             _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
 
-            MessageItem msg = new MessageItem(_profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address, message);
+            MessageItem msg = new MessageItem(_network.Profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address, message);
             msg.WriteTo(_store);
 
             return msg;
@@ -498,7 +492,7 @@ namespace BitChatClient
                 RaiseEventLeave();
 
             //delete message store index and data
-            string messageStoreFolder = Path.Combine(_profile.ProfileFolder, "messages");
+            string messageStoreFolder = Path.Combine(_network.Profile.ProfileFolder, "messages");
 
             try
             {
@@ -595,7 +589,7 @@ namespace BitChatClient
 
         private void profile_ProxyUpdated(object sender, EventArgs e)
         {
-            _trackerManager.Proxy = _profile.Proxy;
+            _trackerManager.Proxy = _network.Profile.Proxy;
         }
 
         #endregion
@@ -1040,7 +1034,7 @@ namespace BitChatClient
         { get { return _network.SharedSecret; } }
 
         public Certificate LocalCertificate
-        { get { return _profile.LocalCertificateStore.Certificate; } }
+        { get { return _network.Profile.LocalCertificateStore.Certificate; } }
 
         public Peer SelfPeer
         { get { return _selfPeer; } }
@@ -1081,12 +1075,12 @@ namespace BitChatClient
                 _virtualPeer = virtualPeer;
                 _bitChat = bitchat;
 
-                _isSelfPeer = (_virtualPeer.PeerCertificate.IssuedTo.EmailAddress.Address == _bitChat._profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address);
+                _isSelfPeer = (_virtualPeer.PeerCertificate.IssuedTo.EmailAddress.Address == _bitChat._network.Profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address);
 
                 _virtualPeer.MessageReceived += virtualPeer_MessageReceived;
                 _virtualPeer.StreamStateChanged += virtualPeer_StreamStateChanged;
 
-                _bitChat._profile.ProfileImageChanged += profile_ProfileImageChanged;
+                _bitChat._network.Profile.ProfileImageChanged += profile_ProfileImageChanged;
             }
 
             #endregion
@@ -1214,7 +1208,7 @@ namespace BitChatClient
                     case BitChatMessageType.FileAdvertisement:
                         #region FileAdvertisement
                         {
-                            SharedFile sharedFile = SharedFile.PrepareDownloadFile(BitChatMessage.ReadFileAdvertisement(messageDataStream), _bitChat, this, _bitChat._profile, _bitChat._syncCxt);
+                            SharedFile sharedFile = SharedFile.PrepareDownloadFile(BitChatMessage.ReadFileAdvertisement(messageDataStream), _bitChat, this, _bitChat._network.Profile, _bitChat._syncCxt);
 
                             lock (_bitChat._sharedFiles)
                             {
@@ -1331,7 +1325,7 @@ namespace BitChatClient
                         foreach (PeerInfo peerInfo in peerList)
                         {
                             _bitChat._network.MakeConnection(peerInfo.PeerEPList);
-                            _bitChat._dhtClient.AddNode(peerInfo.PeerEPList);
+                            _bitChat._network.ConnectionManager.DhtClient.AddNode(peerInfo.PeerEPList);
                         }
 
                         //start network status check
@@ -1349,7 +1343,7 @@ namespace BitChatClient
                                 _profileImageSmall = null;
 
                             if (_isSelfPeer)
-                                _bitChat._profile.ProfileImageSmall = _profileImageSmall;
+                                _bitChat._network.Profile.ProfileImageSmall = _profileImageSmall;
 
                             RaiseEventProfileImageChanged();
                             break;
@@ -1365,7 +1359,7 @@ namespace BitChatClient
                                 _profileImageLarge = null;
 
                             if (_isSelfPeer)
-                                _bitChat._profile.ProfileImageLarge = _profileImageLarge;
+                                _bitChat._network.Profile.ProfileImageLarge = _profileImageLarge;
 
                             break;
                         }
@@ -1523,12 +1517,12 @@ namespace BitChatClient
             private void DoSendProfileImages()
             {
                 {
-                    byte[] messageData = BitChatMessage.CreateProfileImageSmall(_bitChat._profile.ProfileImageSmall);
+                    byte[] messageData = BitChatMessage.CreateProfileImageSmall(_bitChat._network.Profile.ProfileImageSmall);
                     _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
                 }
 
                 {
-                    byte[] messageData = BitChatMessage.CreateProfileImageLarge(_bitChat._profile.ProfileImageLarge);
+                    byte[] messageData = BitChatMessage.CreateProfileImageLarge(_bitChat._network.Profile.ProfileImageLarge);
                     _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
                 }
             }
@@ -1666,7 +1660,7 @@ namespace BitChatClient
                 get
                 {
                     if (_isSelfPeer)
-                        return _bitChat._profile.LocalCertificateStore.Certificate;
+                        return _bitChat._network.Profile.LocalCertificateStore.Certificate;
                     else
                         return _virtualPeer.PeerCertificate;
                 }
@@ -1677,7 +1671,7 @@ namespace BitChatClient
                 get
                 {
                     if (_isSelfPeer)
-                        return _bitChat._profile.ProfileImageSmall;
+                        return _bitChat._network.Profile.ProfileImageSmall;
                     else
                         return _profileImageSmall;
                 }
@@ -1688,7 +1682,7 @@ namespace BitChatClient
                 get
                 {
                     if (_isSelfPeer)
-                        return _bitChat._profile.ProfileImageLarge;
+                        return _bitChat._network.Profile.ProfileImageLarge;
                     else
                         return _profileImageLarge;
                 }

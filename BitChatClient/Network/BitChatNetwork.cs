@@ -73,12 +73,14 @@ namespace BitChatClient.Network
         static readonly byte[] EMAIL_ADDRESS_MASK_SALT = new byte[] { 0x55, 0xBB, 0xB8, 0x5C, 0x21, 0xB3, 0xC3, 0x34, 0xBE, 0xF4, 0x4D, 0x9D, 0xD0, 0xAC, 0x8E, 0x8A, 0xE8, 0xED, 0x28, 0x3E };
 
         BitChatNetworkType _type;
+        BitChatProfile _profile;
+        ConnectionManager _connectionManager;
+        Certificate[] _trustedRootCertificates;
+        SecureChannelCryptoOptionFlags _supportedCryptoOptions;
         MailAddress _peerEmailAddress;
         string _networkName;
         string _sharedSecret;
         BinaryID _networkID;
-        IBitChatNetworkManager _networkManager;
-        ISecureChannelSecurityManager _securityManager;
         BitChatNetworkStatus _status;
         string _invitationSender;
         string _invitationMessage;
@@ -93,20 +95,22 @@ namespace BitChatClient.Network
 
         #region constructor
 
-        public BitChatNetwork(MailAddress peerEmailAddress, string sharedSecret, BinaryID networkID, Certificate[] knownPeerCerts, IBitChatNetworkManager networkManager, ISecureChannelSecurityManager securityManager, BitChatNetworkStatus status, string invitationSender, string invitationMessage)
+        public BitChatNetwork(BitChatProfile profile, ConnectionManager connectionManager, Certificate[] trustedRootCertificates, SecureChannelCryptoOptionFlags supportedCryptoOptions, MailAddress peerEmailAddress, string sharedSecret, BinaryID networkID, Certificate[] knownPeerCerts, BitChatNetworkStatus status, string invitationSender, string invitationMessage)
         {
             _type = BitChatNetworkType.PrivateChat;
+            _profile = profile;
+            _connectionManager = connectionManager;
+            _trustedRootCertificates = trustedRootCertificates;
+            _supportedCryptoOptions = supportedCryptoOptions;
             _peerEmailAddress = peerEmailAddress;
             _sharedSecret = sharedSecret;
             _networkID = networkID;
-            _networkManager = networkManager;
-            _securityManager = securityManager;
             _status = status;
             _invitationSender = invitationSender;
             _invitationMessage = invitationMessage;
 
             if (_networkID == null)
-                _networkID = GetNetworkID(networkManager.GetLocalCredentials().Certificate.IssuedTo.EmailAddress, _peerEmailAddress, _sharedSecret);
+                _networkID = GetNetworkID(_profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress, _peerEmailAddress, _sharedSecret);
 
             if (knownPeerCerts.Length > 0)
                 _peerName = knownPeerCerts[0].IssuedTo.Name;
@@ -114,14 +118,16 @@ namespace BitChatClient.Network
             LoadKnownPeers(knownPeerCerts);
         }
 
-        public BitChatNetwork(string networkName, string sharedSecret, BinaryID networkID, Certificate[] knownPeerCerts, IBitChatNetworkManager networkManager, ISecureChannelSecurityManager securityManager, BitChatNetworkStatus status)
+        public BitChatNetwork(BitChatProfile profile, ConnectionManager connectionManager, Certificate[] trustedRootCertificates, SecureChannelCryptoOptionFlags supportedCryptoOptions, string networkName, string sharedSecret, BinaryID networkID, Certificate[] knownPeerCerts, BitChatNetworkStatus status)
         {
             _type = BitChatNetworkType.GroupChat;
+            _profile = profile;
+            _connectionManager = connectionManager;
+            _trustedRootCertificates = trustedRootCertificates;
+            _supportedCryptoOptions = supportedCryptoOptions;
             _networkName = networkName;
             _sharedSecret = sharedSecret;
             _networkID = networkID;
-            _networkManager = networkManager;
-            _securityManager = securityManager;
             _status = status;
 
             if (_networkID == null)
@@ -227,7 +233,7 @@ namespace BitChatClient.Network
         private void LoadKnownPeers(Certificate[] knownPeerCerts)
         {
             //load self as virtual peer
-            Certificate selfCert = _networkManager.GetLocalCredentials().Certificate;
+            Certificate selfCert = _profile.LocalCertificateStore.Certificate;
             _selfPeer = new VirtualPeer(selfCert, this);
             _virtualPeers.Add(selfCert.IssuedTo.EmailAddress.Address.ToLower(), _selfPeer);
 
@@ -243,7 +249,7 @@ namespace BitChatClient.Network
                 IPEndPoint peerEP = state as IPEndPoint;
 
                 //make connection
-                Connection connection = _networkManager.MakeConnection(peerEP);
+                Connection connection = _connectionManager.MakeConnection(peerEP);
 
                 connection.SendBitChatNetworkInvitation(_networkID, _invitationMessage);
             }
@@ -258,7 +264,7 @@ namespace BitChatClient.Network
                 IPEndPoint peerEP = state as IPEndPoint;
 
                 //make connection
-                Connection connection = _networkManager.MakeConnection(peerEP);
+                Connection connection = _connectionManager.MakeConnection(peerEP);
 
                 EstablishSecureChannelAndJoinNetwork(connection);
             }
@@ -275,7 +281,7 @@ namespace BitChatClient.Network
                 IPEndPoint peerEP = parameters[1] as IPEndPoint;
 
                 //make virtual connection
-                Connection virtualConnection = _networkManager.MakeVirtualConnection(viaConnection, peerEP);
+                Connection virtualConnection = _connectionManager.MakeVirtualConnection(viaConnection, peerEP);
 
                 EstablishSecureChannelAndJoinNetwork(virtualConnection);
             }
@@ -297,10 +303,10 @@ namespace BitChatClient.Network
             try
             {
                 //get secure channel
-                SecureChannelStream secureChannel = new SecureChannelClientStream(channel, connection.RemotePeerEP, _networkManager.GetLocalCredentials(), _networkManager.GetTrustedRootCertificates(), _securityManager, _networkManager.GetSupportedCryptoOptions(), RE_NEGOTIATE_AFTER_BYTES_SENT, RE_NEGOTIATE_AFTER_SECONDS, _sharedSecret);
+                SecureChannelStream secureChannel = new SecureChannelClientStream(channel, connection.RemotePeerEP, _profile.LocalCertificateStore, _trustedRootCertificates, _profile, _supportedCryptoOptions, RE_NEGOTIATE_AFTER_BYTES_SENT, RE_NEGOTIATE_AFTER_SECONDS, _sharedSecret);
 
                 //join network
-                JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel, _networkManager.CheckCertificateRevocationList());
+                JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel);
             }
             catch (SecureChannelException ex)
             {
@@ -315,7 +321,7 @@ namespace BitChatClient.Network
             }
         }
 
-        private void JoinNetwork(string peerID, SecureChannelStream peerStream, bool checkCertificateRevocationList)
+        private void JoinNetwork(string peerID, SecureChannelStream peerStream)
         {
             if (_status == BitChatNetworkStatus.Offline)
                 throw new BitChatException("BitChat network is offline.");
@@ -324,7 +330,7 @@ namespace BitChatClient.Network
             {
                 if (_peerEmailAddress == null)
                 {
-                    BinaryID computedNetworkID = GetNetworkID(_networkManager.GetLocalCredentials().Certificate.IssuedTo.EmailAddress, peerStream.RemotePeerCertificate.IssuedTo.EmailAddress, _sharedSecret);
+                    BinaryID computedNetworkID = GetNetworkID(_profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress, peerStream.RemotePeerCertificate.IssuedTo.EmailAddress, _sharedSecret);
 
                     if (!computedNetworkID.Equals(_networkID))
                         throw new BitChatException("User with email address '" + peerStream.RemotePeerCertificate.IssuedTo.EmailAddress.Address + " [" + peerStream.RemotePeerEP.Address.ToString() + "]' is trying to join this private chat.");
@@ -365,7 +371,7 @@ namespace BitChatClient.Network
 
             vPeer.AddStream(peerStream);
 
-            if (checkCertificateRevocationList)
+            if (_profile.CheckCertificateRevocationList)
             {
                 //start async revocation list check process
                 ThreadPool.QueueUserWorkItem(CheckCertificateRevocationListAsync, peerStream);
@@ -395,7 +401,7 @@ namespace BitChatClient.Network
             {
                 stream = state as SecureChannelStream;
 
-                stream.RemotePeerCertificate.VerifyRevocationList(_networkManager.GetProxy());
+                stream.RemotePeerCertificate.VerifyRevocationList(_profile.Proxy);
             }
             catch (InvalidCertificateException ex)
             {
@@ -487,10 +493,10 @@ namespace BitChatClient.Network
             try
             {
                 //get secure channel
-                SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _networkManager.GetLocalCredentials(), _networkManager.GetTrustedRootCertificates(), _securityManager, _networkManager.GetSupportedCryptoOptions(), RE_NEGOTIATE_AFTER_BYTES_SENT, RE_NEGOTIATE_AFTER_SECONDS, _sharedSecret);
+                SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _profile.LocalCertificateStore, _trustedRootCertificates, _profile, _supportedCryptoOptions, RE_NEGOTIATE_AFTER_BYTES_SENT, RE_NEGOTIATE_AFTER_SECONDS, _sharedSecret);
 
                 //join network
-                JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel, _networkManager.CheckCertificateRevocationList());
+                JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel);
             }
             catch (SecureChannelException ex)
             {
@@ -551,6 +557,12 @@ namespace BitChatClient.Network
 
         public BitChatNetworkType Type
         { get { return _type; } }
+
+        public BitChatProfile Profile
+        { get { return _profile; } }
+
+        public ConnectionManager ConnectionManager
+        { get { return _connectionManager; } }
 
         public BinaryID MaskedPeerEmailAddress
         {

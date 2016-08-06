@@ -84,7 +84,6 @@
     <Compile Include="Network\BitChatNetwork.cs" />
     <Compile Include="BitChatService.cs" />
     <Compile Include="Network\Connections\Connection.cs" />
-    <Compile Include="Network\IBitChatNetworkManager.cs" />
     <Compile Include="Network\TrackerManager.cs" />
     <Compile Include="PeerInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
