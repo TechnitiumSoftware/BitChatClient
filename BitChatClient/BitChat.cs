@@ -676,6 +676,7 @@ namespace BitChatClient
                 {
                     #region offline mode
 
+                    //update peer connectivity info to NoNetwork
                     connectivityStatus = BitChatConnectivityStatus.NoNetwork;
 
                     lock (_peerListLock)
@@ -693,6 +694,7 @@ namespace BitChatClient
                         }
                     }
 
+                    //stop tracking and local announcement
                     _localPeerDiscovery.StopAnnouncement(_network.NetworkID);
                     _trackerManager.StopTracking();
 
@@ -701,6 +703,8 @@ namespace BitChatClient
                 else
                 {
                     #region online mode
+
+                    #region update peer connectivity info
 
                     //find network wide connected peer ep list
                     List<PeerInfo> uniqueConnectedPeerList = new List<PeerInfo>();
@@ -787,6 +791,10 @@ namespace BitChatClient
                         _connectivityStatus = connectivityStatus;
                     }
 
+                    #endregion
+
+                    #region manage tracker status as per connectivity status
+
                     if (_network.Type == BitChatNetworkType.PrivateChat)
                     {
                         if (connectedPeerList.Count > 0)
@@ -833,6 +841,8 @@ namespace BitChatClient
                             }
                         }
                     }
+
+                    #endregion
 
                     #endregion
                 }
