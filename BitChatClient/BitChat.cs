@@ -67,8 +67,7 @@ namespace BitChatClient
         const int BIT_CHAT_TRACKER_UPDATE_INTERVAL = 120;
 
         SynchronizationContext _syncCxt;
-
-        IBitChatManager _manager;
+        LocalPeerDiscovery _localPeerDiscovery;
         BitChatProfile _profile;
         BitChatNetwork _network;
         string _messageStoreID;
@@ -110,10 +109,10 @@ namespace BitChatClient
 
         #region constructor
 
-        internal BitChat(SynchronizationContext syncCxt, IBitChatManager manager, ConnectionManager connectionManager, BitChatProfile profile, BitChatNetwork network, string messageStoreID, byte[] messageStoreKey, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs, bool enableTracking, bool sendInvitation)
+        internal BitChat(SynchronizationContext syncCxt, LocalPeerDiscovery localPeerDiscovery, ConnectionManager connectionManager, BitChatProfile profile, BitChatNetwork network, string messageStoreID, byte[] messageStoreKey, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs, bool enableTracking, bool sendInvitation)
         {
             _syncCxt = syncCxt;
-            _manager = manager;
+            _localPeerDiscovery = localPeerDiscovery;
 
             _profile = profile;
             _profile.ProxyUpdated += profile_ProxyUpdated;
@@ -167,8 +166,8 @@ namespace BitChatClient
             else
             {
                 //start local peer discovery
-                _manager.StartLocalTracking(_network.NetworkID);
-                _manager.StartLocalAnnouncement(_network.NetworkID);
+                _localPeerDiscovery.StartTracking(_network.NetworkID);
+                _localPeerDiscovery.StartAnnouncement(_network.NetworkID);
 
                 //enable tracking
                 if (enableTracking)
@@ -249,8 +248,8 @@ namespace BitChatClient
                 }
 
                 //stop tracking
-                _manager.StopLocalTracking(_network.NetworkID);
-                _manager.StopLocalAnnouncement(_network.NetworkID);
+                _localPeerDiscovery.StopTracking(_network.NetworkID);
+                _localPeerDiscovery.StopAnnouncement(_network.NetworkID);
 
                 if (_trackerManager != null)
                     _trackerManager.Dispose();
@@ -491,11 +490,12 @@ namespace BitChatClient
                     sharedFile.Remove(this);
             }
 
-            //remove chat
-            _manager.RemoveBitChat(this);
-
             //dispose
             this.Dispose();
+
+            //raise event to remove object from service and refresh UI
+            if (Leave != null)
+                RaiseEventLeave();
 
             //delete message store index and data
             string messageStoreFolder = Path.Combine(_profile.ProfileFolder, "messages");
@@ -513,9 +513,6 @@ namespace BitChatClient
             }
             catch
             { }
-
-            if (Leave != null)
-                RaiseEventLeave();
         }
 
         internal void RemoveSharedFile(SharedFile file)
@@ -775,14 +772,14 @@ namespace BitChatClient
                     {
                         if (connectedPeerList.Count > 0)
                         {
-                            _manager.StopLocalAnnouncement(_network.NetworkID);
+                            _localPeerDiscovery.StopAnnouncement(_network.NetworkID);
 
                             if (_enableTracking)
                                 _trackerManager.StopTracking();
                         }
                         else
                         {
-                            _manager.StartLocalAnnouncement(_network.NetworkID);
+                            _localPeerDiscovery.StartAnnouncement(_network.NetworkID);
 
                             if (_enableTracking)
                             {
@@ -795,7 +792,7 @@ namespace BitChatClient
                     {
                         if (connectedPeerList.Count > 0)
                         {
-                            _manager.StopLocalAnnouncement(_network.NetworkID);
+                            _localPeerDiscovery.StopAnnouncement(_network.NetworkID);
 
                             if (_enableTracking)
                             {
@@ -805,7 +802,7 @@ namespace BitChatClient
                         }
                         else
                         {
-                            _manager.StartLocalAnnouncement(_network.NetworkID);
+                            _localPeerDiscovery.StartAnnouncement(_network.NetworkID);
 
                             if (_enableTracking)
                                 _trackerManager.ForceUpdate();
@@ -890,14 +887,14 @@ namespace BitChatClient
             if (_network.Status == BitChatNetworkStatus.Online)
             {
                 _invitationTrackerClient.StartTracking();
-                _manager.StartLocalAnnouncement(_network.MaskedPeerEmailAddress);
+                _localPeerDiscovery.StartAnnouncement(_network.MaskedPeerEmailAddress);
             }
         }
 
         private void StopInvitationClient()
         {
             _invitationTrackerClient.StopTracking();
-            _manager.StopLocalAnnouncement(_network.MaskedPeerEmailAddress);
+            _localPeerDiscovery.StopAnnouncement(_network.MaskedPeerEmailAddress);
         }
 
         private void InvitationTrackerManager_DiscoveredPeers(TrackerManager sender, IEnumerable<IPEndPoint> peerEPs)
@@ -989,16 +986,16 @@ namespace BitChatClient
 
         private void StopAllTracking()
         {
-            _manager.StopLocalTracking(_network.NetworkID);
-            _manager.StopLocalAnnouncement(_network.NetworkID);
+            _localPeerDiscovery.StopTracking(_network.NetworkID);
+            _localPeerDiscovery.StopAnnouncement(_network.NetworkID);
 
             _trackerManager.StopTracking();
         }
 
         private void StartAllTracking()
         {
-            _manager.StartLocalTracking(_network.NetworkID);
-            _manager.StartLocalAnnouncement(_network.NetworkID);
+            _localPeerDiscovery.StartTracking(_network.NetworkID);
+            _localPeerDiscovery.StartAnnouncement(_network.NetworkID);
 
             if (this.EnableTracking)
                 this.EnableTracking = true;

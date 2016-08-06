@@ -69,7 +69,6 @@
     <Compile Include="FileSharing\FileBlockWanted.cs" />
     <Compile Include="FileSharing\SharedFileMetaData.cs" />
     <Compile Include="FileSharing\SharedFile.cs" />
-    <Compile Include="IBitChatManager.cs" />
     <Compile Include="IDebug.cs" />
     <Compile Include="IPEndPointParser.cs" />
     <Compile Include="MessageItem.cs" />

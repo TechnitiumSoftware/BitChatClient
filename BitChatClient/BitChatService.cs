@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2016  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -275,7 +275,7 @@ namespace BitChatClient
 
         #endregion
 
-        private class InternalBitChatService : IBitChatManager, IBitChatNetworkManager, ISecureChannelSecurityManager, INetworkInfo, IDisposable
+        private class InternalBitChatService : IBitChatNetworkManager, ISecureChannelSecurityManager, INetworkInfo, IDisposable
         {
             #region variables
 
@@ -629,7 +629,11 @@ namespace BitChatClient
                 if (enableTracking && (network.Status == BitChatNetworkStatus.Online))
                     SetupTcpRelay(network.NetworkID, trackerURIs); //starts tcp relay if available or needed
 
-                return new BitChat(_service._syncCxt, this, _connectionManager, _profile, network, messageStoreID, messageStoreKey, sharedFileInfoList, trackerURIs, enableTracking, sendInvitation);
+                BitChat bitChat = new BitChat(_service._syncCxt, _localDiscovery, _connectionManager, _profile, network, messageStoreID, messageStoreKey, sharedFileInfoList, trackerURIs, enableTracking, sendInvitation);
+
+                bitChat.Leave += BitChat_Leave;
+
+                return bitChat;
             }
 
             public IPEndPoint[] GetDhtConnectedNodes()
@@ -674,7 +678,19 @@ namespace BitChatClient
                     _networks.Remove((sender as BitChatNetwork).NetworkID);
                 }
             }
-            
+
+            private void BitChat_Leave(object sender, EventArgs e)
+            {
+                BitChat bitChat = sender as BitChat;
+
+                lock (_service._bitChats)
+                {
+                    _service._bitChats.Remove(bitChat);
+                }
+
+                RemoveTcpRelay(bitChat.NetworkID);
+            }
+
             private void LocalDiscovery_PeerDiscovered(LocalPeerDiscovery sender, IPEndPoint peerEP, BinaryID networkID)
             {
                 lock (_networks)
@@ -698,40 +714,6 @@ namespace BitChatClient
 
                 //add peerEP to DHT
                 _connectionManager.DhtClient.AddNode(peerEP);
-            }
-
-            #endregion
-
-            #region IBitChatManager support
-
-            public void RemoveBitChat(BitChat chat)
-            {
-                lock (_service._bitChats)
-                {
-                    _service._bitChats.Remove(chat);
-                }
-
-                RemoveTcpRelay(chat.NetworkID);
-            }
-
-            public void StartLocalTracking(BinaryID networkID)
-            {
-                _localDiscovery.StartTracking(networkID);
-            }
-
-            public void StopLocalTracking(BinaryID networkID)
-            {
-                _localDiscovery.StopTracking(networkID);
-            }
-
-            public void StartLocalAnnouncement(BinaryID networkID)
-            {
-                _localDiscovery.StartAnnouncement(networkID);
-            }
-
-            public void StopLocalAnnouncement(BinaryID networkID)
-            {
-                _localDiscovery.StopAnnouncement(networkID);
             }
 
             #endregion
