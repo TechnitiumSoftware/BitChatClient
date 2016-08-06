@@ -195,6 +195,7 @@ namespace BitChatClient.Network
                     peers = _dhtClient.Announce(_networkID, localEP.Port);
 
                 _dhtLastUpdated = DateTime.UtcNow;
+                _dhtLastException = null; //reset last error
 
                 if ((peers != null) && (peers.Length > 0))
                 {
