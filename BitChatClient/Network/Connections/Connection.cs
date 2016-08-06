@@ -29,10 +29,10 @@ using TechnitiumLibrary.IO;
 
 namespace BitChatClient.Network.Connections
 {
+    delegate void BitChatNetworkInvitation(BinaryID networkID, IPEndPoint peerEP, string message);
     delegate void BitChatNetworkChannelRequest(Connection connection, BinaryID channelName, Stream channel);
     delegate void TcpRelayPeersAvailable(Connection viaConnection, BinaryID channelName, List<IPEndPoint> peerEPs);
     delegate void DhtPacketData(Connection viaConnection, byte[] dhtPacketData);
-    delegate void BitChatNetworkInvitation(BinaryID networkID, IPEndPoint peerEP, string message);
 
     enum SignalType : byte
     {
@@ -67,8 +67,10 @@ namespace BitChatClient.Network.Connections
     {
         #region events
 
-        public event EventHandler Disposed;
         public event BitChatNetworkInvitation BitChatNetworkInvitation;
+        public event BitChatNetworkChannelRequest BitChatNetworkChannelRequest;
+        public event TcpRelayPeersAvailable TcpRelayPeersAvailable;
+        public event EventHandler Disposed;
 
         #endregion
 
@@ -80,11 +82,7 @@ namespace BitChatClient.Network.Connections
         Stream _baseStream;
         BinaryID _remotePeerID;
         IPEndPoint _remotePeerEP;
-
         ConnectionManager _connectionManager;
-        BitChatNetworkChannelRequest _networkChannelRequestHandler;
-        TcpRelayPeersAvailable _tcpRelayPeersHandler;
-        DhtPacketData _dhtPacketDataHandler;
 
         Dictionary<BinaryID, ChannelStream> _bitChatNetworkChannels = new Dictionary<BinaryID, ChannelStream>();
         Dictionary<BinaryID, ChannelStream> _proxyTunnelChannels = new Dictionary<BinaryID, ChannelStream>();
@@ -106,15 +104,12 @@ namespace BitChatClient.Network.Connections
 
         #region constructor
 
-        public Connection(Stream baseStream, BinaryID remotePeerID, IPEndPoint remotePeerEP, ConnectionManager connectionManager, BitChatNetworkChannelRequest networkChannelRequestHandler, TcpRelayPeersAvailable tcpRelayPeersHandler, DhtPacketData dhtPacketDataHandler)
+        public Connection(Stream baseStream, BinaryID remotePeerID, IPEndPoint remotePeerEP, ConnectionManager connectionManager)
         {
             _baseStream = baseStream;
             _remotePeerID = remotePeerID;
             _remotePeerEP = remotePeerEP;
             _connectionManager = connectionManager;
-            _networkChannelRequestHandler = networkChannelRequestHandler;
-            _tcpRelayPeersHandler = tcpRelayPeersHandler;
-            _dhtPacketDataHandler = dhtPacketDataHandler;
         }
 
         #endregion
@@ -201,10 +196,7 @@ namespace BitChatClient.Network.Connections
                         catch
                         { }
                     }
-
-                    //remote channel from connection manager
-                    _connectionManager.RemoveConnection(this);
-
+                    
                     _disposed = true;
 
                     Disposed?.Invoke(this, EventArgs.Empty);
@@ -303,7 +295,7 @@ namespace BitChatClient.Network.Connections
                                         _bitChatNetworkChannels.Add(channelName, channel);
                                     }
 
-                                    _networkChannelRequestHandler.BeginInvoke(this, channelName.Clone(), channel, null, null);
+                                    BitChatNetworkChannelRequest?.BeginInvoke(this, channelName.Clone(), channel, null, null);
                                 }
                                 catch
                                 {
@@ -707,7 +699,7 @@ namespace BitChatClient.Network.Connections
                                     peerEPs.Add(IPEndPointParser.Parse(mS));
                                 }
 
-                                _tcpRelayPeersHandler.BeginInvoke(this, channelName.Clone(), peerEPs, null, null);
+                                TcpRelayPeersAvailable?.BeginInvoke(this, channelName.Clone(), peerEPs, null, null);
                             }
 
                             #endregion
@@ -715,13 +707,8 @@ namespace BitChatClient.Network.Connections
 
                         case SignalType.DhtPacketData:
                             #region DhtPacketData
-                            {
-                                byte[] dhtPacketData = new byte[dataLength];
 
-                                Buffer.BlockCopy(dataBuffer, 0, dhtPacketData, 0, dhtPacketData.Length);
-
-                                _dhtPacketDataHandler.BeginInvoke(this, dhtPacketData, null, null);
-                            }
+                            _connectionManager.DhtClient.ProcessPacket(dataBuffer, 0, dataLength, _remotePeerEP.Address);
 
                             #endregion
                             break;

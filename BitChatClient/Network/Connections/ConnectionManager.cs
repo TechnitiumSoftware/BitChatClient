@@ -58,6 +58,8 @@ namespace BitChatClient.Network.Connections
 
         public event EventHandler InternetConnectivityStatusChanged;
         public event BitChatNetworkInvitation BitChatNetworkChannelInvitation;
+        public event BitChatNetworkChannelRequest BitChatNetworkChannelRequest;
+        public event TcpRelayPeersAvailable TcpRelayPeersAvailable;
 
         #endregion
 
@@ -71,8 +73,6 @@ namespace BitChatClient.Network.Connections
         BitChatProfile _profile;
 
         BinaryID _localPeerID;
-        BitChatNetworkChannelRequest _channelRequestHandler;
-        TcpRelayPeersAvailable _tcpRelayPeersHandler;
 
         Dictionary<IPEndPoint, object> _makeConnectionList = new Dictionary<IPEndPoint, object>();
         Dictionary<IPEndPoint, object> _makeVirtualConnectionList = new Dictionary<IPEndPoint, object>();
@@ -111,7 +111,7 @@ namespace BitChatClient.Network.Connections
 
         #region constructor
 
-        public ConnectionManager(BitChatProfile profile, BitChatNetworkChannelRequest channelRequestHandler, TcpRelayPeersAvailable tcpRelayPeersHandler)
+        public ConnectionManager(BitChatProfile profile)
         {
             IPEndPoint localEP;
 
@@ -171,8 +171,6 @@ namespace BitChatClient.Network.Connections
 
             _localPort = (_tcpListener.LocalEndPoint as IPEndPoint).Port;
             _localPeerID = BinaryID.GenerateRandomID160();
-            _channelRequestHandler = channelRequestHandler;
-            _tcpRelayPeersHandler = tcpRelayPeersHandler;
 
             //start dht
             _dhtClient = new DhtClient(_localPort, this);
@@ -360,12 +358,15 @@ namespace BitChatClient.Network.Connections
                 }
 
                 //add connection
-                Connection connection = new Connection(networkStream, remotePeerID, remotePeerEP, this, _channelRequestHandler, _tcpRelayPeersHandler, ProcessDhtPacketDataAsync);
+                Connection connection = new Connection(networkStream, remotePeerID, remotePeerEP, this);
                 _connectionListByConnectionID.Add(remotePeerEP, connection);
                 _connectionListByPeerID.Add(remotePeerID, connection);
 
                 //set event handlers
-                connection.BitChatNetworkInvitation += Connection_BitChatNetworkInvitation; ;
+                connection.BitChatNetworkInvitation += Connection_BitChatNetworkInvitation;
+                connection.BitChatNetworkChannelRequest += BitChatNetworkChannelRequest;
+                connection.TcpRelayPeersAvailable += TcpRelayPeersAvailable;
+                connection.Disposed += Connection_Disposed;
 
                 //start service
                 connection.Start();
@@ -425,6 +426,22 @@ namespace BitChatClient.Network.Connections
             }
         }
 
+        private void Connection_Disposed(object sender, EventArgs e)
+        {
+            //remove connection from connection manager
+            Connection connection = sender as Connection;
+            IPEndPoint remotePeerEP = connection.RemotePeerEP;
+
+            if ((remotePeerEP.AddressFamily == AddressFamily.InterNetworkV6) && (remotePeerEP.Address.ScopeId != 0))
+                remotePeerEP = new IPEndPoint(new IPAddress(remotePeerEP.Address.GetAddressBytes()), remotePeerEP.Port);
+
+            lock (_connectionListByConnectionID)
+            {
+                _connectionListByConnectionID.Remove(remotePeerEP);
+                _connectionListByPeerID.Remove(connection.RemotePeerID);
+            }
+        }
+
         private bool AllowNewConnection(IPEndPoint existingIP, IPEndPoint newIP)
         {
             if (existingIP.AddressFamily != newIP.AddressFamily)
@@ -458,20 +475,6 @@ namespace BitChatClient.Network.Connections
                     return _connectionListByConnectionID[remotePeerEP];
 
                 return null;
-            }
-        }
-
-        internal void RemoveConnection(Connection connection)
-        {
-            IPEndPoint remotePeerEP = connection.RemotePeerEP;
-
-            if ((remotePeerEP.AddressFamily == AddressFamily.InterNetworkV6) && (remotePeerEP.Address.ScopeId != 0))
-                remotePeerEP = new IPEndPoint(new IPAddress(remotePeerEP.Address.GetAddressBytes()), remotePeerEP.Port);
-
-            lock (_connectionListByConnectionID)
-            {
-                _connectionListByConnectionID.Remove(remotePeerEP);
-                _connectionListByPeerID.Remove(connection.RemotePeerID);
             }
         }
 
@@ -653,19 +656,6 @@ namespace BitChatClient.Network.Connections
                 //stop tcp relay for all networks since this client switched to proxy and can no longer provide tcp relay service
                 TcpRelayService.StopAllTcpRelays();
             }
-        }
-
-        private void ProcessDhtPacketDataAsync(Connection viaConnection, byte[] dhtPacketData)
-        {
-            try
-            {
-                byte[] response = _dhtClient.ProcessPacket(dhtPacketData, viaConnection.RemotePeerEP.Address);
-
-                if (response != null)
-                    viaConnection.SendDhtPacket(response, 0, response.Length);
-            }
-            catch
-            { }
         }
 
         #endregion
@@ -1183,9 +1173,6 @@ namespace BitChatClient.Network.Connections
 
         public DhtClient DhtClient
         { get { return _dhtClient; } }
-
-        public BitChatProfile Profile
-        { get { return _profile; } }
 
         #endregion
     }

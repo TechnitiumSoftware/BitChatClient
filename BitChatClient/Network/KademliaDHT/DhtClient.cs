@@ -915,9 +915,9 @@ namespace BitChatClient.Network.KademliaDHT
 
         #region public
 
-        public byte[] ProcessPacket(byte[] dhtPacket, IPAddress remoteNodeIP)
+        public byte[] ProcessPacket(byte[] dhtPacket, int offset, int count, IPAddress remoteNodeIP)
         {
-            using (MemoryStream mS = new MemoryStream(dhtPacket))
+            using (MemoryStream mS = new MemoryStream(dhtPacket, offset, count, false))
             {
                 DhtRpcPacket response = ProcessPacket(new DhtRpcPacket(mS, remoteNodeIP));
 

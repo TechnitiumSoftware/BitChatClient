@@ -317,9 +317,11 @@ namespace BitChatClient
 
                 _maskedEmailAddress = BitChatNetwork.GetMaskedEmailAddress(_profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress);
 
-                _connectionManager = new ConnectionManager(_profile, BitChatNetworkChannelRequest, TcpRelayPeersAvailable);
+                _connectionManager = new ConnectionManager(_profile);
                 _connectionManager.InternetConnectivityStatusChanged += ConnectionManager_InternetConnectivityStatusChanged;
                 _connectionManager.BitChatNetworkChannelInvitation += ConnectionManager_BitChatNetworkChannelInvitation;
+                _connectionManager.BitChatNetworkChannelRequest += ConnectionManager_BitChatNetworkChannelRequest;
+                _connectionManager.TcpRelayPeersAvailable += ConnectionManager_TcpRelayPeersAvailable;
 
                 LocalPeerDiscovery.StartListener(41733);
                 _localDiscovery = new LocalPeerDiscovery(_connectionManager.LocalPort);
@@ -792,6 +794,39 @@ namespace BitChatClient
                 _service.CreateBitChat(networkID, peerEP, message);
             }
 
+            private void ConnectionManager_BitChatNetworkChannelRequest(Connection connection, BinaryID channelName, Stream channel)
+            {
+                try
+                {
+                    BitChatNetwork network = FindBitChatNetwork(connection, channelName);
+
+                    if (network == null)
+                    {
+                        channel.Dispose();
+                        return;
+                    }
+
+                    network.AcceptConnectionAndJoinNetwork(connection, channel);
+                }
+                catch
+                {
+                    channel.Dispose();
+                }
+            }
+
+            private void ConnectionManager_TcpRelayPeersAvailable(Connection viaConnection, BinaryID channelName, List<IPEndPoint> peerEPs)
+            {
+                try
+                {
+                    BitChatNetwork network = FindBitChatNetwork(viaConnection, channelName);
+
+                    if (network != null)
+                        network.MakeConnection(viaConnection, peerEPs);
+                }
+                catch
+                { }
+            }
+
             private BitChatNetwork FindBitChatNetwork(Connection connection, BinaryID channelName)
             {
                 //find network by channel name
@@ -812,39 +847,6 @@ namespace BitChatClient
                 }
 
                 return null;
-            }
-
-            private void BitChatNetworkChannelRequest(Connection connection, BinaryID channelName, Stream channel)
-            {
-                try
-                {
-                    BitChatNetwork network = FindBitChatNetwork(connection, channelName);
-
-                    if (network == null)
-                    {
-                        channel.Dispose();
-                        return;
-                    }
-
-                    network.AcceptConnectionAndJoinNetwork(connection, channel);
-                }
-                catch
-                {
-                    channel.Dispose();
-                }
-            }
-
-            private void TcpRelayPeersAvailable(Connection viaConnection, BinaryID channelName, IEnumerable<IPEndPoint> peerEPs)
-            {
-                try
-                {
-                    BitChatNetwork network = FindBitChatNetwork(viaConnection, channelName);
-
-                    if (network != null)
-                        network.MakeConnection(viaConnection, peerEPs);
-                }
-                catch
-                { }
             }
 
             public void ReCheckConnectivity()
