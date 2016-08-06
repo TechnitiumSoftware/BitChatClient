@@ -98,6 +98,10 @@ namespace BitChatClient.Network.Connections
         InternetGatewayDevice _upnpDevice;
         UPnPDeviceStatus _upnpDeviceStatus = UPnPDeviceStatus.Identifying;
 
+        //received invitations
+        Dictionary<IPEndPoint, DateTime> _receivedInvitations = new Dictionary<IPEndPoint, DateTime>(10);
+        const int INVITATION_INFO_EXPIRY_MINUTES = 15;
+
         int _localPort;
         IPAddress _localLiveIP = null;
         IPAddress _upnpExternalIP = null;
@@ -361,13 +365,63 @@ namespace BitChatClient.Network.Connections
                 _connectionListByPeerID.Add(remotePeerID, connection);
 
                 //set event handlers
-                if (BitChatNetworkChannelInvitation != null)
-                    connection.BitChatNetworkInvitation += BitChatNetworkChannelInvitation;
+                connection.BitChatNetworkInvitation += Connection_BitChatNetworkInvitation; ;
 
                 //start service
                 connection.Start();
 
                 return connection;
+            }
+        }
+
+        private void Connection_BitChatNetworkInvitation(BinaryID networkID, IPEndPoint peerEP, string message)
+        {
+            //this method is called async by the event
+            //this mechanism prevents multiple invitations events from same peerEP
+            try
+            {
+                lock (_receivedInvitations)
+                {
+                    if (_receivedInvitations.ContainsKey(peerEP))
+                    {
+                        //check for expiry
+                        DateTime receivedOn = _receivedInvitations[peerEP];
+                        DateTime currentTime = DateTime.UtcNow;
+
+                        if (receivedOn.AddMinutes(INVITATION_INFO_EXPIRY_MINUTES) > currentTime)
+                            return; //current entry still not expired so dont invoke the event to UI
+
+                        //update received on time
+                        _receivedInvitations[peerEP] = currentTime;
+                    }
+                    else
+                    {
+                        //add entry
+                        _receivedInvitations.Add(peerEP, DateTime.UtcNow);
+                    }
+                }
+
+                BitChatNetworkChannelInvitation?.Invoke(networkID, peerEP, message);
+            }
+            catch
+            { }
+            finally
+            {
+                //remove expired entries
+                lock (_receivedInvitations)
+                {
+                    List<IPEndPoint> removeList = new List<IPEndPoint>(5);
+                    DateTime currentTime = DateTime.UtcNow;
+
+                    foreach (KeyValuePair<IPEndPoint, DateTime> item in _receivedInvitations)
+                    {
+                        if (item.Value.AddMinutes(INVITATION_INFO_EXPIRY_MINUTES) < currentTime)
+                            removeList.Add(item.Key);
+                    }
+
+                    foreach (IPEndPoint key in removeList)
+                        _receivedInvitations.Remove(key);
+                }
             }
         }
 
