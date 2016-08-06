@@ -260,7 +260,7 @@ namespace BitChatClient
 
         public void ReCheckConnectivity()
         {
-            _internal.ReCheckConnectivity();
+            _internal.ConnectionManager.ReCheckConnectivity();
         }
 
         #endregion
@@ -270,12 +270,42 @@ namespace BitChatClient
         public BitChatProfile Profile
         { get { return _profile; } }
 
-        public INetworkInfo NetworkInfo
-        { get { return _internal; } }
+        public BinaryID LocalPeerID
+        { get { return _internal.ConnectionManager.LocalPeerID; } }
+
+        public int LocalPort
+        { get { return _internal.ConnectionManager.LocalPort; } }
+
+        public BinaryID DhtNodeID
+        { get { return _internal.ConnectionManager.DhtClient.LocalNodeID; } }
+
+        public int DhtLocalPort
+        { get { return _internal.ConnectionManager.DhtClient.LocalPort; } }
+
+        public int DhtTotalNodes
+        { get { return _internal.ConnectionManager.DhtClient.GetTotalNodes(); } }
+
+        public InternetConnectivityStatus InternetStatus
+        { get { return _internal.ConnectionManager.InternetStatus; } }
+
+        public UPnPDeviceStatus UPnPStatus
+        { get { return _internal.ConnectionManager.UPnPStatus; } }
+
+        public IPAddress UPnPDeviceIP
+        { get { return _internal.ConnectionManager.UPnPDeviceIP; } }
+
+        public IPAddress UPnPExternalIP
+        { get { return _internal.ConnectionManager.UPnPExternalIP; } }
+
+        public IPEndPoint ExternalEndPoint
+        { get { return _internal.ConnectionManager.ExternalEndPoint; } }
+
+        public IPEndPoint[] TcpRelayNodes
+        { get { return _internal.TcpRelayNodes; } }
 
         #endregion
 
-        private class InternalBitChatService : IBitChatNetworkManager, ISecureChannelSecurityManager, INetworkInfo, IDisposable
+        private class InternalBitChatService : IBitChatNetworkManager, ISecureChannelSecurityManager, IDisposable
         {
             #region variables
 
@@ -819,11 +849,6 @@ namespace BitChatClient
                 return null;
             }
 
-            public void ReCheckConnectivity()
-            {
-                _connectionManager.ReCheckConnectivity();
-            }
-
             #endregion
 
             #region ISecureChannelSecurityManager support
@@ -837,35 +862,8 @@ namespace BitChatClient
 
             #region properties
 
-            public BinaryID LocalPeerID
-            { get { return _connectionManager.LocalPeerID; } }
-
-            public int LocalPort
-            { get { return _connectionManager.LocalPort; } }
-
-            public BinaryID DhtNodeID
-            { get { return _connectionManager.DhtClient.LocalNodeID; } }
-
-            public int DhtLocalPort
-            { get { return _connectionManager.DhtClient.LocalPort; } }
-
-            public int DhtTotalNodes
-            { get { return _connectionManager.DhtClient.GetTotalNodes(); } }
-
-            public InternetConnectivityStatus InternetStatus
-            { get { return _connectionManager.InternetStatus; } }
-
-            public UPnPDeviceStatus UPnPStatus
-            { get { return _connectionManager.UPnPStatus; } }
-
-            public IPAddress UPnPDeviceIP
-            { get { return _connectionManager.UPnPDeviceIP; } }
-
-            public IPAddress UPnPExternalIP
-            { get { return _connectionManager.UPnPExternalIP; } }
-
-            public IPEndPoint ExternalEndPoint
-            { get { return _connectionManager.ExternalEndPoint; } }
+            public ConnectionManager ConnectionManager
+            { get { return _connectionManager; } }
 
             public IPEndPoint[] TcpRelayNodes
             {
