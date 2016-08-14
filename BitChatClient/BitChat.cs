@@ -458,13 +458,20 @@ namespace BitChatClient
 
             lock (_peers)
             {
-                msgRcpt = new MessageRecipient[_peers.Count];
-                int i = 0;
-
-                foreach (Peer peer in _peers)
+                if (_peers.Count > 1)
                 {
-                    if (!peer.IsSelf)
-                        msgRcpt[i++] = new MessageRecipient(peer.PeerCertificate.IssuedTo.EmailAddress.Address);
+                    msgRcpt = new MessageRecipient[_peers.Count - 1];
+                    int i = 0;
+
+                    foreach (Peer peer in _peers)
+                    {
+                        if (!peer.IsSelf)
+                            msgRcpt[i++] = new MessageRecipient(peer.PeerCertificate.IssuedTo.EmailAddress.Address);
+                    }
+                }
+                else
+                {
+                    msgRcpt = new MessageRecipient[] { };
                 }
             }
 
