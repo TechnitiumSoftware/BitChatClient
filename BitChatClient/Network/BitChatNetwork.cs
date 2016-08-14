@@ -72,24 +72,25 @@ namespace BitChatClient.Network
         static readonly byte[] EMAIL_ADDRESS_HASH_SALT = new byte[] { 0x49, 0x42, 0x0C, 0x52, 0xC9, 0x3C, 0x5E, 0xB6, 0xAD, 0x83, 0x3F, 0x08, 0xBA, 0xD9, 0xB9, 0x6E, 0x23, 0x8F, 0xDC, 0xF3 };
         static readonly byte[] EMAIL_ADDRESS_MASK_SALT = new byte[] { 0x55, 0xBB, 0xB8, 0x5C, 0x21, 0xB3, 0xC3, 0x34, 0xBE, 0xF4, 0x4D, 0x9D, 0xD0, 0xAC, 0x8E, 0x8A, 0xE8, 0xED, 0x28, 0x3E };
 
-        BitChatNetworkType _type;
-        BitChatProfile _profile;
-        ConnectionManager _connectionManager;
-        Certificate[] _trustedRootCertificates;
-        SecureChannelCryptoOptionFlags _supportedCryptoOptions;
+        readonly BitChatNetworkType _type;
+        readonly BitChatProfile _profile;
+        readonly ConnectionManager _connectionManager;
+        readonly Certificate[] _trustedRootCertificates;
+        readonly SecureChannelCryptoOptionFlags _supportedCryptoOptions;
         MailAddress _peerEmailAddress;
-        string _networkName;
-        string _sharedSecret;
-        BinaryID _networkID;
+        readonly string _networkName;
+        readonly string _sharedSecret;
+        readonly BinaryID _networkID;
         BitChatNetworkStatus _status;
-        string _invitationSender;
-        string _invitationMessage;
+        readonly string _invitationSender;
+        readonly string _invitationMessage;
 
         string _peerName;
         BinaryID _maskedPeerEmailAddress;
 
         VirtualPeer _selfPeer;
-        Dictionary<string, VirtualPeer> _virtualPeers = new Dictionary<string, VirtualPeer>();
+        readonly ReaderWriterLockSlim _virtualPeersLock = new ReaderWriterLockSlim();
+        readonly Dictionary<string, VirtualPeer> _virtualPeers = new Dictionary<string, VirtualPeer>();
 
         #endregion
 
@@ -159,7 +160,8 @@ namespace BitChatClient.Network
             {
                 if (!_disposed)
                 {
-                    lock (_virtualPeers)
+                    _virtualPeersLock.EnterWriteLock();
+                    try
                     {
                         foreach (KeyValuePair<string, VirtualPeer> vPeer in _virtualPeers)
                         {
@@ -178,6 +180,10 @@ namespace BitChatClient.Network
                             _selfPeer.Dispose();
                             _selfPeer = null;
                         }
+                    }
+                    finally
+                    {
+                        _virtualPeersLock.ExitWriteLock();
                     }
 
                     _disposed = true;
@@ -351,7 +357,8 @@ namespace BitChatClient.Network
             VirtualPeer vPeer;
             bool peerAdded = false;
 
-            lock (_virtualPeers)
+            _virtualPeersLock.EnterWriteLock();
+            try
             {
                 if (_virtualPeers.ContainsKey(peerID))
                 {
@@ -364,6 +371,10 @@ namespace BitChatClient.Network
 
                     peerAdded = true;
                 }
+            }
+            finally
+            {
+                _virtualPeersLock.ExitWriteLock();
             }
 
             if (peerAdded)
@@ -381,13 +392,18 @@ namespace BitChatClient.Network
         private bool IsPeerConnected(IPEndPoint peerEP)
         {
             //check if peer already connected
-            lock (_virtualPeers)
+            _virtualPeersLock.EnterReadLock();
+            try
             {
                 foreach (KeyValuePair<string, VirtualPeer> vPeer in _virtualPeers)
                 {
                     if (vPeer.Value.IsOnline && vPeer.Value.isConnectedVia(peerEP))
                         return true;
                 }
+            }
+            finally
+            {
+                _virtualPeersLock.ExitReadLock();
             }
 
             return false;
@@ -432,15 +448,20 @@ namespace BitChatClient.Network
 
         public VirtualPeer[] GetVirtualPeerList()
         {
-            List<VirtualPeer> peerList = new List<VirtualPeer>(_virtualPeers.Count);
+            VirtualPeer[] peerList;
 
-            lock (_virtualPeers)
+            _virtualPeersLock.EnterReadLock();
+            try
             {
-                foreach (KeyValuePair<string, VirtualPeer> vPeer in _virtualPeers)
-                    peerList.Add(vPeer.Value);
+                peerList = new VirtualPeer[_virtualPeers.Count];
+                _virtualPeers.Values.CopyTo(peerList, 0);
+            }
+            finally
+            {
+                _virtualPeersLock.ExitReadLock();
             }
 
-            return peerList.ToArray();
+            return peerList;
         }
 
         public void SendInvitation(IEnumerable<IPEndPoint> peerEPs)
@@ -518,10 +539,13 @@ namespace BitChatClient.Network
 
         public List<PeerInfo> GetConnectedPeerList()
         {
-            List<PeerInfo> connectedPeers = new List<PeerInfo>();
+            List<PeerInfo> connectedPeers;
 
-            lock (_virtualPeers)
+            _virtualPeersLock.EnterReadLock();
+            try
             {
+                connectedPeers = new List<PeerInfo>(_virtualPeers.Count);
+
                 foreach (KeyValuePair<string, VirtualPeer> item in _virtualPeers)
                 {
                     VirtualPeer vPeer = item.Value;
@@ -530,13 +554,18 @@ namespace BitChatClient.Network
                         connectedPeers.Add(vPeer.GetPeerInfo());
                 }
             }
+            finally
+            {
+                _virtualPeersLock.ExitReadLock();
+            }
 
             return connectedPeers;
         }
 
         public void WriteMessageBroadcast(byte[] data, int offset, int count)
         {
-            lock (_virtualPeers)
+            _virtualPeersLock.EnterReadLock();
+            try
             {
                 foreach (KeyValuePair<string, VirtualPeer> vPeer in _virtualPeers)
                 {
@@ -549,18 +578,27 @@ namespace BitChatClient.Network
                     { }
                 }
             }
+            finally
+            {
+                _virtualPeersLock.ExitReadLock();
+            }
         }
 
         public void GoOffline()
         {
             if (_status == BitChatNetworkStatus.Online)
             {
-                lock (_virtualPeers)
+                _virtualPeersLock.EnterReadLock();
+                try
                 {
                     foreach (KeyValuePair<string, VirtualPeer> vPeer in _virtualPeers)
                     {
                         vPeer.Value.Disconnect();
                     }
+                }
+                finally
+                {
+                    _virtualPeersLock.ExitReadLock();
                 }
 
                 _status = BitChatNetworkStatus.Offline;
@@ -770,8 +808,7 @@ namespace BitChatClient.Network
                     }
                     else
                     {
-                        if (_network.VirtualPeerSecureChannelException != null)
-                            _network.VirtualPeerSecureChannelException(_network, ex);
+                        _network.VirtualPeerSecureChannelException?.Invoke(_network, ex);
                     }
                 }
                 catch (ThreadAbortException)
@@ -805,8 +842,7 @@ namespace BitChatClient.Network
                             if (totalStreamsAvailable == 0)
                                 _isOnline = false;
 
-                            if (StreamStateChanged != null)
-                                StreamStateChanged(this, EventArgs.Empty);
+                            StreamStateChanged?.Invoke(this, EventArgs.Empty);
                         }
                     }
 
@@ -864,10 +900,7 @@ namespace BitChatClient.Network
                     else
                     {
                         if (!_peerCert.Equals(stream.RemotePeerCertificate))
-                        {
-                            if (_network.VirtualPeerHasChangedCertificate != null)
-                                _network.VirtualPeerHasChangedCertificate(_network, stream.RemotePeerCertificate);
-                        }
+                            _network.VirtualPeerHasChangedCertificate?.Invoke(_network, stream.RemotePeerCertificate);
 
                         _peerCert = stream.RemotePeerCertificate;
                     }
@@ -889,8 +922,7 @@ namespace BitChatClient.Network
                 {
                     _isOnline = true;
 
-                    if (StreamStateChanged != null)
-                        StreamStateChanged(this, EventArgs.Empty);
+                    StreamStateChanged?.Invoke(this, EventArgs.Empty);
                 }
             }
 
