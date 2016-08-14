@@ -72,6 +72,7 @@
     <Compile Include="IDebug.cs" />
     <Compile Include="IPEndPointParser.cs" />
     <Compile Include="MessageItem.cs" />
+    <Compile Include="MessageRecipient.cs" />
     <Compile Include="MessageStore.cs" />
     <Compile Include="Network\KademliaDHT\DhtClient.cs" />
     <Compile Include="Network\KademliaDHT\IDhtClientManager.cs" />

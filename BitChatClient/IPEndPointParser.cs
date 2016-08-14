@@ -25,7 +25,7 @@ using TechnitiumLibrary.IO;
 
 namespace BitChatClient
 {
-    public static class IPEndPointParser
+    static class IPEndPointParser
     {
         #region static
 
