@@ -96,7 +96,6 @@ namespace BitChatClient
             {
                 //encrypt message data
                 byte[] encryptedData;
-
                 using (MemoryStream mS = new MemoryStream(count))
                 {
                     using (MemoryStream src = new MemoryStream(data, offset, count))
@@ -123,6 +122,7 @@ namespace BitChatClient
                 //get message offset
                 uint messageOffset = Convert.ToUInt32(_data.Position);
 
+                //write data
                 BincodingEncoder encoder = new BincodingEncoder(_data);
 
                 encoder.Encode((byte)1); //version
@@ -135,6 +135,100 @@ namespace BitChatClient
 
                 //return message number
                 return Convert.ToInt32(_index.Position / 4) - 1;
+            }
+        }
+
+        public void UpdateMessage(int number, byte[] data, int offset, int count)
+        {
+            lock (_lock)
+            {
+                //seek to index location
+                int indexPosition = number * 4;
+
+                if (indexPosition >= _index.Length)
+                    throw new IOException("Cannot read message from message store: message number out of range.");
+
+                _index.Position = indexPosition;
+
+                //read message offset
+                byte[] buffer = new byte[4];
+                _index.Read(buffer, 0, 4);
+                uint messageOffset = BitConverter.ToUInt32(buffer, 0);
+
+                //seek to message offset
+                _data.Position = messageOffset;
+
+                //read data
+                BincodingDecoder decoder = new BincodingDecoder(_data);
+                byte[] existingEncryptedData;
+
+                switch (decoder.DecodeNext().GetByteValue()) //version
+                {
+                    case 1:
+                        decoder.DecodeNext();
+                        existingEncryptedData = decoder.DecodeNext().Value;
+                        break;
+
+                    default:
+                        throw new IOException("Cannot read message from message store: message version not supported.");
+                }
+
+                //encrypt message data
+                byte[] newEncryptedData;
+                using (MemoryStream mS = new MemoryStream(count))
+                {
+                    using (MemoryStream src = new MemoryStream(data, offset, count))
+                    {
+                        _crypto.GenerateIV();
+                        _crypto.Encrypt(src, mS);
+                    }
+
+                    newEncryptedData = mS.ToArray();
+                }
+
+                byte[] aeHmac;
+                using (HMAC hmac = new HMACSHA256(_key))
+                {
+                    aeHmac = hmac.ComputeHash(newEncryptedData);
+                }
+
+                bool lengthIsInLimit = (newEncryptedData.Length <= existingEncryptedData.Length);
+
+                if (lengthIsInLimit)
+                {
+                    //seek to message offset
+                    _data.Position = messageOffset;
+
+                    //overwrite new data
+                    BincodingEncoder encoder = new BincodingEncoder(_data);
+
+                    encoder.Encode((byte)1); //version
+                    encoder.Encode(_crypto.IV);
+                    encoder.Encode(newEncryptedData);
+                    encoder.Encode(aeHmac);
+                }
+                else
+                {
+                    //seek to index location
+                    _index.Position = number * 4;
+
+                    //seek to end of data stream
+                    _data.Position = _data.Length;
+
+                    //get message offset
+                    messageOffset = Convert.ToUInt32(_data.Position);
+
+                    //write data
+                    BincodingEncoder encoder = new BincodingEncoder(_data);
+
+                    encoder.Encode((byte)1); //version
+                    encoder.Encode(_crypto.IV);
+                    encoder.Encode(newEncryptedData);
+                    encoder.Encode(aeHmac);
+
+                    //overwrite message offset to index stream
+                    _index.Write(BitConverter.GetBytes(messageOffset), 0, 4);
+                }
             }
         }
 
