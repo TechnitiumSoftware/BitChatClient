@@ -30,17 +30,16 @@ namespace BitChatClient
         NOOP = 0,
         PeerExchange = 1,
         Text = 2,
-        TypingNotification = 3,
-        FileAdvertisement = 4,
-        FileShareParticipate = 5,
-        FileShareUnparticipate = 6,
-        FileBlockWanted = 7,
-        FileBlockAvailable = 8,
-        FileBlockRequest = 9,
-        FileBlockResponse = 10,
-        ProfileImageSmall = 11,
-        ProfileImageLarge = 12,
-        TextDeliveryNotification = 13
+        TextDeliveryNotification = 3,
+        TypingNotification = 4,
+        ProfileImage = 5,
+        FileAdvertisement = 10,
+        FileShareParticipate = 11,
+        FileShareUnparticipate = 12,
+        FileBlockWanted = 13,
+        FileBlockAvailable = 14,
+        FileBlockRequest = 15,
+        FileBlockResponse = 16
     }
 
     class BitChatMessage
@@ -176,24 +175,11 @@ namespace BitChatClient
             }
         }
 
-        public static byte[] CreateProfileImageSmall(byte[] image)
+        public static byte[] CreateProfileImage(byte[] image)
         {
             using (MemoryStream mS = new MemoryStream(4096))
             {
-                mS.WriteByte((byte)BitChatMessageType.ProfileImageSmall); //1 byte
-
-                if (image != null)
-                    mS.Write(image, 0, image.Length);
-
-                return mS.ToArray();
-            }
-        }
-
-        public static byte[] CreateProfileImageLarge(byte[] image)
-        {
-            using (MemoryStream mS = new MemoryStream(4096))
-            {
-                mS.WriteByte((byte)BitChatMessageType.ProfileImageLarge); //1 byte
+                mS.WriteByte((byte)BitChatMessageType.ProfileImage); //1 byte
 
                 if (image != null)
                     mS.Write(image, 0, image.Length);

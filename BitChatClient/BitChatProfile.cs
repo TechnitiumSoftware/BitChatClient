@@ -81,8 +81,7 @@ namespace BitChatClient
         readonly string _portableDownloadFolder;
 
         CertificateStore _localCertStore;
-        byte[] _profileImageSmall = null;
-        byte[] _profileImageLarge = null;
+        byte[] _profileImage = null;
 
         int _localPort;
         string _downloadFolder;
@@ -315,12 +314,9 @@ namespace BitChatClient
                         _localCertStore = new CertificateStore(item.Value.GetValueStream());
                         break;
 
-                    case "profile_image_small":
-                        _profileImageSmall = item.Value.Value;
-                        break;
-
+                    case "profile_image":
                     case "profile_image_large":
-                        _profileImageLarge = item.Value.Value;
+                        _profileImage = item.Value.Value;
                         break;
 
                     case "tracker_list":
@@ -438,11 +434,8 @@ namespace BitChatClient
                 encoder.Encode("local_cert_store", _localCertStore);
 
             //profile image
-            if (_profileImageSmall != null)
-                encoder.Encode("profile_image_small", _profileImageSmall);
-
-            if (_profileImageLarge != null)
-                encoder.Encode("profile_image_large", _profileImageLarge);
+            if (_profileImage != null)
+                encoder.Encode("profile_image", _profileImage);
 
             //tracker urls
             {
@@ -539,12 +532,9 @@ namespace BitChatClient
             ProxyUpdated?.Invoke(this, EventArgs.Empty);
         }
 
-        public void SetProfileImage(byte[] imageSmall, byte[] imageLarge)
+        internal void SetProfileImage(byte[] image)
         {
-            _profileImageSmall = imageSmall;
-            _profileImageLarge = imageLarge;
-
-            ProfileImageChanged?.Invoke(this, EventArgs.Empty);
+            _profileImage = image;
         }
 
         public bool ProceedConnection(Certificate remoteCertificate)
@@ -565,16 +555,15 @@ namespace BitChatClient
         public CertificateStore LocalCertificateStore
         { get { return _localCertStore; } }
 
-        public byte[] ProfileImageSmall
+        public byte[] ProfileImage
         {
-            get { return _profileImageSmall; }
-            set { _profileImageSmall = value; }
-        }
+            get { return _profileImage; }
+            set
+            {
+                _profileImage = value;
 
-        public byte[] ProfileImageLarge
-        {
-            get { return _profileImageLarge; }
-            set { _profileImageLarge = value; }
+                ProfileImageChanged?.Invoke(this, EventArgs.Empty);
+            }
         }
 
         public int LocalPort
