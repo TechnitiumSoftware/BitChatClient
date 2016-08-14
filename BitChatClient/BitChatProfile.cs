@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2016  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -44,7 +44,7 @@ namespace BitChatClient
 
         #region variables
 
-        public static Uri[] DefaultTrackerURIs
+        public readonly static Uri[] DefaultTrackerURIs
             = new Uri[]
             {
                 new Uri("udp://tracker.publicbt.com:80"),
@@ -75,10 +75,10 @@ namespace BitChatClient
                 new Uri("http://tracker.ilibr.org:6969/announce")
             };
 
-        bool _isPortableApp;
-        string _profileFolder;
+        readonly bool _isPortableApp;
+        readonly string _profileFolder;
 
-        string _portableDownloadFolder;
+        readonly string _portableDownloadFolder;
 
         CertificateStore _localCertStore;
         byte[] _profileImageSmall = null;
@@ -181,6 +181,33 @@ namespace BitChatClient
         public void Register(Uri apiUri, CertificateStore localCertStore)
         {
             _localCertStore = localCertStore;
+
+            //check if email address domain exists
+            {
+                DnsClient dns = new DnsClient(IPAddress.Parse("8.8.8.8"));
+
+                try
+                {
+                    dns.ResolveMX(_localCertStore.Certificate.IssuedTo.EmailAddress);
+                }
+                catch (NameErrorDnsClientException ex)
+                {
+                    throw new NameErrorDnsClientException("Error encountered while resolving domain '" + _localCertStore.Certificate.IssuedTo.EmailAddress.Host + "'. Please check if you have entered correct email address.", ex);
+                }
+                catch
+                {
+                    try
+                    {
+                        DnsDatagram response = DnsClient.ResolveViaRootNameServers(_localCertStore.Certificate.IssuedTo.EmailAddress.Host, DnsRecordType.MX);
+                    }
+                    catch (NameErrorDnsClientException ex)
+                    {
+                        throw new NameErrorDnsClientException("Error encountered while resolving domain '" + _localCertStore.Certificate.IssuedTo.EmailAddress.Host + "'. Please check if you have entered correct email address.", ex);
+                    }
+                    catch
+                    { }
+                }
+            }
 
             //verify self signed cert
             _localCertStore.Certificate.Verify(new Certificate[] { _localCertStore.Certificate });
@@ -628,20 +655,20 @@ namespace BitChatClient
         {
             #region variables
 
-            BitChatNetworkType _type = BitChatNetworkType.GroupChat;
-            string _networkNameOrPeerEmailAddress;
-            string _sharedSecret;
-            BinaryID _networkID;
-            string _messageStoreID;
-            byte[] _messageStoreKey;
-            Certificate[] _peerCerts = new Certificate[] { };
-            SharedFileInfo[] _sharedFiles = new SharedFileInfo[] { };
-            Uri[] _trackerURIs = new Uri[] { };
-            bool _enableTracking = true;
-            bool _sendInvitation = false;
-            string _invitationSender;
-            string _invitationMessage;
-            BitChatNetworkStatus _networkStatus = BitChatNetworkStatus.Online;
+            readonly BitChatNetworkType _type = BitChatNetworkType.GroupChat;
+            readonly string _networkNameOrPeerEmailAddress;
+            readonly string _sharedSecret;
+            readonly BinaryID _networkID;
+            readonly string _messageStoreID;
+            readonly byte[] _messageStoreKey;
+            readonly Certificate[] _peerCerts = new Certificate[] { };
+            readonly SharedFileInfo[] _sharedFiles = new SharedFileInfo[] { };
+            readonly Uri[] _trackerURIs = new Uri[] { };
+            readonly bool _enableTracking = true;
+            readonly bool _sendInvitation = false;
+            readonly string _invitationSender;
+            readonly string _invitationMessage;
+            readonly BitChatNetworkStatus _networkStatus = BitChatNetworkStatus.Online;
 
             #endregion
 
@@ -796,23 +823,8 @@ namespace BitChatClient
                 encoder.Encode("message_store_id", _messageStoreID);
                 encoder.Encode("message_store_key", _messageStoreKey);
 
-                {
-                    List<Bincoding> peerCerts = new List<Bincoding>(_peerCerts.Length);
-
-                    foreach (Certificate peerCert in _peerCerts)
-                        peerCerts.Add(Bincoding.GetValue(peerCert));
-
-                    encoder.Encode("peer_certs", peerCerts);
-                }
-
-                {
-                    List<Bincoding> sharedFiles = new List<Bincoding>(_sharedFiles.Length);
-
-                    foreach (SharedFileInfo sharedFile in _sharedFiles)
-                        sharedFiles.Add(Bincoding.GetValue(sharedFile));
-
-                    encoder.Encode("shared_files", sharedFiles);
-                }
+                encoder.Encode("peer_certs", _peerCerts);
+                encoder.Encode("shared_files", _sharedFiles);
 
                 {
                     List<Bincoding> trackerList = new List<Bincoding>(_sharedFiles.Length);
@@ -908,10 +920,10 @@ namespace BitChatClient
         {
             #region variables
 
-            string _filePath;
-            SharedFileMetaData _fileMetaData;
-            FileBlockState[] _blockAvailable;
-            bool _isPaused;
+            readonly string _filePath;
+            readonly SharedFileMetaData _fileMetaData;
+            readonly FileBlockState[] _blockAvailable;
+            readonly bool _isPaused;
 
             #endregion
 
