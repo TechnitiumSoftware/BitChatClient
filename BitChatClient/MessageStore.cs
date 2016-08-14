@@ -29,11 +29,11 @@ namespace BitChatClient
     {
         #region variables
 
-        Stream _index;
-        Stream _data;
-        byte[] _key;
+        readonly Stream _index;
+        readonly Stream _data;
+        readonly byte[] _key;
 
-        SymmetricCryptoKey _crypto;
+        readonly SymmetricCryptoKey _crypto;
 
         readonly object _lock = new object();
 
@@ -218,7 +218,7 @@ namespace BitChatClient
                     //get message offset
                     messageOffset = Convert.ToUInt32(_data.Position);
 
-                    //write data
+                    //write new data
                     BincodingEncoder encoder = new BincodingEncoder(_data);
 
                     encoder.Encode((byte)1); //version

@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using TechnitiumLibrary.IO;
 
@@ -35,16 +36,21 @@ namespace BitChatClient
 
         int _messageNumber;
 
-        MessageType _type;
-        DateTime _messageDate;
-        string _sender;
-        string _message;
+        readonly MessageType _type;
+        readonly DateTime _messageDate;
+        readonly string _sender;
+        readonly string _message;
+        readonly MessageRecipient[] _recipients;
 
         #endregion
 
         #region constructor
 
         public MessageItem(string sender, string message)
+            : this(sender, message, new MessageRecipient[] { })
+        { }
+
+        public MessageItem(string sender, string message, MessageRecipient[] recipients)
         {
             _messageNumber = -1;
 
@@ -52,6 +58,7 @@ namespace BitChatClient
             _messageDate = DateTime.UtcNow;
             _sender = sender;
             _message = message;
+            _recipients = recipients;
         }
 
         public MessageItem(string info)
@@ -63,13 +70,13 @@ namespace BitChatClient
             _message = info;
         }
 
-        public MessageItem(string info, DateTime infoDate)
+        public MessageItem(DateTime infoDate)
         {
             _messageNumber = -1;
 
             _type = MessageType.Info;
             _messageDate = infoDate;
-            _message = info;
+            _message = "";
         }
 
         public MessageItem(MessageStore store, int messageNumber)
@@ -79,21 +86,39 @@ namespace BitChatClient
 
             using (MemoryStream mS = new MemoryStream(messageData))
             {
-                BincodingDecoder decoder = new BincodingDecoder(mS);
+                BincodingDecoder decoder = new BincodingDecoder(mS, "MI");
 
-                _type = (MessageType)decoder.DecodeNext().GetByteValue();
-                _messageDate = new DateTime(1970, 1, 1).AddSeconds(decoder.DecodeNext().GetULongValue());
-
-                switch (_type)
+                switch (decoder.Version)
                 {
-                    case MessageType.Info:
-                        _message = decoder.DecodeNext().GetStringValue();
+                    case 1:
+                        _type = (MessageType)decoder.DecodeNext().GetByteValue();
+                        _messageDate = decoder.DecodeNext().GetDateTimeValue();
+
+                        switch (_type)
+                        {
+                            case MessageType.Info:
+                                _message = decoder.DecodeNext().GetStringValue();
+                                break;
+
+                            case MessageType.TextMessage:
+                                _sender = decoder.DecodeNext().GetStringValue();
+                                _message = decoder.DecodeNext().GetStringValue();
+
+                                {
+                                    List<Bincoding> rcptDataList = decoder.DecodeNext().GetList();
+
+                                    _recipients = new MessageRecipient[rcptDataList.Count];
+                                    int i = 0;
+
+                                    foreach (Bincoding data in rcptDataList)
+                                        _recipients[i++] = new MessageRecipient(data.GetValueStream());
+                                }
+                                break;
+                        }
                         break;
 
-                    case MessageType.TextMessage:
-                        _sender = decoder.DecodeNext().GetStringValue();
-                        _message = decoder.DecodeNext().GetStringValue();
-                        break;
+                    default:
+                        throw new InvalidDataException("Cannot decode data format: version not supported.");
                 }
             }
         }
@@ -132,15 +157,12 @@ namespace BitChatClient
 
         public void WriteTo(MessageStore store)
         {
-            if (_messageNumber != -1)
-                return;
-
             using (MemoryStream mS = new MemoryStream(128))
             {
-                BincodingEncoder encoder = new BincodingEncoder(mS);
+                BincodingEncoder encoder = new BincodingEncoder(mS, "MI", 1);
 
                 encoder.Encode((byte)_type);
-                encoder.Encode(Convert.ToUInt64((_messageDate - new DateTime(1970, 1, 1)).TotalSeconds));
+                encoder.Encode(_messageDate);
 
                 switch (_type)
                 {
@@ -151,11 +173,19 @@ namespace BitChatClient
                     case MessageType.TextMessage:
                         encoder.Encode(_sender);
                         encoder.Encode(_message);
+                        encoder.Encode(_recipients);
                         break;
+
+                    default:
+                        throw new NotSupportedException("MessageType not supported: " + _type);
                 }
 
                 byte[] messageData = mS.ToArray();
-                _messageNumber = store.WriteMessage(messageData, 0, messageData.Length);
+
+                if (_messageNumber == -1)
+                    _messageNumber = store.WriteMessage(messageData, 0, messageData.Length);
+                else
+                    store.UpdateMessage(_messageNumber, messageData, 0, messageData.Length);
             }
         }
 
@@ -177,6 +207,9 @@ namespace BitChatClient
 
         public string Message
         { get { return _message; } }
+
+        public MessageRecipient[] Recipients
+        { get { return _recipients; } }
 
         #endregion
     }
