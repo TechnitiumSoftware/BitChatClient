@@ -34,6 +34,7 @@ namespace BitChatClient
     public delegate void PeerNotification(BitChat sender, BitChat.Peer peer);
     public delegate void PeerHasRevokedCertificate(BitChat sender, InvalidCertificateException ex);
     public delegate void MessageReceived(BitChat.Peer sender, MessageItem message);
+    public delegate void MessageDeliveryNotification(BitChat.Peer sender, MessageItem message);
     public delegate void FileAdded(BitChat sender, SharedFile sharedFile);
     public delegate void PeerSecureChannelException(BitChat sender, SecureChannelException ex);
     public delegate void PeerHasChangedCertificate(BitChat sender, Certificate cert);
@@ -55,6 +56,7 @@ namespace BitChatClient
         public event PeerSecureChannelException PeerSecureChannelException;
         public event PeerHasChangedCertificate PeerHasChangedCertificate;
         public event MessageReceived MessageReceived;
+        public event MessageDeliveryNotification MessageDeliveryNotification;
         public event FileAdded FileAdded;
         public event EventHandler Leave;
 
@@ -64,23 +66,23 @@ namespace BitChatClient
 
         const int BIT_CHAT_TRACKER_UPDATE_INTERVAL = 120;
 
-        SynchronizationContext _syncCxt;
-        LocalPeerDiscovery _localPeerDiscovery;
-        BitChatNetwork _network;
-        string _messageStoreID;
-        byte[] _messageStoreKey;
+        readonly SynchronizationContext _syncCxt;
+        readonly LocalPeerDiscovery _localPeerDiscovery;
+        readonly BitChatNetwork _network;
+        readonly string _messageStoreID;
+        readonly byte[] _messageStoreKey;
 
-        MessageStore _store;
+        readonly MessageStore _store;
 
-        List<BitChat.Peer> _peers = new List<Peer>();
-        Dictionary<BinaryID, SharedFile> _sharedFiles = new Dictionary<BinaryID, SharedFile>();
+        readonly List<BitChat.Peer> _peers = new List<Peer>();
+        readonly Dictionary<BinaryID, SharedFile> _sharedFiles = new Dictionary<BinaryID, SharedFile>();
 
         //tracker
-        TrackerManager _trackerManager;
+        readonly TrackerManager _trackerManager;
         bool _enableTracking;
 
         //invitation
-        TrackerManager _invitationTrackerClient;
+        readonly TrackerManager _invitationTrackerClient;
         bool _sendInvitation;
 
         //noop timer
@@ -88,7 +90,7 @@ namespace BitChatClient
         Timer _NOOPTimer;
 
         //network status
-        Peer _selfPeer;
+        readonly Peer _selfPeer;
         readonly object _peerListLock = new object();
         List<PeerInfo> _connectedPeerList = new List<PeerInfo>();
         List<PeerInfo> _disconnectedPeerList = new List<PeerInfo>();
@@ -96,7 +98,7 @@ namespace BitChatClient
 
         bool _updateNetworkStatusTriggered;
         bool _updateNetworkStatusRunning;
-        object _updateNetworkStatusLock = new object();
+        readonly object _updateNetworkStatusLock = new object();
         Timer _updateNetworkStatusTimer;
         Timer _reCheckNetworkStatusTimer; // to retry connection to disconnected peers
         const int NETWORK_STATUS_TIMER_INTERVAL = 1000;
@@ -351,6 +353,20 @@ namespace BitChatClient
             catch { }
         }
 
+        private void RaiseEventMessageDeliveryNotification(Peer peer, MessageItem message)
+        {
+            _syncCxt.Post(MessageDeliveryNotificationCallback, new object[] { peer, message });
+        }
+
+        private void MessageDeliveryNotificationCallback(object state)
+        {
+            try
+            {
+                MessageDeliveryNotification((Peer)((object[])state)[0], (MessageItem)((object[])state)[1]);
+            }
+            catch { }
+        }
+
         private void RaiseEventFileAdded(SharedFile file)
         {
             _syncCxt.Post(FileAddedCallback, file);
@@ -438,11 +454,25 @@ namespace BitChatClient
 
         public MessageItem SendTextMessage(string message)
         {
-            byte[] messageData = BitChatMessage.CreateTextMessage(message);
-            _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
+            MessageRecipient[] msgRcpt;
 
-            MessageItem msg = new MessageItem(_network.Profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address, message);
+            lock (_peers)
+            {
+                msgRcpt = new MessageRecipient[_peers.Count];
+                int i = 0;
+
+                foreach (Peer peer in _peers)
+                {
+                    if (!peer.IsSelf)
+                        msgRcpt[i++] = new MessageRecipient(peer.PeerCertificate.IssuedTo.EmailAddress.Address);
+                }
+            }
+
+            MessageItem msg = new MessageItem(_network.Profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address, message, msgRcpt);
             msg.WriteTo(_store);
+
+            byte[] messageData = BitChatMessage.CreateTextMessage(msg);
+            _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
 
             return msg;
         }
@@ -1063,8 +1093,8 @@ namespace BitChatClient
 
             #region variables
 
-            BitChatNetwork.VirtualPeer _virtualPeer;
-            BitChat _bitChat;
+            readonly BitChatNetwork.VirtualPeer _virtualPeer;
+            readonly BitChat _bitChat;
 
             byte[] _profileImageSmall;
             byte[] _profileImageLarge;
@@ -1074,8 +1104,8 @@ namespace BitChatClient
             List<PeerInfo> _disconnectedPeerList = new List<PeerInfo>();
             BitChatConnectivityStatus _connectivityStatus = BitChatConnectivityStatus.NoNetwork;
 
-            bool _isSelfPeer;
-            bool _lastStatus = false;
+            readonly bool _isSelfPeer;
+            bool _previousState = false;
 
             #endregion
 
@@ -1175,9 +1205,9 @@ namespace BitChatClient
 
                 if (!_isSelfPeer)
                 {
-                    if (_lastStatus != _virtualPeer.IsOnline)
+                    if (_previousState != _virtualPeer.IsOnline)
                     {
-                        _lastStatus = _virtualPeer.IsOnline;
+                        _previousState = _virtualPeer.IsOnline;
 
                         if (StateChanged != null)
                             RaiseEventStateChanged();
@@ -1193,17 +1223,17 @@ namespace BitChatClient
                 {
                     case BitChatMessageType.TypingNotification:
                         #region Typing Notification
-                        {
-                            if (_bitChat.PeerTyping != null)
-                                _bitChat.RaiseEventPeerTyping(this);
 
-                            break;
-                        }
-                    #endregion
+                        if (_bitChat.PeerTyping != null)
+                            _bitChat.RaiseEventPeerTyping(this);
+
+                        #endregion
+                        break;
 
                     case BitChatMessageType.Text:
                         #region Text
                         {
+                            int messageNumber = BitChatMessage.ReadInt32(messageDataStream);
                             string message = Encoding.UTF8.GetString(BitChatMessage.ReadData(messageDataStream));
 
                             MessageItem msg = new MessageItem(_virtualPeer.PeerCertificate.IssuedTo.EmailAddress.Address, message);
@@ -1212,9 +1242,40 @@ namespace BitChatClient
                             if (_bitChat.MessageReceived != null)
                                 _bitChat.RaiseEventMessageReceived(this, msg);
 
-                            break;
+                            //send delivery notification
+                            byte[] notificationData = BitChatMessage.CreateTextDeliveryNotification(messageNumber);
+                            WriteMessage(notificationData);
                         }
-                    #endregion
+                        #endregion
+                        break;
+
+                    case BitChatMessageType.TextDeliveryNotification:
+                        #region TextReceivedNotification
+                        {
+                            int messageNumber = BitChatMessage.ReadInt32(messageDataStream);
+                            MessageItem msg;
+
+                            lock (_bitChat._store) //lock to avoid race condition in a group chat. this will prevent message data from getting overwritten.
+                            {
+                                msg = new MessageItem(_bitChat._store, messageNumber);
+
+                                foreach (MessageRecipient rcpt in msg.Recipients)
+                                {
+                                    if (rcpt.Name.Equals(_virtualPeer.PeerCertificate.IssuedTo.EmailAddress.Address))
+                                    {
+                                        rcpt.SetDeliveredStatus();
+                                        break;
+                                    }
+                                }
+
+                                msg.WriteTo(_bitChat._store);
+                            }
+
+                            if (_bitChat.MessageDeliveryNotification != null)
+                                _bitChat.RaiseEventMessageDeliveryNotification(this, msg);
+                        }
+                        #endregion
+                        break;
 
                     case BitChatMessageType.FileAdvertisement:
                         #region FileAdvertisement
@@ -1248,10 +1309,9 @@ namespace BitChatClient
                                         _bitChat.RaiseEventFileAdded(sharedFile);
                                 }
                             }
-
-                            break;
                         }
-                    #endregion
+                        #endregion
+                        break;
 
                     case BitChatMessageType.FileBlockRequest:
                         #region FileBlockRequest
@@ -1259,9 +1319,9 @@ namespace BitChatClient
                             FileBlockRequest blockRequest = BitChatMessage.ReadFileBlockRequest(messageDataStream);
 
                             ThreadPool.QueueUserWorkItem(ProcessFileSharingMessagesAsync, new object[] { type, blockRequest });
-                            break;
                         }
-                    #endregion
+                        #endregion
+                        break;
 
                     case BitChatMessageType.FileBlockResponse:
                         #region FileBlockResponse
@@ -1269,9 +1329,9 @@ namespace BitChatClient
                             FileBlockDataPart blockData = BitChatMessage.ReadFileBlockData(messageDataStream);
 
                             ThreadPool.QueueUserWorkItem(ProcessFileSharingMessagesAsync, new object[] { type, blockData });
-                            break;
                         }
-                    #endregion
+                        #endregion
+                        break;
 
                     case BitChatMessageType.FileBlockWanted:
                         #region FileBlockWanted
@@ -1279,9 +1339,9 @@ namespace BitChatClient
                             FileBlockWanted blockWanted = BitChatMessage.ReadFileBlockWanted(messageDataStream);
 
                             ThreadPool.QueueUserWorkItem(ProcessFileSharingMessagesAsync, new object[] { type, blockWanted });
-                            break;
                         }
-                    #endregion
+                        #endregion
+                        break;
 
                     case BitChatMessageType.FileBlockAvailable:
                         #region FileBlockAvailable
@@ -1289,9 +1349,9 @@ namespace BitChatClient
                             FileBlockWanted blockWanted = BitChatMessage.ReadFileBlockWanted(messageDataStream);
 
                             ThreadPool.QueueUserWorkItem(ProcessFileSharingMessagesAsync, new object[] { type, blockWanted });
-                            break;
                         }
-                    #endregion
+                        #endregion
+                        break;
 
                     case BitChatMessageType.FileShareParticipate:
                         #region FileShareParticipate
@@ -1302,10 +1362,9 @@ namespace BitChatClient
                             {
                                 _bitChat._sharedFiles[fileID].AddPeer(this);
                             }
-
-                            break;
                         }
-                    #endregion
+                        #endregion
+                        break;
 
                     case BitChatMessageType.FileShareUnparticipate:
                         #region FileShareUnparticipate
@@ -1316,10 +1375,9 @@ namespace BitChatClient
                             {
                                 _bitChat._sharedFiles[fileID].RemovePeerOrSeeder(this);
                             }
-
-                            break;
                         }
-                    #endregion
+                        #endregion
+                        break;
 
                     case BitChatMessageType.PeerExchange:
                         #region PeerExchange
@@ -1339,9 +1397,9 @@ namespace BitChatClient
 
                         //start network status check
                         _bitChat.TriggerUpdateNetworkStatus();
-                        break;
 
-                    #endregion
+                        #endregion
+                        break;
 
                     case BitChatMessageType.ProfileImageSmall:
                         #region Profile Image Small
@@ -1355,9 +1413,9 @@ namespace BitChatClient
                                 _bitChat._network.Profile.ProfileImageSmall = _profileImageSmall;
 
                             RaiseEventProfileImageChanged();
-                            break;
                         }
-                    #endregion
+                        #endregion
+                        break;
 
                     case BitChatMessageType.ProfileImageLarge:
                         #region Profile Image Large
@@ -1369,10 +1427,9 @@ namespace BitChatClient
 
                             if (_isSelfPeer)
                                 _bitChat._network.Profile.ProfileImageLarge = _profileImageLarge;
-
-                            break;
                         }
-                    #endregion
+                        #endregion
+                        break;
 
                     case BitChatMessageType.NOOP:
                         break;

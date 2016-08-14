@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2016  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -40,6 +40,7 @@ namespace BitChatClient
         FileBlockResponse = 10,
         ProfileImageSmall = 11,
         ProfileImageLarge = 12,
+        TextDeliveryNotification = 13
     }
 
     class BitChatMessage
@@ -71,17 +72,28 @@ namespace BitChatClient
             }
         }
 
-        public static byte[] CreateTextMessage(string message)
+        public static byte[] CreateTextMessage(MessageItem message)
         {
-            using (MemoryStream mS = new MemoryStream(message.Length + 1))
+            using (MemoryStream mS = new MemoryStream(message.Message.Length + 1 + 4))
             {
                 mS.WriteByte((byte)BitChatMessageType.Text); //1 byte
+                mS.Write(BitConverter.GetBytes(message.MessageNumber), 0, 4); //4 bytes
 
-                byte[] buffer = Encoding.UTF8.GetBytes(message);
+                byte[] buffer = Encoding.UTF8.GetBytes(message.Message);
                 mS.Write(buffer, 0, buffer.Length);
 
                 return mS.ToArray();
             }
+        }
+
+        public static byte[] CreateTextDeliveryNotification(int messageNumber)
+        {
+            byte[] buffer = new byte[5];
+
+            buffer[0] = (byte)BitChatMessageType.TextDeliveryNotification;
+            Buffer.BlockCopy(BitConverter.GetBytes(messageNumber), 0, buffer, 1, 4);
+
+            return buffer;
         }
 
         public static byte[] CreateFileAdvertisement(SharedFileMetaData fileMetaData)
@@ -197,6 +209,14 @@ namespace BitChatClient
         public static BitChatMessageType ReadType(Stream s)
         {
             return (BitChatMessageType)s.ReadByte();
+        }
+
+        public static int ReadInt32(Stream s)
+        {
+            byte[] buffer = new byte[4];
+            s.Read(buffer, 0, 4);
+
+            return BitConverter.ToInt32(buffer, 0);
         }
 
         public static byte[] ReadData(Stream s)
