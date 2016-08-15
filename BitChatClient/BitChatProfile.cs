@@ -672,6 +672,8 @@ namespace BitChatClient
             readonly BinaryID _networkID;
             readonly string _messageStoreID;
             readonly byte[] _messageStoreKey;
+            readonly long _groupImageDateModified;
+            readonly byte[] _groupImage;
             readonly Certificate[] _peerCerts = new Certificate[] { };
             readonly SharedFileInfo[] _sharedFiles = new SharedFileInfo[] { };
             readonly Uri[] _trackerURIs = new Uri[] { };
@@ -685,7 +687,7 @@ namespace BitChatClient
 
             #region constructor
 
-            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID networkID, string messageStoreID, byte[] messageStoreKey, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, bool sendInvitation, string invitationSender, string invitationMessage, BitChatNetworkStatus networkStatus)
+            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID networkID, string messageStoreID, byte[] messageStoreKey, long groupImageDateModified, byte[] groupImage,  Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, bool sendInvitation, string invitationSender, string invitationMessage, BitChatNetworkStatus networkStatus)
             {
                 _type = type;
                 _networkNameOrPeerEmailAddress = networkNameOrPeerEmailAddress;
@@ -693,6 +695,8 @@ namespace BitChatClient
                 _networkID = networkID;
                 _messageStoreID = messageStoreID;
                 _messageStoreKey = messageStoreKey;
+                _groupImageDateModified = groupImageDateModified;
+                _groupImage = groupImage;
                 _peerCerts = peerCerts;
                 _sharedFiles = sharedFiles;
                 _trackerURIs = trackerURIs;
@@ -760,6 +764,14 @@ namespace BitChatClient
 
                         case "message_store_key":
                             _messageStoreKey = pair.Value.Value;
+                            break;
+
+                        case "group_image_date_modified":
+                            _groupImageDateModified = pair.Value.GetLongValue();
+                            break;
+
+                        case "group_image":
+                            _groupImage = pair.Value.Value;
                             break;
 
                         case "peer_certs":
@@ -834,6 +846,9 @@ namespace BitChatClient
                 encoder.Encode("message_store_id", _messageStoreID);
                 encoder.Encode("message_store_key", _messageStoreKey);
 
+                encoder.Encode("group_image_date_modified", _groupImageDateModified);
+                encoder.Encode("group_image", _groupImage);
+
                 encoder.Encode("peer_certs", _peerCerts);
                 encoder.Encode("shared_files", _sharedFiles);
 
@@ -899,6 +914,12 @@ namespace BitChatClient
 
             public byte[] MessageStoreKey
             { get { return _messageStoreKey; } }
+
+            public long GroupImageDateModified
+            { get { return _groupImageDateModified; } }
+
+            public byte[] GroupImage
+            { get { return _groupImage; } }
 
             public Certificate[] PeerCertificateList
             { get { return _peerCerts; } }
