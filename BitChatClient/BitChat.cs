@@ -74,7 +74,10 @@ namespace BitChatClient
 
         readonly MessageStore _store;
 
+        readonly ReaderWriterLockSlim _peersLock = new ReaderWriterLockSlim();
         readonly List<BitChat.Peer> _peers = new List<Peer>();
+
+        readonly ReaderWriterLockSlim _sharedFilesLock = new ReaderWriterLockSlim();
         readonly Dictionary<BinaryID, SharedFile> _sharedFiles = new Dictionary<BinaryID, SharedFile>();
 
         //tracker
@@ -404,7 +407,8 @@ namespace BitChatClient
             List<Certificate> peerCerts = new List<Certificate>();
             List<BitChatProfile.SharedFileInfo> sharedFileInfo = new List<BitChatProfile.SharedFileInfo>();
 
-            lock (_peers)
+            _peersLock.EnterReadLock();
+            try
             {
                 foreach (BitChat.Peer peer in _peers)
                 {
@@ -412,14 +416,23 @@ namespace BitChatClient
                         peerCerts.Add(peer.PeerCertificate);
                 }
             }
+            finally
+            {
+                _peersLock.ExitReadLock();
+            }
 
-            lock (_sharedFiles)
+            _sharedFilesLock.EnterReadLock();
+            try
             {
                 foreach (KeyValuePair<BinaryID, SharedFile> sharedFile in _sharedFiles)
                 {
                     if (sharedFile.Value.State != SharedFileState.Advertisement)
                         sharedFileInfo.Add(sharedFile.Value.GetSharedFileInfo());
                 }
+            }
+            finally
+            {
+                _sharedFilesLock.ExitReadLock();
             }
 
             if (_network.Type == BitChatNetworkType.PrivateChat)
@@ -428,21 +441,31 @@ namespace BitChatClient
                 return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, _messageStoreID, _messageStoreKey, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _enableTracking, false, null, null, _network.Status);
         }
 
-        public BitChat.Peer[] GetPeerList()
+        public Peer[] GetPeerList()
         {
-            lock (_peers)
+            _peersLock.EnterReadLock();
+            try
             {
                 return _peers.ToArray();
+            }
+            finally
+            {
+                _peersLock.ExitReadLock();
             }
         }
 
         public SharedFile[] GetSharedFileList()
         {
-            lock (_sharedFiles)
+            _sharedFilesLock.EnterReadLock();
+            try
             {
                 SharedFile[] sharedFilesList = new SharedFile[_sharedFiles.Count];
                 _sharedFiles.Values.CopyTo(sharedFilesList, 0);
                 return sharedFilesList;
+            }
+            finally
+            {
+                _sharedFilesLock.ExitReadLock();
             }
         }
 
@@ -456,7 +479,8 @@ namespace BitChatClient
         {
             MessageRecipient[] msgRcpt;
 
-            lock (_peers)
+            _peersLock.EnterReadLock();
+            try
             {
                 if (_peers.Count > 1)
                 {
@@ -473,6 +497,10 @@ namespace BitChatClient
                 {
                     msgRcpt = new MessageRecipient[] { };
                 }
+            }
+            finally
+            {
+                _peersLock.ExitReadLock();
             }
 
             MessageItem msg = new MessageItem(_network.Profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address, message, msgRcpt);
@@ -492,35 +520,50 @@ namespace BitChatClient
         public void ShareFile(string filePath, string hashAlgo = "SHA1")
         {
             SharedFile sharedFile = SharedFile.ShareFile(filePath, hashAlgo, this, _syncCxt);
+            bool fileWasAdded = false;
 
-            lock (_sharedFiles)
+            _sharedFilesLock.EnterWriteLock();
+            try
             {
                 if (!_sharedFiles.ContainsKey(sharedFile.MetaData.FileID))
                 {
                     _sharedFiles.Add(sharedFile.MetaData.FileID, sharedFile);
 
-                    if (FileAdded != null)
-                        RaiseEventFileAdded(sharedFile);
-
-                    //advertise file
-                    SendFileAdvertisement(sharedFile);
+                    fileWasAdded = true;
                 }
+            }
+            finally
+            {
+                _sharedFilesLock.ExitWriteLock();
+            }
+
+            if (fileWasAdded)
+            {
+                if (FileAdded != null)
+                    RaiseEventFileAdded(sharedFile);
+
+                //advertise file
+                SendFileAdvertisement(sharedFile);
             }
         }
 
         public void LeaveChat()
         {
             //remove shared files
-            lock (_sharedFiles)
+            List<SharedFile> _toRemove = new List<SharedFile>();
+
+            _sharedFilesLock.EnterReadLock();
+            try
             {
-                List<SharedFile> _toRemove = new List<SharedFile>();
-
-                foreach (KeyValuePair<BinaryID, SharedFile> sharedFile in _sharedFiles)
-                    _toRemove.Add(sharedFile.Value);
-
-                foreach (SharedFile sharedFile in _toRemove)
-                    sharedFile.Remove(this);
+                _toRemove.AddRange(_sharedFiles.Values);
             }
+            finally
+            {
+                _sharedFilesLock.ExitReadLock();
+            }
+
+            foreach (SharedFile sharedFile in _toRemove)
+                sharedFile.Remove(this);
 
             //dispose
             this.Dispose();
@@ -549,9 +592,14 @@ namespace BitChatClient
 
         internal void RemoveSharedFile(SharedFile file)
         {
-            lock (_sharedFiles)
+            _sharedFilesLock.EnterWriteLock();
+            try
             {
                 _sharedFiles.Remove(file.MetaData.FileID);
+            }
+            finally
+            {
+                _sharedFilesLock.ExitWriteLock();
             }
         }
 
@@ -597,9 +645,14 @@ namespace BitChatClient
         {
             Peer peer = new Peer(virtualPeer, this);
 
-            lock (_peers)
+            _peersLock.EnterWriteLock();
+            try
             {
                 _peers.Add(peer);
+            }
+            finally
+            {
+                _peersLock.ExitWriteLock();
             }
 
             if (PeerAdded != null)
@@ -656,13 +709,18 @@ namespace BitChatClient
             List<PeerInfo> peerList = _network.GetConnectedPeerList();
             List<Peer> onlinePeers = new List<Peer>();
 
-            lock (_peers)
+            _peersLock.EnterReadLock();
+            try
             {
                 foreach (Peer currentPeer in _peers)
                 {
                     if (currentPeer.IsOnline)
                         onlinePeers.Add(currentPeer);
                 }
+            }
+            finally
+            {
+                _peersLock.ExitReadLock();
             }
 
             //send other peers ep list to online peers
@@ -723,12 +781,17 @@ namespace BitChatClient
                         _connectivityStatus = connectivityStatus;
                     }
 
-                    lock (_peers)
+                    _peersLock.EnterReadLock();
+                    try
                     {
                         foreach (Peer peer in _peers)
                         {
                             peer.SetNoNetworkStatus();
                         }
+                    }
+                    finally
+                    {
+                        _peersLock.ExitReadLock();
                     }
 
                     //stop tracking and local announcement
@@ -749,7 +812,8 @@ namespace BitChatClient
                     List<Peer> onlinePeers = new List<Peer>();
                     List<Peer> offlinePeers = new List<Peer>();
 
-                    lock (_peers)
+                    _peersLock.EnterReadLock();
+                    try
                     {
                         foreach (Peer currentPeer in _peers)
                         {
@@ -758,6 +822,10 @@ namespace BitChatClient
                             else
                                 offlinePeers.Add(currentPeer);
                         }
+                    }
+                    finally
+                    {
+                        _peersLock.ExitReadLock();
                     }
 
                     foreach (Peer onlinePeer in onlinePeers)
@@ -1192,12 +1260,17 @@ namespace BitChatClient
                 }
                 else
                 {
-                    lock (_bitChat._sharedFiles)
+                    _bitChat._sharedFilesLock.EnterReadLock();
+                    try
                     {
                         foreach (KeyValuePair<BinaryID, SharedFile> item in _bitChat._sharedFiles)
                         {
                             item.Value.RemovePeerOrSeeder(this);
                         }
+                    }
+                    finally
+                    {
+                        _bitChat._sharedFilesLock.ExitReadLock();
                     }
 
                     lock (_peerListLock)
@@ -1287,33 +1360,48 @@ namespace BitChatClient
                         #region FileAdvertisement
                         {
                             SharedFile sharedFile = SharedFile.PrepareDownloadFile(BitChatMessage.ReadFileAdvertisement(messageDataStream), _bitChat, this, _bitChat._network.Profile, _bitChat._syncCxt);
+                            bool fileAlreadyExists = false;
+                            bool fileWasAdded = false;
 
-                            lock (_bitChat._sharedFiles)
+                            _bitChat._sharedFilesLock.EnterWriteLock();
+                            try
                             {
                                 if (_bitChat._sharedFiles.ContainsKey(sharedFile.MetaData.FileID))
                                 {
-                                    //file already exists
-                                    if (sharedFile.IsComplete)
-                                    {
-                                        //remove the seeder
-                                        sharedFile.RemovePeerOrSeeder(this);
-                                    }
-                                    else
-                                    {
-                                        sharedFile.AddChat(_bitChat);
-                                        sharedFile.AddSeeder(this); //add the seeder
-
-                                        WriteMessage(BitChatMessage.CreateFileParticipate(sharedFile.MetaData.FileID));
-                                    }
+                                    fileAlreadyExists = true;
                                 }
                                 else
                                 {
                                     //file doesnt exists
                                     _bitChat._sharedFiles.Add(sharedFile.MetaData.FileID, sharedFile);
 
-                                    if (_bitChat.FileAdded != null)
-                                        _bitChat.RaiseEventFileAdded(sharedFile);
+                                    fileWasAdded = true;
                                 }
+                            }
+                            finally
+                            {
+                                _bitChat._sharedFilesLock.ExitWriteLock();
+                            }
+
+                            if (fileAlreadyExists)
+                            {
+                                if (sharedFile.IsComplete)
+                                {
+                                    //remove the seeder
+                                    sharedFile.RemovePeerOrSeeder(this);
+                                }
+                                else
+                                {
+                                    sharedFile.AddChat(_bitChat);
+                                    sharedFile.AddSeeder(this); //add the seeder
+
+                                    WriteMessage(BitChatMessage.CreateFileParticipate(sharedFile.MetaData.FileID));
+                                }
+                            }
+                            else if (fileWasAdded)
+                            {
+                                if (_bitChat.FileAdded != null)
+                                    _bitChat.RaiseEventFileAdded(sharedFile);
                             }
                         }
                         #endregion
@@ -1364,9 +1452,14 @@ namespace BitChatClient
                         {
                             BinaryID fileID = BitChatMessage.ReadFileID(messageDataStream);
 
-                            lock (_bitChat._sharedFiles)
+                            _bitChat._sharedFilesLock.EnterReadLock();
+                            try
                             {
                                 _bitChat._sharedFiles[fileID].AddPeer(this);
+                            }
+                            finally
+                            {
+                                _bitChat._sharedFilesLock.ExitReadLock();
                             }
                         }
                         #endregion
@@ -1377,9 +1470,14 @@ namespace BitChatClient
                         {
                             BinaryID fileID = BitChatMessage.ReadFileID(messageDataStream);
 
-                            lock (_bitChat._sharedFiles)
+                            _bitChat._sharedFilesLock.EnterReadLock();
+                            try
                             {
                                 _bitChat._sharedFiles[fileID].RemovePeerOrSeeder(this);
+                            }
+                            finally
+                            {
+                                _bitChat._sharedFilesLock.ExitReadLock();
                             }
                         }
                         #endregion
@@ -1452,12 +1550,17 @@ namespace BitChatClient
                                 FileBlockRequest blockRequest = parameters[1] as FileBlockRequest;
                                 SharedFile sharedFile;
 
-                                lock (_bitChat._sharedFiles)
+                                _bitChat._sharedFilesLock.EnterReadLock();
+                                try
                                 {
                                     sharedFile = _bitChat._sharedFiles[blockRequest.FileID];
                                 }
+                                finally
+                                {
+                                    _bitChat._sharedFilesLock.ExitReadLock();
+                                }
 
-                                if (sharedFile.State == FileSharing.SharedFileState.Paused)
+                                if (sharedFile.State == SharedFileState.Paused)
                                     return;
 
                                 if (!sharedFile.PeerExists(this))
@@ -1478,12 +1581,17 @@ namespace BitChatClient
                                 FileBlockDataPart blockData = parameters[1] as FileBlockDataPart;
                                 SharedFile sharedFile;
 
-                                lock (_bitChat._sharedFiles)
+                                _bitChat._sharedFilesLock.EnterReadLock();
+                                try
                                 {
                                     sharedFile = _bitChat._sharedFiles[blockData.FileID];
                                 }
+                                finally
+                                {
+                                    _bitChat._sharedFilesLock.ExitReadLock();
+                                }
 
-                                if (sharedFile.State == FileSharing.SharedFileState.Paused)
+                                if (sharedFile.State == SharedFileState.Paused)
                                     return;
 
                                 if (!sharedFile.PeerExists(this))
@@ -1512,12 +1620,17 @@ namespace BitChatClient
                                 FileBlockWanted blockWanted = parameters[1] as FileBlockWanted;
                                 SharedFile sharedFile;
 
-                                lock (_bitChat._sharedFiles)
+                                _bitChat._sharedFilesLock.EnterReadLock();
+                                try
                                 {
                                     sharedFile = _bitChat._sharedFiles[blockWanted.FileID];
                                 }
+                                finally
+                                {
+                                    _bitChat._sharedFilesLock.ExitReadLock();
+                                }
 
-                                if (sharedFile.State == FileSharing.SharedFileState.Paused)
+                                if (sharedFile.State == SharedFileState.Paused)
                                     return;
 
                                 if (!sharedFile.PeerExists(this))
@@ -1539,15 +1652,20 @@ namespace BitChatClient
                                 FileBlockWanted blockWanted = parameters[1] as FileBlockWanted;
                                 SharedFile sharedFile;
 
-                                lock (_bitChat._sharedFiles)
+                                _bitChat._sharedFilesLock.EnterReadLock();
+                                try
                                 {
                                     sharedFile = _bitChat._sharedFiles[blockWanted.FileID];
+                                }
+                                finally
+                                {
+                                    _bitChat._sharedFilesLock.ExitReadLock();
                                 }
 
                                 if (sharedFile.IsComplete)
                                     return;
 
-                                if (sharedFile.State == FileSharing.SharedFileState.Paused)
+                                if (sharedFile.State == SharedFileState.Paused)
                                     return;
 
                                 if (!sharedFile.PeerExists(this))

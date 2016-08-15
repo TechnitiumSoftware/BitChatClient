@@ -58,7 +58,7 @@ namespace BitChatClient.FileSharing
 
         #region variables
 
-        static Dictionary<BinaryID, SharedFile> _sharedFiles = new Dictionary<BinaryID, SharedFile>();
+        readonly static Dictionary<BinaryID, SharedFile> _sharedFiles = new Dictionary<BinaryID, SharedFile>();
 
         const int MAX_DOWNLOADING_BLOCKS = 5;
         const int DOWNLOAD_MONITOR_INTERVAL = 10000; //10 seconds
@@ -66,13 +66,13 @@ namespace BitChatClient.FileSharing
 
         const ushort MIN_BLOCK_SIZE = 57344; //56kb min block size
 
-        SynchronizationContext _syncCxt;
+        readonly SynchronizationContext _syncCxt;
 
         BitChatProfile _profile;
 
         //shared file input
         FileStream _fileStream;
-        SharedFileMetaData _metaData;
+        readonly SharedFileMetaData _metaData;
 
         SharedFileState _state;
         FileBlockState[] _blockAvailable;
@@ -91,11 +91,11 @@ namespace BitChatClient.FileSharing
         int _bytesUploadedLastSecond = 0;
 
         //peers
-        List<BitChat.Peer> _seeders = new List<BitChat.Peer>();
-        List<BitChat.Peer> _peers = new List<BitChat.Peer>();
+        readonly List<BitChat.Peer> _seeders = new List<BitChat.Peer>();
+        readonly List<BitChat.Peer> _peers = new List<BitChat.Peer>();
 
         //chats
-        List<BitChat> _chats = new List<BitChat>();
+        readonly List<BitChat> _chats = new List<BitChat>();
 
         #endregion
 
@@ -982,7 +982,11 @@ namespace BitChatClient.FileSharing
 
                 if (_chats.Count == 0)
                 {
-                    _sharedFiles.Remove(_metaData.FileID);
+                    lock (_sharedFiles)
+                    {
+                        _sharedFiles.Remove(_metaData.FileID);
+                    }
+
                     this.Dispose();
                 }
             }
