@@ -73,7 +73,7 @@ namespace BitChatClient.FileSharing
                 case 1:
                     _fileName = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
                     _contentType = new System.Net.Mime.ContentType(Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte())));
-                    _lastModified = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc).AddSeconds(bR.ReadUInt64());
+                    _lastModified = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc).AddSeconds(bR.ReadInt64());
 
                     _fileSize = bR.ReadInt64();
                     _blockSize = bR.ReadInt32();
@@ -146,7 +146,7 @@ namespace BitChatClient.FileSharing
             bW.Write(Convert.ToByte(buffer.Length));
             bW.Write(buffer);
 
-            bW.Write(Convert.ToUInt64((_lastModified - (new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc))).TotalSeconds));
+            bW.Write(Convert.ToInt64((_lastModified - (new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc))).TotalSeconds));
 
             bW.Write(_fileSize);
             bW.Write(_blockSize);
