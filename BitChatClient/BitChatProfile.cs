@@ -672,7 +672,7 @@ namespace BitChatClient
             readonly BinaryID _networkID;
             readonly string _messageStoreID;
             readonly byte[] _messageStoreKey;
-            readonly long _groupImageDateModified;
+            readonly long _groupImageDateModified = -1;
             readonly byte[] _groupImage;
             readonly Certificate[] _peerCerts = new Certificate[] { };
             readonly SharedFileInfo[] _sharedFiles = new SharedFileInfo[] { };
@@ -687,7 +687,7 @@ namespace BitChatClient
 
             #region constructor
 
-            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID networkID, string messageStoreID, byte[] messageStoreKey, long groupImageDateModified, byte[] groupImage,  Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, bool sendInvitation, string invitationSender, string invitationMessage, BitChatNetworkStatus networkStatus)
+            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID networkID, string messageStoreID, byte[] messageStoreKey, long groupImageDateModified, byte[] groupImage, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, bool sendInvitation, string invitationSender, string invitationMessage, BitChatNetworkStatus networkStatus)
             {
                 _type = type;
                 _networkNameOrPeerEmailAddress = networkNameOrPeerEmailAddress;

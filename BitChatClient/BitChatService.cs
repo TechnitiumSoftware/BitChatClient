@@ -224,7 +224,7 @@ namespace BitChatClient
         public BitChat CreateBitChat(string networkName, string sharedSecret, bool enableTracking)
         {
             BitChatNetwork network = new BitChatNetwork(_profile, _internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, networkName, sharedSecret, null, new Certificate[] { }, BitChatNetworkStatus.Online);
-            BitChat bitChat = _internal.CreateBitChat(network, BinaryID.GenerateRandomID160().ToString(), BinaryID.GenerateRandomID256().ID, 0, null, new BitChatProfile.SharedFileInfo[] { }, null, enableTracking, false);
+            BitChat bitChat = _internal.CreateBitChat(network, BinaryID.GenerateRandomID160().ToString(), BinaryID.GenerateRandomID256().ID, -1, null, new BitChatProfile.SharedFileInfo[] { }, null, enableTracking, false);
 
             lock (_bitChats)
             {

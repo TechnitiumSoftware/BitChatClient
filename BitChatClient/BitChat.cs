@@ -1211,7 +1211,7 @@ namespace BitChatClient
             readonly BitChatNetwork.VirtualPeer _virtualPeer;
             readonly BitChat _bitChat;
 
-            long _profileImageDateModified;
+            long _profileImageDateModified = -1;
             byte[] _profileImage;
 
             readonly object _peerListLock = new object();
