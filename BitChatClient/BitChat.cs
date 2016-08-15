@@ -58,11 +58,14 @@ namespace BitChatClient
         public event MessageReceived MessageReceived;
         public event MessageDeliveryNotification MessageDeliveryNotification;
         public event FileAdded FileAdded;
+        public event EventHandler GroupImageChanged;
         public event EventHandler Leave;
 
         #endregion
 
         #region variables
+
+        static readonly DateTime _epoch = new DateTime(1970, 1, 1);
 
         const int BIT_CHAT_TRACKER_UPDATE_INTERVAL = 120;
 
@@ -73,6 +76,9 @@ namespace BitChatClient
         readonly byte[] _messageStoreKey;
 
         readonly MessageStore _store;
+
+        long _groupImageDateModified;
+        byte[] _groupImage;
 
         readonly ReaderWriterLockSlim _peersLock = new ReaderWriterLockSlim();
         readonly List<BitChat.Peer> _peers = new List<Peer>();
@@ -384,6 +390,20 @@ namespace BitChatClient
             catch { }
         }
 
+        private void RaiseEventGroupImageChanged()
+        {
+            _syncCxt.Post(GroupImageChangedCallback, null);
+        }
+
+        private void GroupImageChangedCallback(object state)
+        {
+            try
+            {
+                GroupImageChanged(this, EventArgs.Empty);
+            }
+            catch { }
+        }
+
         private void RaiseEventLeave()
         {
             _syncCxt.Post(LeaveCallback, null);
@@ -545,6 +565,23 @@ namespace BitChatClient
                 //advertise file
                 SendFileAdvertisement(sharedFile);
             }
+        }
+
+        public void SetGroupImage(byte[] image)
+        {
+            if (_network.Type != BitChatNetworkType.GroupChat)
+                throw new InvalidOperationException("Group image can be set only for Bit Chat Groups.");
+
+            _groupImageDateModified = Convert.ToInt64((DateTime.UtcNow - _epoch).TotalMilliseconds);
+            _groupImage = image;
+
+            //notify UI to change group image
+            if (GroupImageChanged != null)
+                RaiseEventGroupImageChanged();
+
+            //notify peers
+            byte[] messageData = BitChatMessage.CreateGroupImage(_groupImage, _groupImageDateModified);
+            _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
         }
 
         public void LeaveChat()
@@ -1257,6 +1294,9 @@ namespace BitChatClient
                 {
                     DoSendProfileImages();
                     DoSendSharedFileMetaData();
+
+                    if (_bitChat._network.Type == BitChatNetworkType.GroupChat)
+                        DoSendGroupImage();
                 }
                 else
                 {
@@ -1521,6 +1561,29 @@ namespace BitChatClient
                         #endregion
                         break;
 
+                    case BitChatMessageType.GroupImage:
+                        #region Group Image
+                        {
+                            if (_bitChat._network.Type == BitChatNetworkType.GroupChat)
+                            {
+                                long dateModified = BitChatMessage.ReadInt64(messageDataStream);
+
+                                if (dateModified > _bitChat._groupImageDateModified)
+                                {
+                                    _bitChat._groupImageDateModified = dateModified;
+                                    _bitChat._groupImage = BitChatMessage.ReadData(messageDataStream);
+
+                                    if (_bitChat._groupImage.Length == 0)
+                                        _bitChat._groupImage = null;
+
+                                    if (_bitChat.GroupImageChanged != null)
+                                        _bitChat.RaiseEventGroupImageChanged();
+                                }
+                            }
+                        }
+                        #endregion
+                        break;
+
                     case BitChatMessageType.NOOP:
                         break;
                 }
@@ -1693,6 +1756,12 @@ namespace BitChatClient
             private void DoSendProfileImages()
             {
                 byte[] messageData = BitChatMessage.CreateProfileImage(_bitChat._network.Profile.ProfileImage);
+                _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
+            }
+
+            private void DoSendGroupImage()
+            {
+                byte[] messageData = BitChatMessage.CreateGroupImage(_bitChat._groupImage, _bitChat._groupImageDateModified);
                 _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
             }
 

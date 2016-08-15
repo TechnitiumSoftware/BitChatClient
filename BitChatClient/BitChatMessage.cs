@@ -33,6 +33,7 @@ namespace BitChatClient
         TextDeliveryNotification = 3,
         TypingNotification = 4,
         ProfileImage = 5,
+        GroupImage = 6,
         FileAdvertisement = 10,
         FileShareParticipate = 11,
         FileShareUnparticipate = 12,
@@ -93,6 +94,20 @@ namespace BitChatClient
             Buffer.BlockCopy(BitConverter.GetBytes(messageNumber), 0, buffer, 1, 4);
 
             return buffer;
+        }
+
+        public static byte[] CreateGroupImage(byte[] image, long dateModified)
+        {
+            using (MemoryStream mS = new MemoryStream(4096))
+            {
+                mS.WriteByte((byte)BitChatMessageType.GroupImage); //1 byte
+                mS.Write(BitConverter.GetBytes(dateModified), 0, 8); //8 bytes date modified
+
+                if (image != null)
+                    mS.Write(image, 0, image.Length);
+
+                return mS.ToArray();
+            }
         }
 
         public static byte[] CreateFileAdvertisement(SharedFileMetaData fileMetaData)
@@ -203,6 +218,14 @@ namespace BitChatClient
             s.Read(buffer, 0, 4);
 
             return BitConverter.ToInt32(buffer, 0);
+        }
+
+        public static long ReadInt64(Stream s)
+        {
+            byte[] buffer = new byte[8];
+            s.Read(buffer, 0, 8);
+
+            return BitConverter.ToInt64(buffer, 0);
         }
 
         public static byte[] ReadData(Stream s)
