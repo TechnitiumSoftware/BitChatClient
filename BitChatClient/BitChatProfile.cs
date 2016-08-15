@@ -75,12 +75,16 @@ namespace BitChatClient
                 new Uri("http://tracker.ilibr.org:6969/announce")
             };
 
+        static readonly DateTime _epoch = new DateTime(1970, 1, 1);
+
         readonly bool _isPortableApp;
         readonly string _profileFolder;
 
         readonly string _portableDownloadFolder;
 
         CertificateStore _localCertStore;
+
+        long _profileImageDateModified;
         byte[] _profileImage = null;
 
         int _localPort;
@@ -314,6 +318,10 @@ namespace BitChatClient
                         _localCertStore = new CertificateStore(item.Value.GetValueStream());
                         break;
 
+                    case "profile_image_date_modified":
+                        _profileImageDateModified = item.Value.GetLongValue();
+                        break;
+
                     case "profile_image":
                     case "profile_image_large":
                         _profileImage = item.Value.Value;
@@ -434,6 +442,8 @@ namespace BitChatClient
                 encoder.Encode("local_cert_store", _localCertStore);
 
             //profile image
+            encoder.Encode("profile_image_date_modified", _profileImageDateModified);
+
             if (_profileImage != null)
                 encoder.Encode("profile_image", _profileImage);
 
@@ -532,9 +542,17 @@ namespace BitChatClient
             ProxyUpdated?.Invoke(this, EventArgs.Empty);
         }
 
-        internal void SetProfileImage(byte[] image)
+        internal bool SetProfileImage(long dateModified, byte[] image)
         {
-            _profileImage = image;
+            if (dateModified > _profileImageDateModified)
+            {
+                _profileImageDateModified = dateModified;
+                _profileImage = image;
+
+                return true;
+            }
+
+            return false;
         }
 
         public bool ProceedConnection(Certificate remoteCertificate)
@@ -555,11 +573,15 @@ namespace BitChatClient
         public CertificateStore LocalCertificateStore
         { get { return _localCertStore; } }
 
+        internal long ProfileImageDateModified
+        { get { return _profileImageDateModified; } }
+
         public byte[] ProfileImage
         {
             get { return _profileImage; }
             set
             {
+                _profileImageDateModified = Convert.ToInt64((DateTime.UtcNow - _epoch).TotalMilliseconds);
                 _profileImage = value;
 
                 ProfileImageChanged?.Invoke(this, EventArgs.Empty);

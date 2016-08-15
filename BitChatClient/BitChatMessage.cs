@@ -96,6 +96,20 @@ namespace BitChatClient
             return buffer;
         }
 
+        public static byte[] CreateProfileImage(byte[] image, long dateModified)
+        {
+            using (MemoryStream mS = new MemoryStream(4096))
+            {
+                mS.WriteByte((byte)BitChatMessageType.ProfileImage); //1 byte
+                mS.Write(BitConverter.GetBytes(dateModified), 0, 8); //8 bytes date modified
+
+                if (image != null)
+                    mS.Write(image, 0, image.Length);
+
+                return mS.ToArray();
+            }
+        }
+
         public static byte[] CreateGroupImage(byte[] image, long dateModified)
         {
             using (MemoryStream mS = new MemoryStream(4096))
@@ -185,19 +199,6 @@ namespace BitChatClient
                 mS.WriteByte((byte)BitChatMessageType.FileBlockResponse); //1 byte
 
                 blockData.WriteTo(mS);
-
-                return mS.ToArray();
-            }
-        }
-
-        public static byte[] CreateProfileImage(byte[] image)
-        {
-            using (MemoryStream mS = new MemoryStream(4096))
-            {
-                mS.WriteByte((byte)BitChatMessageType.ProfileImage); //1 byte
-
-                if (image != null)
-                    mS.Write(image, 0, image.Length);
 
                 return mS.ToArray();
             }

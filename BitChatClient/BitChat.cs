@@ -1208,6 +1208,7 @@ namespace BitChatClient
             readonly BitChatNetwork.VirtualPeer _virtualPeer;
             readonly BitChat _bitChat;
 
+            long _profileImageDateModified;
             byte[] _profileImage;
 
             readonly object _peerListLock = new object();
@@ -1292,7 +1293,7 @@ namespace BitChatClient
 
                 if (_virtualPeer.IsOnline)
                 {
-                    DoSendProfileImages();
+                    DoSendProfileImage();
                     DoSendSharedFileMetaData();
 
                     if (_bitChat._network.Type == BitChatNetworkType.GroupChat)
@@ -1546,17 +1547,26 @@ namespace BitChatClient
                         break;
 
                     case BitChatMessageType.ProfileImage:
-                        #region Profile Image Large
+                        #region Profile Image
                         {
-                            _profileImage = BitChatMessage.ReadData(messageDataStream);
+                            long dateModified = BitChatMessage.ReadInt64(messageDataStream);
+                            byte[] profileImage = BitChatMessage.ReadData(messageDataStream);
 
-                            if (_profileImage.Length == 0)
-                                _profileImage = null;
+                            if (profileImage.Length == 0)
+                                profileImage = null;
 
                             if (_isSelfPeer)
-                                _bitChat._network.Profile.SetProfileImage(_profileImage);
+                            {
+                                if (_bitChat._network.Profile.SetProfileImage(dateModified, profileImage))
+                                    RaiseEventProfileImageChanged();
+                            }
+                            else if (dateModified > _profileImageDateModified)
+                            {
+                                _profileImageDateModified = dateModified;
+                                _profileImage = profileImage;
 
-                            RaiseEventProfileImageChanged();
+                                RaiseEventProfileImageChanged();
+                            }
                         }
                         #endregion
                         break;
@@ -1594,7 +1604,7 @@ namespace BitChatClient
                 if (_isSelfPeer)
                     RaiseEventProfileImageChanged();
 
-                DoSendProfileImages();
+                DoSendProfileImage();
             }
 
             private void ProcessFileSharingMessagesAsync(object state)
@@ -1753,9 +1763,9 @@ namespace BitChatClient
                 { }
             }
 
-            private void DoSendProfileImages()
+            private void DoSendProfileImage()
             {
-                byte[] messageData = BitChatMessage.CreateProfileImage(_bitChat._network.Profile.ProfileImage);
+                byte[] messageData = BitChatMessage.CreateProfileImage(_bitChat._network.Profile.ProfileImage, _bitChat._network.Profile.ProfileImageDateModified);
                 _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
             }
 
