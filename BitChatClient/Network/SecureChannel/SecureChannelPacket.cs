@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2016  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -20,7 +20,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using System;
 using System.IO;
 using System.Security.Cryptography;
-using System.Text;
 using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Security.Cryptography;
 
@@ -213,17 +212,17 @@ namespace BitChatClient.Network.SecureChannel
         {
             #region variables
 
-            string _publicKeyXML;
+            byte[] _publicKey;
             byte[] _signature;
 
             #endregion
 
             #region constructor
 
-            public KeyExchange(string publicKeyXML, AsymmetricCryptoKey privateKey, string hashAlgo)
+            public KeyExchange(byte[] publicKey, AsymmetricCryptoKey privateKey, string hashAlgo)
             {
-                _publicKeyXML = publicKeyXML;
-                _signature = privateKey.Sign(new MemoryStream(Encoding.UTF8.GetBytes(_publicKeyXML), false), hashAlgo);
+                _publicKey = publicKey;
+                _signature = privateKey.Sign(new MemoryStream(_publicKey, false), hashAlgo);
             }
 
             public KeyExchange(Stream s)
@@ -233,9 +232,8 @@ namespace BitChatClient.Network.SecureChannel
 
                 OffsetStream.StreamRead(s, buffer, 0, 2);
                 length = BitConverter.ToUInt16(buffer, 0);
-                byte[] publicKey = new byte[length];
-                OffsetStream.StreamRead(s, publicKey, 0, length);
-                _publicKeyXML = Encoding.UTF8.GetString(publicKey);
+                _publicKey = new byte[length];
+                OffsetStream.StreamRead(s, _publicKey, 0, length);
 
                 OffsetStream.StreamRead(s, buffer, 0, 2);
                 length = BitConverter.ToUInt16(buffer, 0);
@@ -249,14 +247,13 @@ namespace BitChatClient.Network.SecureChannel
 
             public bool IsSignatureValid(Certificate signingCert, string hashAlgo)
             {
-                return AsymmetricCryptoKey.Verify(new MemoryStream(Encoding.UTF8.GetBytes(_publicKeyXML), false), _signature, hashAlgo, signingCert);
+                return AsymmetricCryptoKey.Verify(new MemoryStream(_publicKey, false), _signature, hashAlgo, signingCert);
             }
 
             public void WriteTo(Stream s)
             {
-                byte[] publicKey = Encoding.UTF8.GetBytes(_publicKeyXML);
-                s.Write(BitConverter.GetBytes(Convert.ToUInt16(publicKey.Length)), 0, 2);
-                s.Write(publicKey, 0, publicKey.Length);
+                s.Write(BitConverter.GetBytes(Convert.ToUInt16(_publicKey.Length)), 0, 2);
+                s.Write(_publicKey, 0, _publicKey.Length);
 
                 s.Write(BitConverter.GetBytes(Convert.ToUInt16(_signature.Length)), 0, 2);
                 s.Write(_signature, 0, _signature.Length);
@@ -283,8 +280,8 @@ namespace BitChatClient.Network.SecureChannel
 
             #region properties
 
-            public string PublicKeyXML
-            { get { return _publicKeyXML; } }
+            public byte[] PublicKey
+            { get { return _publicKey; } }
 
             public byte[] Signature
             { get { return _signature; } }

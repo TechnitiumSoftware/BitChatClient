@@ -586,7 +586,7 @@ namespace BitChatClient.Network.SecureChannel
             return _reNegotiating;
         }
 
-        protected byte[] GenerateMasterKey(SecureChannelPacket.Hello clientHello, SecureChannelPacket.Hello serverHello, string preSharedKey, KeyAgreement keyAgreement, string otherPartyPublicKeyXML)
+        protected byte[] GenerateMasterKey(SecureChannelPacket.Hello clientHello, SecureChannelPacket.Hello serverHello, string preSharedKey, KeyAgreement keyAgreement, byte[] otherPartyPublicKey)
         {
             using (MemoryStream mS = new MemoryStream(128))
             {
@@ -599,7 +599,7 @@ namespace BitChatClient.Network.SecureChannel
                     keyAgreement.HmacMessage = (new HMACSHA256(Encoding.UTF8.GetBytes(preSharedKey))).ComputeHash(mS.ToArray());
             }
 
-            return keyAgreement.DeriveKeyMaterial(otherPartyPublicKeyXML);
+            return keyAgreement.DeriveKeyMaterial(otherPartyPublicKey);
         }
 
         protected void EnableEncryption(Stream inputStream, SymmetricCryptoKey encryptionKey, SymmetricCryptoKey decryptionKey, HMAC authHMACEncrypt, HMAC authHMACDecrypt)

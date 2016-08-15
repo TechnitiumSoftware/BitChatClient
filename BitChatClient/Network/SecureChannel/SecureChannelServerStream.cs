@@ -163,14 +163,14 @@ namespace BitChatClient.Network.SecureChannel
             }
 
             //send server key exchange data
-            SecureChannelPacket.KeyExchange serverKeyExchange = new SecureChannelPacket.KeyExchange(keyAgreement.GetPublicKeyXML(), serverCredentials.PrivateKey, hashAlgo);
+            SecureChannelPacket.KeyExchange serverKeyExchange = new SecureChannelPacket.KeyExchange(keyAgreement.GetPublicKey(), serverCredentials.PrivateKey, hashAlgo);
             SecureChannelPacket.WritePacket(stream, serverKeyExchange);
 
             //read client key exchange data
             SecureChannelPacket.KeyExchange clientKeyExchange = (new SecureChannelPacket(stream)).GetKeyExchange();
 
             //generate master key
-            byte[] masterKey = GenerateMasterKey(clientHello, serverHello, _preSharedKey, keyAgreement, clientKeyExchange.PublicKeyXML);
+            byte[] masterKey = GenerateMasterKey(clientHello, serverHello, _preSharedKey, keyAgreement, clientKeyExchange.PublicKey);
 
             //verify master key using HMAC authentication
             {
