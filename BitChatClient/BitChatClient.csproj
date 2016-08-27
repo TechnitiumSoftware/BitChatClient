@@ -34,6 +34,9 @@
     <Prefer32Bit>false</Prefer32Bit>
     <DebugSymbols>true</DebugSymbols>
   </PropertyGroup>
+  <PropertyGroup>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="TechnitiumLibrary.IO, Version=2.0.1.0, Culture=neutral, processorArchitecture=MSIL">
@@ -58,7 +61,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="BinaryID.cs" />
+    <Compile Include="Network\BinaryID.cs" />
     <Compile Include="BitChat.cs" />
     <Compile Include="BitChatMessage.cs" />
     <Compile Include="BitChatProfile.cs" />
@@ -70,7 +73,7 @@
     <Compile Include="FileSharing\SharedFileMetaData.cs" />
     <Compile Include="FileSharing\SharedFile.cs" />
     <Compile Include="IDebug.cs" />
-    <Compile Include="IPEndPointParser.cs" />
+    <Compile Include="Network\IPEndPointParser.cs" />
     <Compile Include="MessageItem.cs" />
     <Compile Include="MessageRecipient.cs" />
     <Compile Include="MessageStore.cs" />
@@ -86,7 +89,7 @@
     <Compile Include="BitChatService.cs" />
     <Compile Include="Network\Connections\Connection.cs" />
     <Compile Include="Network\TrackerManager.cs" />
-    <Compile Include="PeerInfo.cs" />
+    <Compile Include="Network\PeerInfo.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Network\TcpRelayService.cs" />
     <Compile Include="Network\SecureChannel\ISecureChannelSecurityManager.cs" />
@@ -96,7 +99,9 @@
     <Compile Include="Network\SecureChannel\SecureChannelPacket.cs" />
     <Compile Include="Network\SecureChannel\SecureChannelServerStream.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <None Include="app.manifest" />
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
