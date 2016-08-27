@@ -1174,6 +1174,9 @@ namespace BitChatClient.Network.Connections
         public DhtClient DhtClient
         { get { return _dhtClient; } }
 
+        public BitChatProfile Profile
+        { get { return _profile; } }
+
         #endregion
     }
 }
