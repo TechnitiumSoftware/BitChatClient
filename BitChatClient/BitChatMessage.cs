@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 using BitChatClient.FileSharing;
+using BitChatClient.Network;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -45,6 +46,12 @@ namespace BitChatClient
 
     class BitChatMessage
     {
+        #region variables
+
+        static readonly DateTime _epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
+        #endregion
+
         #region static create
 
         public static byte[] CreateNOOPMessage()
@@ -78,6 +85,7 @@ namespace BitChatClient
             {
                 mS.WriteByte((byte)BitChatMessageType.Text); //1 byte
                 mS.Write(BitConverter.GetBytes(message.MessageNumber), 0, 4); //4 bytes
+                mS.Write(BitConverter.GetBytes(Convert.ToInt64((message.MessageDate - _epoch).TotalMilliseconds)), 0, 8); //8 bytes
 
                 byte[] buffer = Encoding.UTF8.GetBytes(message.Message);
                 mS.Write(buffer, 0, buffer.Length);
@@ -227,6 +235,14 @@ namespace BitChatClient
             s.Read(buffer, 0, 8);
 
             return BitConverter.ToInt64(buffer, 0);
+        }
+
+        public static DateTime ReadDateTime(Stream s)
+        {
+            byte[] buffer = new byte[8];
+            s.Read(buffer, 0, 8);
+
+            return _epoch.AddMilliseconds(BitConverter.ToInt64(buffer, 0));
         }
 
         public static byte[] ReadData(Stream s)
