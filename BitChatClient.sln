@@ -11,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitChatApp", "BitChatApp\Bi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitChatAppMono", "BitChatAppMono\BitChatAppMono.csproj", "{D561478D-7EA2-4066-8EC4-D9DF74E1B190}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitChatClient", "BitChatClient\BitChatClient.csproj", "{3038B7EA-D974-431F-A6C0-FE7C7E5308A2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitChatCore", "BitChatCore\BitChatCore.csproj", "{3038B7EA-D974-431F-A6C0-FE7C7E5308A2}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "References", "References", "{3A48DAB9-2590-4514-8BB5-8DFF08B1BF60}"
 	ProjectSection(SolutionItems) = preProject
