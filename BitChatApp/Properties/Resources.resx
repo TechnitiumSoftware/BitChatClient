@@ -121,6 +121,9 @@
   <data name="NoNetwork" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\NoNetwork.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="point_right" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\point-right.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="FullNetwork" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\FullNetwork.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
@@ -133,10 +136,25 @@
   <data name="Attachment" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\Attachment.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
+  <data name="send_message" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\send message.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
   <data name="logo2" type="System.Resources.ResXFileRef, System.Windows.Forms">
     <value>..\Resources\logo2.ico;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
-  <data name="send message" type="System.Resources.ResXFileRef, System.Windows.Forms">
-    <value>..\Resources\send message.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  <data name="point_left" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\point-left.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="double_ticks" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\double-ticks.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="single_tick" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\single-tick.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="waiting" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\waiting.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
+  </data>
+  <data name="change_photo" type="System.Resources.ResXFileRef, System.Windows.Forms">
+    <value>..\Resources\change-photo.png;System.Drawing.Bitmap, System.Drawing, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a</value>
   </data>
 </root>
