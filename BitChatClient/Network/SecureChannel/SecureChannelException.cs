@@ -40,6 +40,7 @@ namespace BitChatClient.Network.SecureChannel
         EndOfStream = 255
     }
 
+    [Serializable()]
     public class SecureChannelException : IOException
     {
         #region variable
@@ -74,6 +75,10 @@ namespace BitChatClient.Network.SecureChannel
             _peerEP = peerEP;
             _peerCertificate = peerCertificate;
         }
+
+        public SecureChannelException(System.Runtime.Serialization.SerializationInfo info, System.Runtime.Serialization.StreamingContext context)
+            : base(info, context)
+        { }
 
         #endregion
 

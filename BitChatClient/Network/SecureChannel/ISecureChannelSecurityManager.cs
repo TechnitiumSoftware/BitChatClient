@@ -21,7 +21,7 @@ using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatClient.Network.SecureChannel
 {
-    public interface ISecureChannelSecurityManager
+    interface ISecureChannelSecurityManager
     {
         bool ProceedConnection(Certificate remoteCertificate); 
     }

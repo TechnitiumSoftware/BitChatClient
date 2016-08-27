@@ -82,7 +82,7 @@ namespace BitChatClient.Network.SecureChannel
         ECDHE256_RSA_WITH_AES256_CBC_HMAC_SHA256 = 2
     }
 
-    public abstract class SecureChannelStream : Stream
+    abstract class SecureChannelStream : Stream
     {
         #region variables
 
