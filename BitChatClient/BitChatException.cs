@@ -21,7 +21,7 @@ using System;
 
 namespace BitChatClient
 {
-    [System.Serializable()]
+    [Serializable()]
     public class BitChatException : Exception
     {
         public BitChatException()

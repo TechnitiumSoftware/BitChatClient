@@ -49,9 +49,9 @@ using TechnitiumLibrary.Net;
 
 namespace BitChatClient.Network
 {
-    public delegate void DiscoveredPeerInfo(LocalPeerDiscovery sender, IPEndPoint peerEP, BinaryID networkID);
+    delegate void DiscoveredPeerInfo(LocalPeerDiscovery sender, IPEndPoint peerEP, BinaryID networkID);
 
-    public class LocalPeerDiscovery : IDisposable
+    class LocalPeerDiscovery : IDisposable
     {
         #region events
 

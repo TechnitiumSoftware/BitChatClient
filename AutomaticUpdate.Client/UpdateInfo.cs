@@ -45,7 +45,7 @@ namespace AutomaticUpdate.Client
             _downloadSize = downloadSize;
             _signature = signature;
 
-            if (_signature.SigningCertificate.Capability != CertificateCapability.SignFile)
+            if (_signature.SigningCertificate.Capability != CertificateCapability.SignDocument)
                 throw new Exception("Signing certificate is not capable to sign files.");
         }
 
@@ -64,7 +64,7 @@ namespace AutomaticUpdate.Client
                     _downloadSize = bR.ReadInt64();
                     _signature = new Signature(bR.BaseStream);
 
-                    if (_signature.SigningCertificate.Capability != CertificateCapability.SignFile)
+                    if (_signature.SigningCertificate.Capability != CertificateCapability.SignDocument)
                         throw new Exception("Signing certificate is not capable to sign files.");
 
                     break;

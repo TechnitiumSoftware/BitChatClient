@@ -82,7 +82,7 @@ namespace BitChatClient.Network.KademliaDHT
         Socket _udpClient;
         Thread _udpClientThread;
 
-        FixMemoryStream _sendBufferStream = new FixMemoryStream(BUFFER_MAX_SIZE);
+        readonly FixMemoryStream _sendBufferStream = new FixMemoryStream(BUFFER_MAX_SIZE);
 
         Dictionary<int, Transaction> _transactions = new Dictionary<int, Transaction>(10);
 
