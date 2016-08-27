@@ -79,7 +79,7 @@ namespace BitChatClient.Network.Connections
         const int MAX_FRAME_SIZE = 65279; //65535 (max ipv4 packet size) - 256 (margin for other headers)
         const int BUFFER_SIZE = 65535;
 
-        Stream _baseStream;
+        readonly Stream _baseStream;
         BinaryID _remotePeerID;
         IPEndPoint _remotePeerEP;
         ConnectionManager _connectionManager;
@@ -196,7 +196,7 @@ namespace BitChatClient.Network.Connections
                         catch
                         { }
                     }
-                    
+
                     _disposed = true;
 
                     Disposed?.Invoke(this, EventArgs.Empty);
@@ -716,7 +716,8 @@ namespace BitChatClient.Network.Connections
                         case SignalType.BitChatNetworkInvitation:
                             #region ChannelInvitationBitChatNetwork
 
-                            BitChatNetworkInvitation?.BeginInvoke(channelName.Clone(), _remotePeerEP, Encoding.UTF8.GetString(dataBuffer, 0, dataLength), null, null);
+                            if (_connectionManager.Profile.AllowInboundInvitations)
+                                BitChatNetworkInvitation?.BeginInvoke(channelName.Clone(), _remotePeerEP, Encoding.UTF8.GetString(dataBuffer, 0, dataLength), null, null);
 
                             #endregion
                             break;
