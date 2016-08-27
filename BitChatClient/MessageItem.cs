@@ -20,19 +20,32 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using TechnitiumLibrary.IO;
 
 namespace BitChatClient
 {
     public enum MessageType : byte
     {
+        None = 0,
         Info = 1,
-        TextMessage = 2
+        TextMessage = 2,
+        InvitationMessage = 3
+    }
+
+    public enum MessageDeliveryStatus
+    {
+        None = 0,
+        Undelivered = 1,
+        PartiallyDelivered = 2,
+        Delivered = 3
     }
 
     public class MessageItem
     {
         #region variables
+
+        readonly static DateTime _epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         int _messageNumber;
 
@@ -46,16 +59,16 @@ namespace BitChatClient
 
         #region constructor
 
-        public MessageItem(string sender, string message)
-            : this(sender, message, new MessageRecipient[] { })
+        public MessageItem(MessageType type, DateTime messageDate, string sender, string message)
+            : this(type, messageDate, sender, message, new MessageRecipient[] { })
         { }
 
-        public MessageItem(string sender, string message, MessageRecipient[] recipients)
+        public MessageItem(MessageType type, DateTime messageDate, string sender, string message, MessageRecipient[] recipients)
         {
             _messageNumber = -1;
 
-            _type = MessageType.TextMessage;
-            _messageDate = DateTime.UtcNow;
+            _type = type;
+            _messageDate = messageDate;
             _sender = sender;
             _message = message;
             _recipients = recipients;
@@ -86,39 +99,65 @@ namespace BitChatClient
 
             using (MemoryStream mS = new MemoryStream(messageData))
             {
-                BincodingDecoder decoder = new BincodingDecoder(mS, "MI");
-
-                switch (decoder.Version)
+                if (Encoding.ASCII.GetString(messageData, 0, 2) == "MI")
                 {
-                    case 1:
-                        _type = (MessageType)decoder.DecodeNext().GetByteValue();
-                        _messageDate = decoder.DecodeNext().GetDateTimeValue();
+                    //new format
+                    BincodingDecoder decoder = new BincodingDecoder(mS, "MI");
 
-                        switch (_type)
-                        {
-                            case MessageType.Info:
-                                _message = decoder.DecodeNext().GetStringValue();
-                                break;
+                    switch (decoder.Version)
+                    {
+                        case 1:
+                            _type = (MessageType)decoder.DecodeNext().GetByteValue();
+                            _messageDate = decoder.DecodeNext().GetDateTimeValue();
 
-                            case MessageType.TextMessage:
-                                _sender = decoder.DecodeNext().GetStringValue();
-                                _message = decoder.DecodeNext().GetStringValue();
+                            switch (_type)
+                            {
+                                case MessageType.Info:
+                                    _message = decoder.DecodeNext().GetStringValue();
+                                    break;
 
-                                {
-                                    List<Bincoding> rcptDataList = decoder.DecodeNext().GetList();
+                                case MessageType.TextMessage:
+                                case MessageType.InvitationMessage:
+                                    _sender = decoder.DecodeNext().GetStringValue();
+                                    _message = decoder.DecodeNext().GetStringValue();
 
-                                    _recipients = new MessageRecipient[rcptDataList.Count];
-                                    int i = 0;
+                                    {
+                                        List<Bincoding> rcptDataList = decoder.DecodeNext().GetList();
 
-                                    foreach (Bincoding data in rcptDataList)
-                                        _recipients[i++] = new MessageRecipient(data.GetValueStream());
-                                }
-                                break;
-                        }
-                        break;
+                                        _recipients = new MessageRecipient[rcptDataList.Count];
+                                        int i = 0;
 
-                    default:
-                        throw new InvalidDataException("Cannot decode data format: version not supported.");
+                                        foreach (Bincoding data in rcptDataList)
+                                            _recipients[i++] = new MessageRecipient(data.GetValueStream());
+                                    }
+                                    break;
+                            }
+                            break;
+
+                        default:
+                            throw new InvalidDataException("Cannot decode data format: version not supported.");
+                    }
+                }
+                else
+                {
+                    //old format support
+                    BincodingDecoder decoder = new BincodingDecoder(mS);
+
+                    _type = (MessageType)decoder.DecodeNext().GetByteValue();
+                    _messageDate = _epoch.AddSeconds(decoder.DecodeNext().GetLongValue());
+
+                    switch (_type)
+                    {
+                        case MessageType.Info:
+                            _message = decoder.DecodeNext().GetStringValue();
+                            break;
+
+                        case MessageType.TextMessage:
+                            _sender = decoder.DecodeNext().GetStringValue();
+                            _message = decoder.DecodeNext().GetStringValue();
+                            _recipients = new MessageRecipient[] { };
+                            break;
+                    }
                 }
             }
         }
@@ -155,6 +194,32 @@ namespace BitChatClient
 
         #region public
 
+        public MessageDeliveryStatus GetDeliveryStatus()
+        {
+            if (_type != MessageType.TextMessage)
+                return MessageDeliveryStatus.None;
+
+            bool containsDelivered = false;
+            bool containsUndelivered = false;
+
+            foreach (MessageRecipient rcpt in _recipients)
+            {
+                if (rcpt.Status == MessageRecipientStatus.Delivered)
+                    containsDelivered = true;
+                else
+                    containsUndelivered = true;
+            }
+
+            if (containsDelivered && containsUndelivered)
+                return MessageDeliveryStatus.PartiallyDelivered;
+            else if (containsDelivered)
+                return MessageDeliveryStatus.Delivered;
+            else if (containsUndelivered)
+                return MessageDeliveryStatus.Undelivered;
+            else
+                return MessageDeliveryStatus.Delivered;
+        }
+
         public void WriteTo(MessageStore store)
         {
             using (MemoryStream mS = new MemoryStream(128))
@@ -171,6 +236,7 @@ namespace BitChatClient
                         break;
 
                     case MessageType.TextMessage:
+                    case MessageType.InvitationMessage:
                         encoder.Encode(_sender);
                         encoder.Encode(_message);
                         encoder.Encode(_recipients);

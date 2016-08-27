@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+using BitChatClient.Network;
 using System;
 using System.IO;
 using System.Security.Cryptography;
