@@ -159,8 +159,8 @@ namespace BitChatClient
 
         private void CreateBitChat(BinaryID networkID, IPEndPoint peerEP, string message)
         {
-            BitChatNetwork network = new BitChatNetwork(_profile, _internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, null, null, networkID, new Certificate[] { }, BitChatNetworkStatus.Offline, peerEP.ToString(), message);
-            BitChat bitChat = _internal.CreateBitChat(network, BinaryID.GenerateRandomID160().ToString(), BinaryID.GenerateRandomID256().ID, 0, null, new BitChatProfile.SharedFileInfo[] { }, null, true, false);
+            BitChatNetwork network = new BitChatNetwork(_internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, null, null, networkID, new Certificate[] { }, BitChatNetworkStatus.Offline, peerEP.ToString(), message);
+            BitChat bitChat = _internal.CreateBitChat(network, BinaryID.GenerateRandomID160().ToString(), BinaryID.GenerateRandomID256().ID, 0, null, new BitChatProfile.SharedFileInfo[] { }, null, true, false, false);
 
             lock (_bitChats)
             {
@@ -193,11 +193,11 @@ namespace BitChatClient
                 BitChatNetwork network;
 
                 if (bitChatInfo.Type == BitChatNetworkType.PrivateChat)
-                    network = new BitChatNetwork(_profile, _internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, bitChatInfo.PeerEmailAddress, bitChatInfo.SharedSecret, bitChatInfo.NetworkID, bitChatInfo.PeerCertificateList, bitChatInfo.NetworkStatus, bitChatInfo.InvitationSender, bitChatInfo.InvitationMessage);
+                    network = new BitChatNetwork(_internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, bitChatInfo.PeerEmailAddress, bitChatInfo.SharedSecret, bitChatInfo.NetworkID, bitChatInfo.PeerCertificateList, bitChatInfo.NetworkStatus, bitChatInfo.InvitationSender, bitChatInfo.InvitationMessage);
                 else
-                    network = new BitChatNetwork(_profile, _internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, bitChatInfo.NetworkName, bitChatInfo.SharedSecret, bitChatInfo.NetworkID, bitChatInfo.PeerCertificateList, bitChatInfo.NetworkStatus);
+                    network = new BitChatNetwork(_internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, bitChatInfo.NetworkName, bitChatInfo.SharedSecret, bitChatInfo.NetworkID, bitChatInfo.PeerCertificateList, bitChatInfo.NetworkStatus);
 
-                BitChat chat = _internal.CreateBitChat(network, bitChatInfo.MessageStoreID, bitChatInfo.MessageStoreKey, bitChatInfo.GroupImageDateModified, bitChatInfo.GroupImage, bitChatInfo.SharedFileList, bitChatInfo.TrackerURIs, bitChatInfo.EnableTracking, bitChatInfo.SendInvitation);
+                BitChat chat = _internal.CreateBitChat(network, bitChatInfo.MessageStoreID, bitChatInfo.MessageStoreKey, bitChatInfo.GroupImageDateModified, bitChatInfo.GroupImage, bitChatInfo.SharedFileList, bitChatInfo.TrackerURIs, bitChatInfo.EnableTracking, bitChatInfo.SendInvitation, bitChatInfo.Mute);
                 _bitChats.Add(chat);
             }
 
@@ -210,8 +210,8 @@ namespace BitChatClient
 
         public BitChat CreateBitChat(MailAddress peerEmailAddress, string sharedSecret, bool enableTracking, string invitationMessage)
         {
-            BitChatNetwork network = new BitChatNetwork(_profile, _internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, peerEmailAddress, sharedSecret, null, new Certificate[] { }, BitChatNetworkStatus.Online, _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address, invitationMessage);
-            BitChat bitChat = _internal.CreateBitChat(network, BinaryID.GenerateRandomID160().ToString(), BinaryID.GenerateRandomID256().ID, 0, null, new BitChatProfile.SharedFileInfo[] { }, null, enableTracking, true);
+            BitChatNetwork network = new BitChatNetwork(_internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, peerEmailAddress, sharedSecret, null, new Certificate[] { }, BitChatNetworkStatus.Online, _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address, invitationMessage);
+            BitChat bitChat = _internal.CreateBitChat(network, BinaryID.GenerateRandomID160().ToString(), BinaryID.GenerateRandomID256().ID, 0, null, new BitChatProfile.SharedFileInfo[] { }, null, enableTracking, true, false);
 
             lock (_bitChats)
             {
@@ -223,8 +223,8 @@ namespace BitChatClient
 
         public BitChat CreateBitChat(string networkName, string sharedSecret, bool enableTracking)
         {
-            BitChatNetwork network = new BitChatNetwork(_profile, _internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, networkName, sharedSecret, null, new Certificate[] { }, BitChatNetworkStatus.Online);
-            BitChat bitChat = _internal.CreateBitChat(network, BinaryID.GenerateRandomID160().ToString(), BinaryID.GenerateRandomID256().ID, -1, null, new BitChatProfile.SharedFileInfo[] { }, null, enableTracking, false);
+            BitChatNetwork network = new BitChatNetwork(_internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, networkName, sharedSecret, null, new Certificate[] { }, BitChatNetworkStatus.Online);
+            BitChat bitChat = _internal.CreateBitChat(network, BinaryID.GenerateRandomID160().ToString(), BinaryID.GenerateRandomID256().ID, -1, null, new BitChatProfile.SharedFileInfo[] { }, null, enableTracking, false, false);
 
             lock (_bitChats)
             {
@@ -256,14 +256,14 @@ namespace BitChatClient
 
             _profile.BitChatInfoList = bitChatInfoList.ToArray();
 
-            IPEndPoint[] dhtNodes = _internal.GetDhtConnectedNodes();
+            IPEndPoint[] dhtNodes = _internal.ConnectionManager.DhtClient.GetAllNodes();
             if (dhtNodes.Length > 0)
                 _profile.BootstrapDhtNodes = dhtNodes;
 
-            if (_profile.EnableInvitation)
-                _internal.EnableInvitationTracker();
+            if (_profile.AllowInboundInvitations)
+                _internal.EnableInboundInvitationTracker();
             else
-                _internal.DisableInvitationTracker();
+                _internal.DisableInboundInvitationTracker();
         }
 
         public void ReCheckConnectivity()
@@ -325,9 +325,9 @@ namespace BitChatClient
             LocalPeerDiscovery _localDiscovery;
             Dictionary<BinaryID, BitChatNetwork> _networks = new Dictionary<BinaryID, BitChatNetwork>();
 
-            //invitation tracker
+            //inbound invitation tracker
             readonly BinaryID _maskedEmailAddress;
-            TrackerManager _invitationTrackerManager;
+            TrackerManager _inboundInvitationTrackerManager;
 
             //relay nodes
             const int TCP_RELAY_MAX_CONNECTIONS = 3;
@@ -356,8 +356,8 @@ namespace BitChatClient
                 _localDiscovery = new LocalPeerDiscovery(_connectionManager.LocalPort);
                 _localDiscovery.PeerDiscovered += LocalDiscovery_PeerDiscovered;
 
-                if (_service._profile.EnableInvitation)
-                    EnableInvitationTracker();
+                if (_service._profile.AllowInboundInvitations)
+                    EnableInboundInvitationTracker();
             }
 
             #endregion
@@ -392,6 +392,9 @@ namespace BitChatClient
 
                     if (_localDiscovery != null)
                         _localDiscovery.Dispose();
+
+                    if (_inboundInvitationTrackerManager != null)
+                        _inboundInvitationTrackerManager.Dispose();
 
                     _disposed = true;
                 }
@@ -514,7 +517,7 @@ namespace BitChatClient
 
                     List<BinaryID> networkIDs = new List<BinaryID>(10);
 
-                    if (_service._profile.EnableInvitation)
+                    if (_service._profile.AllowInboundInvitations)
                         networkIDs.Add(_maskedEmailAddress);
 
                     lock (_networks)
@@ -639,7 +642,7 @@ namespace BitChatClient
 
             #region public
 
-            public BitChat CreateBitChat(BitChatNetwork network, string messageStoreID, byte[] messageStoreKey, long groupImageDateModified, byte[] groupImage, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs, bool enableTracking, bool sendInvitation)
+            public BitChat CreateBitChat(BitChatNetwork network, string messageStoreID, byte[] messageStoreKey, long groupImageDateModified, byte[] groupImage, BitChatProfile.SharedFileInfo[] sharedFileInfoList, Uri[] trackerURIs, bool enableTracking, bool sendInvitation, bool mute)
             {
                 lock (_networks)
                 {
@@ -661,24 +664,19 @@ namespace BitChatClient
                 if (enableTracking && (network.Status == BitChatNetworkStatus.Online))
                     SetupTcpRelay(network.NetworkID, trackerURIs); //starts tcp relay if available or needed
 
-                BitChat bitChat = new BitChat(_service._syncCxt, _localDiscovery, network, messageStoreID, messageStoreKey, groupImageDateModified, groupImage, sharedFileInfoList, trackerURIs, enableTracking, sendInvitation);
+                BitChat bitChat = new BitChat(_service._syncCxt, _localDiscovery, network, messageStoreID, messageStoreKey, groupImageDateModified, groupImage, sharedFileInfoList, trackerURIs, enableTracking, sendInvitation, mute);
 
                 bitChat.Leave += BitChat_Leave;
 
                 return bitChat;
             }
 
-            public IPEndPoint[] GetDhtConnectedNodes()
+            public void EnableInboundInvitationTracker()
             {
-                return _connectionManager.DhtClient.GetAllNodes();
-            }
-
-            public void EnableInvitationTracker()
-            {
-                if (_invitationTrackerManager == null)
+                if (_inboundInvitationTrackerManager == null)
                 {
-                    _invitationTrackerManager = new TrackerManager(_maskedEmailAddress, _connectionManager.LocalPort, _connectionManager.DhtClient, BIT_CHAT_INVITATION_TRACKER_UPDATE_INTERVAL);
-                    _invitationTrackerManager.StartTracking();
+                    _inboundInvitationTrackerManager = new TrackerManager(_maskedEmailAddress, _connectionManager.LocalPort, _connectionManager.DhtClient, BIT_CHAT_INVITATION_TRACKER_UPDATE_INTERVAL);
+                    _inboundInvitationTrackerManager.StartTracking();
 
                     _localDiscovery.StartTracking(_maskedEmailAddress);
 
@@ -686,12 +684,12 @@ namespace BitChatClient
                 }
             }
 
-            public void DisableInvitationTracker()
+            public void DisableInboundInvitationTracker()
             {
-                if (_invitationTrackerManager != null)
+                if (_inboundInvitationTrackerManager != null)
                 {
-                    _invitationTrackerManager.StopTracking();
-                    _invitationTrackerManager = null;
+                    _inboundInvitationTrackerManager.StopTracking();
+                    _inboundInvitationTrackerManager = null;
 
                     _localDiscovery.StopTracking(_maskedEmailAddress);
 
@@ -750,7 +748,15 @@ namespace BitChatClient
 
             private void ConnectionManager_BitChatNetworkChannelInvitation(BinaryID networkID, IPEndPoint peerEP, string message)
             {
-                _service.CreateBitChat(networkID, peerEP, message);
+                bool networkExists;
+
+                lock (_networks)
+                {
+                    networkExists = _networks.ContainsKey(networkID);
+                }
+
+                if (!networkExists)
+                    _service.CreateBitChat(networkID, peerEP, message);
             }
 
             private void ConnectionManager_BitChatNetworkChannelRequest(Connection connection, BinaryID channelName, Stream channel)
