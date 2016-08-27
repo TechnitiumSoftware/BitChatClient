@@ -75,7 +75,7 @@ namespace BitChatClient
                 new Uri("http://tracker.ilibr.org:6969/announce")
             };
 
-        static readonly DateTime _epoch = new DateTime(1970, 1, 1);
+        static readonly DateTime _epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
         readonly bool _isPortableApp;
         readonly string _profileFolder;
@@ -95,7 +95,7 @@ namespace BitChatClient
         bool _checkCertificateRevocationList = true;
         IPEndPoint[] _bootstrapDhtNodes = new IPEndPoint[] { };
         bool _enableUPnP = true;
-        bool _enableInvitation = true;
+        bool _allowInboundInvitations = true;
 
         string _proxyAddress = "127.0.0.1";
         int _proxyPort = 0;
@@ -306,8 +306,8 @@ namespace BitChatClient
                         _enableUPnP = item.Value.GetBooleanValue();
                         break;
 
-                    case "enable_invitation":
-                        _enableInvitation = item.Value.GetBooleanValue();
+                    case "allow_inbound_invitations":
+                        _allowInboundInvitations = item.Value.GetBooleanValue();
                         break;
 
                     case "download_folder":
@@ -431,7 +431,7 @@ namespace BitChatClient
             encoder.Encode("enable_upnp", _enableUPnP);
 
             //enable invitation
-            encoder.Encode("enable_invitation", _enableInvitation);
+            encoder.Encode("allow_inbound_invitations", _allowInboundInvitations);
 
             //download folder
             if (_downloadFolder != null)
@@ -442,10 +442,11 @@ namespace BitChatClient
                 encoder.Encode("local_cert_store", _localCertStore);
 
             //profile image
-            encoder.Encode("profile_image_date_modified", _profileImageDateModified);
-
             if (_profileImage != null)
+            {
+                encoder.Encode("profile_image_date_modified", _profileImageDateModified);
                 encoder.Encode("profile_image", _profileImage);
+            }
 
             //tracker urls
             {
@@ -498,9 +499,7 @@ namespace BitChatClient
             }
 
             //generic client data
-            if ((_clientData == null) || (_clientData.Length == 0))
-                encoder.Encode("client_data", Bincoding.GetNullValue());
-            else
+            if ((_clientData != null) && (_clientData.Length > 0))
                 encoder.Encode("client_data", _clientData);
 
             //signal end of settings
@@ -642,10 +641,10 @@ namespace BitChatClient
             set { _enableUPnP = value; }
         }
 
-        public bool EnableInvitation
+        public bool AllowInboundInvitations
         {
-            get { return _enableInvitation; }
-            set { _enableInvitation = value; }
+            get { return _allowInboundInvitations; }
+            set { _allowInboundInvitations = value; }
         }
 
         public NetProxy Proxy
@@ -682,12 +681,13 @@ namespace BitChatClient
             readonly string _invitationSender;
             readonly string _invitationMessage;
             readonly BitChatNetworkStatus _networkStatus = BitChatNetworkStatus.Online;
+            readonly bool _mute = false;
 
             #endregion
 
             #region constructor
 
-            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID networkID, string messageStoreID, byte[] messageStoreKey, long groupImageDateModified, byte[] groupImage, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, bool sendInvitation, string invitationSender, string invitationMessage, BitChatNetworkStatus networkStatus)
+            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID networkID, string messageStoreID, byte[] messageStoreKey, long groupImageDateModified, byte[] groupImage, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, bool sendInvitation, string invitationSender, string invitationMessage, BitChatNetworkStatus networkStatus, bool mute)
             {
                 _type = type;
                 _networkNameOrPeerEmailAddress = networkNameOrPeerEmailAddress;
@@ -705,6 +705,7 @@ namespace BitChatClient
                 _invitationSender = invitationSender;
                 _invitationMessage = invitationMessage;
                 _networkStatus = networkStatus;
+                _mute = mute;
             }
 
             public BitChatInfo(Stream s)
@@ -772,6 +773,10 @@ namespace BitChatClient
 
                         case "group_image":
                             _groupImage = pair.Value.Value;
+                            break;
+
+                        case "mute":
+                            _mute = pair.Value.GetBooleanValue();
                             break;
 
                         case "peer_certs":
@@ -846,8 +851,13 @@ namespace BitChatClient
                 encoder.Encode("message_store_id", _messageStoreID);
                 encoder.Encode("message_store_key", _messageStoreKey);
 
-                encoder.Encode("group_image_date_modified", _groupImageDateModified);
-                encoder.Encode("group_image", _groupImage);
+                if (_groupImage != null)
+                {
+                    encoder.Encode("group_image_date_modified", _groupImageDateModified);
+                    encoder.Encode("group_image", _groupImage);
+                }
+
+                encoder.Encode("mute", _mute);
 
                 encoder.Encode("peer_certs", _peerCerts);
                 encoder.Encode("shared_files", _sharedFiles);
@@ -944,6 +954,9 @@ namespace BitChatClient
 
             public BitChatNetworkStatus NetworkStatus
             { get { return _networkStatus; } }
+
+            public bool Mute
+            { get { return _mute; } }
 
             #endregion
         }
