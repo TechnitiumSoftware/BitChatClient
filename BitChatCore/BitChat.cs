@@ -33,8 +33,7 @@ namespace BitChatCore
 {
     public delegate void PeerNotification(BitChat sender, BitChat.Peer peer);
     public delegate void PeerHasRevokedCertificate(BitChat sender, InvalidCertificateException ex);
-    public delegate void MessageReceived(BitChat.Peer sender, MessageItem message);
-    public delegate void MessageDeliveryNotification(BitChat.Peer sender, MessageItem message);
+    public delegate void MessageNotification(BitChat.Peer sender, MessageItem message);
     public delegate void FileAdded(BitChat sender, SharedFile sharedFile);
     public delegate void PeerSecureChannelException(BitChat sender, SecureChannelException ex);
     public delegate void PeerHasChangedCertificate(BitChat sender, Certificate cert);
@@ -55,10 +54,10 @@ namespace BitChatCore
         public event PeerHasRevokedCertificate PeerHasRevokedCertificate;
         public event PeerSecureChannelException PeerSecureChannelException;
         public event PeerHasChangedCertificate PeerHasChangedCertificate;
-        public event MessageReceived MessageReceived;
-        public event MessageDeliveryNotification MessageDeliveryNotification;
+        public event MessageNotification MessageReceived;
+        public event MessageNotification MessageDeliveryNotification;
         public event FileAdded FileAdded;
-        public event EventHandler GroupImageChanged;
+        public event PeerNotification GroupImageChanged;
         public event EventHandler Leave;
 
         #endregion
@@ -402,16 +401,16 @@ namespace BitChatCore
             catch { }
         }
 
-        private void RaiseEventGroupImageChanged()
+        private void RaiseEventGroupImageChanged(Peer peer)
         {
-            _syncCxt.Post(GroupImageChangedCallback, null);
+            _syncCxt.Post(GroupImageChangedCallback, peer);
         }
 
         private void GroupImageChangedCallback(object state)
         {
             try
             {
-                GroupImageChanged(this, EventArgs.Empty);
+                GroupImageChanged(this, state as Peer);
             }
             catch { }
         }
@@ -560,23 +559,6 @@ namespace BitChatCore
                 //advertise file
                 SendFileAdvertisement(sharedFile);
             }
-        }
-
-        public void SetGroupImage(byte[] image)
-        {
-            if (_network.Type != BitChatNetworkType.GroupChat)
-                throw new InvalidOperationException("Group image can be set only for Bit Chat Groups.");
-
-            _groupImageDateModified = Convert.ToInt64((DateTime.UtcNow - _epoch).TotalMilliseconds);
-            _groupImage = image;
-
-            //notify UI to change group image
-            if (GroupImageChanged != null)
-                RaiseEventGroupImageChanged();
-
-            //notify peers
-            byte[] messageData = BitChatMessage.CreateGroupImage(_groupImage, _groupImageDateModified);
-            _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
         }
 
         public void GoOffline()
@@ -1185,6 +1167,9 @@ namespace BitChatCore
 
         #region properties
 
+        public BitChatProfile Profile
+        { get { return _network.ConnectionManager.Profile; } }
+
         public BinaryID NetworkID
         { get { return _network.NetworkID; } }
 
@@ -1211,6 +1196,27 @@ namespace BitChatCore
 
         public Peer SelfPeer
         { get { return _selfPeer; } }
+
+        public byte[] GroupImage
+        {
+            get { return _groupImage; }
+            set
+            {
+                if (_network.Type != BitChatNetworkType.GroupChat)
+                    throw new InvalidOperationException("Group image can be set only for Bit Chat Groups.");
+
+                _groupImageDateModified = Convert.ToInt64((DateTime.UtcNow - _epoch).TotalMilliseconds);
+                _groupImage = value;
+
+                //notify UI to change group image
+                if (GroupImageChanged != null)
+                    RaiseEventGroupImageChanged(_selfPeer);
+
+                //notify peers
+                byte[] messageData = BitChatMessage.CreateGroupImage(_groupImage, _groupImageDateModified);
+                _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
+            }
+        }
 
         public bool Mute
         {
@@ -1623,7 +1629,7 @@ namespace BitChatCore
                                         _bitChat._groupImage = null;
 
                                     if (_bitChat.GroupImageChanged != null)
-                                        _bitChat.RaiseEventGroupImageChanged();
+                                        _bitChat.RaiseEventGroupImageChanged(this);
                                 }
                             }
                         }
@@ -1907,6 +1913,9 @@ namespace BitChatCore
             #endregion
 
             #region properties
+
+            public BitChat BitChat
+            { get { return _bitChat; } }
 
             public PeerInfo[] ConnectedWith
             {
