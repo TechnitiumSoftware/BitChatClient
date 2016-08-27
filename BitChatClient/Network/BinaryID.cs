@@ -22,7 +22,7 @@ using System.IO;
 using System.Security.Cryptography;
 using TechnitiumLibrary.IO;
 
-namespace BitChatClient
+namespace BitChatClient.Network
 {
     public class BinaryID : IWriteStream, IEquatable<BinaryID>
     {

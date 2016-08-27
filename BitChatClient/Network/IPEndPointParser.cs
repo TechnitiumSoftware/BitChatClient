@@ -23,7 +23,7 @@ using System.Net;
 using System.Net.Sockets;
 using TechnitiumLibrary.IO;
 
-namespace BitChatClient
+namespace BitChatClient.Network
 {
     static class IPEndPointParser
     {

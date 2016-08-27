@@ -24,7 +24,7 @@ using System.Net;
 using System.Text;
 using TechnitiumLibrary.IO;
 
-namespace BitChatClient
+namespace BitChatClient.Network
 {
     public class PeerInfo : IWriteStream
     {
