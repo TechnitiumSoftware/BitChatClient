@@ -65,7 +65,7 @@ namespace BitChatCore.Network.SecureChannel
                         break;
 
                     case -1:
-                        throw new SecureChannelException(SecureChannelCode.EndOfStream, _remotePeerEP, _remotePeerCert, "SecureChannel base stream closed.");
+                        throw new EndOfStreamException();
 
                     default:
                         throw new SecureChannelException(SecureChannelCode.ProtocolVersionNotSupported, _remotePeerEP, _remotePeerCert, "SecureChannel protocol version '" + _version + "' not supported.");
@@ -73,19 +73,26 @@ namespace BitChatCore.Network.SecureChannel
             }
             catch (SecureChannelException ex)
             {
-                try
+                if (ex.Code == SecureChannelCode.RemoteError)
                 {
-                    if (_baseStream == null)
-                        SecureChannelPacket.WritePacket(stream, ex.Code);
-                    else
-                        SecureChannelPacket.WritePacket(this, ex.Code);
+                    throw new SecureChannelException(ex.Code, _remotePeerEP, _remotePeerCert, ex.Message, ex);
                 }
-                catch
-                { }
+                else
+                {
+                    try
+                    {
+                        if (_baseStream == null)
+                            SecureChannelPacket.WritePacket(stream, ex.Code);
+                        else
+                            SecureChannelPacket.WritePacket(this, ex.Code);
+                    }
+                    catch
+                    { }
 
-                throw new SecureChannelException(ex.Code, _remotePeerEP, _remotePeerCert, ex.Message, ex.InnerException);
+                    throw;
+                }
             }
-            catch (Exception ex)
+            catch
             {
                 try
                 {
@@ -97,7 +104,7 @@ namespace BitChatCore.Network.SecureChannel
                 catch
                 { }
 
-                throw new SecureChannelException(SecureChannelCode.UnknownException, _remotePeerEP, _remotePeerCert, ex.Message, ex);
+                throw;
             }
         }
 
