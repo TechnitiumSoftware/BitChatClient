@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+using BitChatCore.FileSharing;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -30,7 +31,8 @@ namespace BitChatCore
         None = 0,
         Info = 1,
         TextMessage = 2,
-        InvitationMessage = 3
+        InvitationMessage = 3,
+        SharedFileMetaData = 4
     }
 
     public enum MessageDeliveryStatus
@@ -54,6 +56,7 @@ namespace BitChatCore
         readonly string _sender;
         readonly string _message;
         readonly MessageRecipient[] _recipients;
+        readonly SharedFileMetaData _sharedFileMetaData;
 
         #endregion
 
@@ -90,6 +93,17 @@ namespace BitChatCore
             _type = MessageType.Info;
             _messageDate = infoDate;
             _message = "";
+        }
+
+        public MessageItem(string sender, SharedFileMetaData sharedFileMetaData)
+        {
+            _messageNumber = -1;
+
+            _type = MessageType.SharedFileMetaData;
+            _messageDate = DateTime.UtcNow;
+            _sender = sender;
+
+            _sharedFileMetaData = sharedFileMetaData;
         }
 
         public MessageItem(MessageStore store, int messageNumber)
@@ -131,7 +145,13 @@ namespace BitChatCore
                                             _recipients[i++] = new MessageRecipient(data.GetValueStream());
                                     }
                                     break;
+
+                                case MessageType.SharedFileMetaData:
+                                    _sender = decoder.DecodeNext().GetStringValue();
+                                    _sharedFileMetaData = new SharedFileMetaData(decoder.DecodeNext().GetValueStream());
+                                    break;
                             }
+
                             break;
 
                         default:
@@ -242,6 +262,11 @@ namespace BitChatCore
                         encoder.Encode(_recipients);
                         break;
 
+                    case MessageType.SharedFileMetaData:
+                        encoder.Encode(_sender);
+                        encoder.Encode(_sharedFileMetaData);
+                        break;
+
                     default:
                         throw new NotSupportedException("MessageType not supported: " + _type);
                 }
@@ -276,6 +301,9 @@ namespace BitChatCore
 
         public MessageRecipient[] Recipients
         { get { return _recipients; } }
+
+        public SharedFileMetaData SharedFileMetaData
+        { get { return _sharedFileMetaData; } }
 
         #endregion
     }
