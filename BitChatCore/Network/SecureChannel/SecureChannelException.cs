@@ -37,7 +37,6 @@ namespace BitChatCore.Network.SecureChannel
         InvalidMessageHMACReceived = 8,
         ProtocolAuthenticationFailed = 9,
         UnknownException = 254,
-        EndOfStream = 255
     }
 
     [Serializable()]
