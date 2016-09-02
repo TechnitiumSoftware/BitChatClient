@@ -31,6 +31,8 @@ namespace BitChatCore.FileSharing
     {
         #region variables
 
+        static readonly DateTime _epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+
         string _fileName;
         ContentType _contentType;
         DateTime _lastModified;
@@ -73,8 +75,8 @@ namespace BitChatCore.FileSharing
             {
                 case 1:
                     _fileName = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
-                    _contentType = new System.Net.Mime.ContentType(Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte())));
-                    _lastModified = new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc).AddSeconds(bR.ReadInt64());
+                    _contentType = new ContentType(Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte())));
+                    _lastModified = _epoch.AddSeconds(bR.ReadInt64());
 
                     _fileSize = bR.ReadInt64();
                     _blockSize = bR.ReadInt32();
@@ -147,7 +149,7 @@ namespace BitChatCore.FileSharing
             bW.Write(Convert.ToByte(buffer.Length));
             bW.Write(buffer);
 
-            bW.Write(Convert.ToInt64((_lastModified - (new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc))).TotalSeconds));
+            bW.Write(Convert.ToInt64((_lastModified - _epoch).TotalSeconds));
 
             bW.Write(_fileSize);
             bW.Write(_blockSize);

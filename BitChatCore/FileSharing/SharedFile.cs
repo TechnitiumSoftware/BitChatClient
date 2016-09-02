@@ -48,11 +48,12 @@ namespace BitChatCore.FileSharing
         #region events
 
         public event EventHandler FileDownloadStarted;
+        public event EventHandler FileSharingStarted;
+        public event EventHandler FilePaused;
         public event EventHandler FileDownloaded;
-        public event EventHandler BlockDownloaded;
+        public event EventHandler FileBlockDownloaded;
         public event EventHandler FileTransferSpeedUpdate;
         public event EventHandler PeerCountUpdate;
-        public event EventHandler FileRemoved;
 
         #endregion
 
@@ -134,7 +135,7 @@ namespace BitChatCore.FileSharing
             if (!_disposed)
             {
                 //stop timers
-                Stop();
+                StopTimers();
 
                 if (_fileStream != null)
                     _fileStream.Dispose();
@@ -254,16 +255,25 @@ namespace BitChatCore.FileSharing
 
                     if (sharedFile._isComplete)
                     {
+                        //close the file and do nothing
                         fS.Dispose();
                     }
                     else
                     {
-                        sharedFile.Remove(chat);
+                        //since the current shared file is incomplete and we are adding a complete shared file copy
 
-                        sharedFile = new SharedFile(fS, metaData, blockAvailable, blockAvailable.Length, syncCxt);
+                        //stop current download process
+                        sharedFile.Pause();
+                        sharedFile._fileStream.Dispose();
+
+                        //update the current object with new file data
+                        sharedFile._fileStream = fS;
+                        sharedFile._blockAvailable = blockAvailable;
+                        sharedFile._availableBlocksCount = blockAvailable.Length;
+                        sharedFile._isComplete = true;
+
+                        //start sharing new file
                         sharedFile.StartSharing();
-
-                        _sharedFiles.Add(metaData.FileID, sharedFile);
                     }
                 }
                 else
@@ -280,7 +290,7 @@ namespace BitChatCore.FileSharing
             }
         }
 
-        internal static SharedFile PrepareDownloadFile(SharedFileMetaData metaData, BitChat chat, BitChat.Peer seeder, BitChatProfile profile, SynchronizationContext syncCxt)
+        internal static SharedFile PrepareDownloadFile(SharedFileMetaData metaData, BitChat chat, BitChatProfile profile, SynchronizationContext syncCxt, BitChat.Peer seeder = null)
         {
             //check if file already exists
             lock (_sharedFiles)
@@ -300,7 +310,9 @@ namespace BitChatCore.FileSharing
                 }
 
                 sharedFile.AddChat(chat);
-                sharedFile.AddSeeder(seeder);
+
+                if (seeder != null)
+                    sharedFile.AddSeeder(seeder);
 
                 return sharedFile;
             }
@@ -312,7 +324,7 @@ namespace BitChatCore.FileSharing
 
         private void RaiseEventFileDownloadStarted()
         {
-            _syncCxt.Post(new SendOrPostCallback(FileDownloadStartedCallback), null);
+            _syncCxt.Send(new SendOrPostCallback(FileDownloadStartedCallback), null);
         }
 
         private void FileDownloadStartedCallback(object obj)
@@ -324,9 +336,37 @@ namespace BitChatCore.FileSharing
             catch { }
         }
 
+        private void RaiseEventFileSharingStarted()
+        {
+            _syncCxt.Send(new SendOrPostCallback(FileSharingStartedCallback), null);
+        }
+
+        private void FileSharingStartedCallback(object obj)
+        {
+            try
+            {
+                FileSharingStarted(this, EventArgs.Empty);
+            }
+            catch { }
+        }
+
+        private void RaiseEventFilePaused()
+        {
+            _syncCxt.Send(new SendOrPostCallback(FilePausedCallback), null);
+        }
+
+        private void FilePausedCallback(object obj)
+        {
+            try
+            {
+                FilePaused(this, EventArgs.Empty);
+            }
+            catch { }
+        }
+
         private void RaiseEventFileDownloaded()
         {
-            _syncCxt.Post(new SendOrPostCallback(FileDownloadedCallback), null);
+            _syncCxt.Send(new SendOrPostCallback(FileDownloadedCallback), null);
         }
 
         private void FileDownloadedCallback(object obj)
@@ -338,19 +378,19 @@ namespace BitChatCore.FileSharing
             catch { }
         }
 
-        private void RaiseEventBlockDownloaded()
+        private void RaiseEventFileBlockDownloaded()
         {
             if (_isComplete)
                 return;
 
-            _syncCxt.Post(new SendOrPostCallback(BlockDownloadedCallback), null);
+            _syncCxt.Send(new SendOrPostCallback(FileBlockDownloadedCallback), null);
         }
 
-        private void BlockDownloadedCallback(object obj)
+        private void FileBlockDownloadedCallback(object obj)
         {
             try
             {
-                BlockDownloaded(this, EventArgs.Empty);
+                FileBlockDownloaded(this, EventArgs.Empty);
             }
             catch { }
         }
@@ -379,20 +419,6 @@ namespace BitChatCore.FileSharing
             try
             {
                 PeerCountUpdate(this, EventArgs.Empty);
-            }
-            catch { }
-        }
-
-        private void RaiseEventFileRemoved()
-        {
-            _syncCxt.Post(new SendOrPostCallback(FileRemovedCallback), null);
-        }
-
-        private void FileRemovedCallback(object obj)
-        {
-            try
-            {
-                FileRemoved(this, EventArgs.Empty);
             }
             catch { }
         }
@@ -439,6 +465,29 @@ namespace BitChatCore.FileSharing
 
                     if (PeerCountUpdate != null)
                         RaiseEventPeerCountUpdate();
+                }
+            }
+        }
+
+        internal void RemoveChat(BitChat chat)
+        {
+            //announce no participation in chat
+            byte[] packetData = BitChatMessage.CreateFileUnparticipate(_metaData.FileID);
+            chat.WriteMessageBroadcast(packetData, 0, packetData.Length);
+
+            //remove chat from list
+            lock (_chats)
+            {
+                _chats.Remove(chat);
+
+                if (_chats.Count == 0)
+                {
+                    lock (_sharedFiles)
+                    {
+                        _sharedFiles.Remove(_metaData.FileID);
+                    }
+
+                    this.Dispose();
                 }
             }
         }
@@ -503,6 +552,9 @@ namespace BitChatCore.FileSharing
 
                 //start file transfer speed calculator
                 _fileTransferSpeedCalculator = new Timer(FileTransferSpeedCalculatorAsync, null, 1000, 1000);
+
+                if (FileSharingStarted != null)
+                    RaiseEventFileSharingStarted();
             }
         }
 
@@ -583,7 +635,7 @@ namespace BitChatCore.FileSharing
             }
         }
 
-        private void Stop()
+        private void StopTimers()
         {
             //stop timers
             if (_fileTransferSpeedCalculator != null)
@@ -775,8 +827,8 @@ namespace BitChatCore.FileSharing
                     if (WriteBlock(downloadedBlock))
                     {
                         //block downloaded
-                        if (BlockDownloaded != null)
-                            RaiseEventBlockDownloaded();
+                        if (FileBlockDownloaded != null)
+                            RaiseEventFileBlockDownloaded();
                     }
                     else
                     {
@@ -933,12 +985,6 @@ namespace BitChatCore.FileSharing
             }
         }
 
-        private void SendFileShareUnparticipate(BitChat chat)
-        {
-            byte[] packetData = BitChatMessage.CreateFileUnparticipate(_metaData.FileID);
-            chat.WriteMessageBroadcast(packetData, 0, packetData.Length);
-        }
-
         #endregion
 
         #region public
@@ -960,39 +1006,14 @@ namespace BitChatCore.FileSharing
             {
                 _state = SharedFileState.Paused;
 
-                Stop();
+                StopTimers();
 
                 //announce no participation in chats
                 SendFileShareUnparticipate();
+
+                if (FilePaused != null)
+                    RaiseEventFilePaused();
             }
-        }
-
-        public void Remove(BitChat chat)
-        {
-            //remove self from chat
-            chat.RemoveSharedFile(this);
-
-            //announce no participation
-            SendFileShareUnparticipate(chat);
-
-            //remove chat from list
-            lock (_chats)
-            {
-                _chats.Remove(chat);
-
-                if (_chats.Count == 0)
-                {
-                    lock (_sharedFiles)
-                    {
-                        _sharedFiles.Remove(_metaData.FileID);
-                    }
-
-                    this.Dispose();
-                }
-            }
-
-            if (FileRemoved != null)
-                RaiseEventFileRemoved();
         }
 
         #endregion

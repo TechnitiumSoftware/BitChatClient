@@ -31,12 +31,13 @@ using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore
 {
-    public delegate void PeerNotification(BitChat sender, BitChat.Peer peer);
-    public delegate void PeerHasRevokedCertificate(BitChat sender, InvalidCertificateException ex);
-    public delegate void MessageNotification(BitChat.Peer sender, MessageItem message);
-    public delegate void FileAdded(BitChat sender, SharedFile sharedFile);
-    public delegate void PeerSecureChannelException(BitChat sender, SecureChannelException ex);
-    public delegate void PeerHasChangedCertificate(BitChat sender, Certificate cert);
+    public delegate void PeerNotification(BitChat chat, BitChat.Peer peer);
+    public delegate void PeerHasRevokedCertificate(BitChat chat, InvalidCertificateException ex);
+    public delegate void MessageNotification(BitChat.Peer peer, MessageItem message);
+    public delegate void FileAddedNotification(BitChat.Peer peer, MessageItem message, SharedFile sharedFile);
+    public delegate void FileRemovedNotification(BitChat chat, SharedFile sharedFile);
+    public delegate void PeerSecureChannelException(BitChat chat, SecureChannelException ex);
+    public delegate void PeerHasChangedCertificate(BitChat chat, Certificate cert);
 
     public enum BitChatConnectivityStatus
     {
@@ -56,7 +57,8 @@ namespace BitChatCore
         public event PeerHasChangedCertificate PeerHasChangedCertificate;
         public event MessageNotification MessageReceived;
         public event MessageNotification MessageDeliveryNotification;
-        public event FileAdded FileAdded;
+        public event FileAddedNotification FileAdded;
+        public event FileRemovedNotification FileRemoved;
         public event PeerNotification GroupImageChanged;
         public event EventHandler Leave;
 
@@ -81,7 +83,7 @@ namespace BitChatCore
         byte[] _groupImage;
 
         readonly ReaderWriterLockSlim _peersLock = new ReaderWriterLockSlim();
-        readonly List<BitChat.Peer> _peers = new List<Peer>();
+        readonly List<Peer> _peers = new List<Peer>();
 
         readonly ReaderWriterLockSlim _sharedFilesLock = new ReaderWriterLockSlim();
         readonly Dictionary<BinaryID, SharedFile> _sharedFiles = new Dictionary<BinaryID, SharedFile>();
@@ -198,6 +200,9 @@ namespace BitChatCore
                         (new MessageItem("User [" + _network.InvitationSender + "] has sent you a private chat invitation.")).WriteTo(_store);
 
                     (new MessageItem(MessageType.InvitationMessage, DateTime.UtcNow, _network.InvitationSender, _network.InvitationMessage)).WriteTo(_store);
+
+                    if (_network.NetworkName == null)
+                        (new MessageItem("To accept the invitation, uncheck the 'Go Offline' chat option from the chat list.")).WriteTo(_store);
                 }
 
                 if (_sendInvitation)
@@ -268,12 +273,20 @@ namespace BitChatCore
                 if (_outboundInvitationTrackerClient != null)
                     _outboundInvitationTrackerClient.Dispose();
 
+                //stop shared files
+                _sharedFilesLock.EnterReadLock();
+                try
+                {
+                    foreach (KeyValuePair<BinaryID, SharedFile> sharedFile in _sharedFiles)
+                        sharedFile.Value.RemoveChat(this);
+                }
+                finally
+                {
+                    _sharedFilesLock.ExitReadLock();
+                }
+
                 //stop network
                 _network.Dispose();
-
-                //stop shared files
-                foreach (KeyValuePair<BinaryID, SharedFile> sharedFile in _sharedFiles)
-                    sharedFile.Value.Dispose();
 
                 //close message store
                 _store.Dispose();
@@ -291,7 +304,7 @@ namespace BitChatCore
 
         private void RaiseEventPeerAdded(Peer peer)
         {
-            _syncCxt.Post(PeerAddedCallback, peer);
+            _syncCxt.Send(PeerAddedCallback, peer);
         }
 
         private void PeerAddedCallback(object state)
@@ -319,7 +332,7 @@ namespace BitChatCore
 
         private void RaiseEventPeerHasRevokedCertificate(InvalidCertificateException ex)
         {
-            _syncCxt.Post(PeerHasRevokedCertificateCallback, ex);
+            _syncCxt.Send(PeerHasRevokedCertificateCallback, ex);
         }
 
         private void PeerHasRevokedCertificateCallback(object state)
@@ -333,7 +346,7 @@ namespace BitChatCore
 
         private void RaiseEventPeerSecureChannelException(SecureChannelException ex)
         {
-            _syncCxt.Post(PeerSecureChannelExceptionCallback, ex);
+            _syncCxt.Send(PeerSecureChannelExceptionCallback, ex);
         }
 
         private void PeerSecureChannelExceptionCallback(object state)
@@ -347,7 +360,7 @@ namespace BitChatCore
 
         private void RaiseEventPeerHasChangedCertificate(Certificate cert)
         {
-            _syncCxt.Post(PeerHasChangedCertificateCallback, cert);
+            _syncCxt.Send(PeerHasChangedCertificateCallback, cert);
         }
 
         private void PeerHasChangedCertificateCallback(object state)
@@ -375,7 +388,7 @@ namespace BitChatCore
 
         private void RaiseEventMessageDeliveryNotification(Peer peer, MessageItem message)
         {
-            _syncCxt.Post(MessageDeliveryNotificationCallback, new object[] { peer, message });
+            _syncCxt.Send(MessageDeliveryNotificationCallback, new object[] { peer, message });
         }
 
         private void MessageDeliveryNotificationCallback(object state)
@@ -387,23 +400,39 @@ namespace BitChatCore
             catch { }
         }
 
-        private void RaiseEventFileAdded(SharedFile file)
+        private void RaiseEventFileAdded(Peer peer, MessageItem message, SharedFile file)
         {
-            _syncCxt.Post(FileAddedCallback, file);
+            _syncCxt.Send(FileAddedCallback, new object[] { peer, message, file });
         }
 
         private void FileAddedCallback(object state)
         {
             try
             {
-                FileAdded(this, state as SharedFile);
+                object[] parameters = state as object[];
+                FileAdded(parameters[0] as Peer, parameters[1] as MessageItem, parameters[2] as SharedFile);
+            }
+            catch { }
+        }
+
+        private void RaiseEventFileRemoved(BitChat chat, SharedFile file)
+        {
+            _syncCxt.Send(FileRemovedCallback, new object[] { chat, file });
+        }
+
+        private void FileRemovedCallback(object state)
+        {
+            try
+            {
+                object[] parameters = state as object[];
+                FileRemoved(parameters[0] as BitChat, parameters[1] as SharedFile);
             }
             catch { }
         }
 
         private void RaiseEventGroupImageChanged(Peer peer)
         {
-            _syncCxt.Post(GroupImageChangedCallback, peer);
+            _syncCxt.Send(GroupImageChangedCallback, peer);
         }
 
         private void GroupImageChangedCallback(object state)
@@ -417,7 +446,7 @@ namespace BitChatCore
 
         private void RaiseEventLeave()
         {
-            _syncCxt.Post(LeaveCallback, null);
+            _syncCxt.Send(LeaveCallback, null);
         }
 
         private void LeaveCallback(object state)
@@ -432,6 +461,19 @@ namespace BitChatCore
         #endregion
 
         #region public
+
+        public int GetPeerCount()
+        {
+            _peersLock.EnterReadLock();
+            try
+            {
+                return _peers.Count;
+            }
+            finally
+            {
+                _peersLock.ExitReadLock();
+            }
+        }
 
         public Peer[] GetPeerList()
         {
@@ -473,7 +515,10 @@ namespace BitChatCore
 
             if (_network.Type == BitChatNetworkType.PrivateChat)
             {
-                msgRcpt = new MessageRecipient[] { new MessageRecipient(_network.NetworkName) };
+                if (_network.NetworkName == null)
+                    msgRcpt = new MessageRecipient[] { };
+                else
+                    msgRcpt = new MessageRecipient[] { new MessageRecipient(_network.NetworkName) };
             }
             else
             {
@@ -533,7 +578,11 @@ namespace BitChatCore
 
         public void ShareFile(string filePath, string hashAlgo = "SHA1")
         {
-            SharedFile sharedFile = SharedFile.ShareFile(filePath, hashAlgo, this, _syncCxt);
+            ShareFile(SharedFile.ShareFile(filePath, hashAlgo, this, _syncCxt));
+        }
+
+        public void ShareFile(SharedFile sharedFile)
+        {
             bool fileWasAdded = false;
 
             _sharedFilesLock.EnterWriteLock();
@@ -553,11 +602,37 @@ namespace BitChatCore
 
             if (fileWasAdded)
             {
+                MessageItem msg = new MessageItem(_selfPeer.PeerCertificate.IssuedTo.EmailAddress.Address, sharedFile.MetaData);
+                msg.WriteTo(_store);
+
                 if (FileAdded != null)
-                    RaiseEventFileAdded(sharedFile);
+                    RaiseEventFileAdded(_selfPeer, msg, sharedFile);
 
                 //advertise file
                 SendFileAdvertisement(sharedFile);
+            }
+        }
+
+        public void RemoveSharedFile(SharedFile file)
+        {
+            bool fileWasRemoved = false;
+
+            _sharedFilesLock.EnterWriteLock();
+            try
+            {
+                fileWasRemoved = _sharedFiles.Remove(file.MetaData.FileID);
+            }
+            finally
+            {
+                _sharedFilesLock.ExitWriteLock();
+            }
+
+            if (fileWasRemoved)
+            {
+                file.RemoveChat(this);
+
+                if (FileRemoved != null)
+                    RaiseEventFileRemoved(this, file);
             }
         }
 
@@ -579,28 +654,8 @@ namespace BitChatCore
 
         public void LeaveChat()
         {
-            //remove shared files
-            List<SharedFile> _toRemove = new List<SharedFile>();
-
-            _sharedFilesLock.EnterReadLock();
-            try
-            {
-                _toRemove.AddRange(_sharedFiles.Values);
-            }
-            finally
-            {
-                _sharedFilesLock.ExitReadLock();
-            }
-
-            foreach (SharedFile sharedFile in _toRemove)
-                sharedFile.Remove(this);
-
             //dispose
             this.Dispose();
-
-            //raise event to remove object from service and refresh UI
-            if (Leave != null)
-                RaiseEventLeave();
 
             //delete message store index and data
             string messageStoreFolder = Path.Combine(_network.ConnectionManager.Profile.ProfileFolder, "messages");
@@ -618,6 +673,10 @@ namespace BitChatCore
             }
             catch
             { }
+
+            //raise event to remove object from service and refresh UI
+            if (Leave != null)
+                RaiseEventLeave();
         }
 
         #endregion
@@ -661,19 +720,6 @@ namespace BitChatCore
                 return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, _messageStoreID, _messageStoreKey, 0, null, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _enableTracking, _sendInvitation, _network.InvitationSender, _network.InvitationMessage, _network.Status, _mute);
             else
                 return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, _messageStoreID, _messageStoreKey, _groupImageDateModified, _groupImage, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _enableTracking, false, null, null, _network.Status, _mute);
-        }
-
-        internal void RemoveSharedFile(SharedFile file)
-        {
-            _sharedFilesLock.EnterWriteLock();
-            try
-            {
-                _sharedFiles.Remove(file.MetaData.FileID);
-            }
-            finally
-            {
-                _sharedFilesLock.ExitWriteLock();
-            }
         }
 
         internal void WriteMessageBroadcast(byte[] data, int offset, int count)
@@ -1189,7 +1235,20 @@ namespace BitChatCore
         { get { return _network.NetworkDisplayTitle; } }
 
         public string SharedSecret
-        { get { return _network.SharedSecret; } }
+        {
+            get { return _network.SharedSecret; }
+            set
+            {
+                _network.SharedSecret = value;
+
+                if (_network.Status == BitChatNetworkStatus.Online)
+                {
+                    //apply changes immediately
+                    GoOffline();
+                    GoOnline();
+                }
+            }
+        }
 
         public Certificate LocalCertificate
         { get { return _network.ConnectionManager.Profile.LocalCertificateStore.Certificate; } }
@@ -1289,7 +1348,7 @@ namespace BitChatCore
 
             internal void RaiseEventNetworkStatusUpdated()
             {
-                _bitChat._syncCxt.Post(NetworkStatusUpdatedCallBack, null);
+                _bitChat._syncCxt.Send(NetworkStatusUpdatedCallBack, null);
             }
 
             private void NetworkStatusUpdatedCallBack(object state)
@@ -1303,7 +1362,7 @@ namespace BitChatCore
 
             private void RaiseEventProfileImageChanged()
             {
-                _bitChat._syncCxt.Post(ProfileImageChangedCallback, null);
+                _bitChat._syncCxt.Send(ProfileImageChangedCallback, null);
             }
 
             private void ProfileImageChangedCallback(object state)
@@ -1442,7 +1501,7 @@ namespace BitChatCore
                     case BitChatMessageType.FileAdvertisement:
                         #region FileAdvertisement
                         {
-                            SharedFile sharedFile = SharedFile.PrepareDownloadFile(BitChatMessage.ReadFileAdvertisement(messageDataStream), _bitChat, this, _bitChat._network.ConnectionManager.Profile, _bitChat._syncCxt);
+                            SharedFile sharedFile = SharedFile.PrepareDownloadFile(BitChatMessage.ReadFileAdvertisement(messageDataStream), _bitChat, _bitChat._network.ConnectionManager.Profile, _bitChat._syncCxt, this);
                             bool fileAlreadyExists = false;
                             bool fileWasAdded = false;
 
@@ -1483,8 +1542,11 @@ namespace BitChatCore
                             }
                             else if (fileWasAdded)
                             {
+                                MessageItem msg = new MessageItem(this.PeerCertificate.IssuedTo.EmailAddress.Address, sharedFile.MetaData);
+                                msg.WriteTo(_bitChat._store);
+
                                 if (_bitChat.FileAdded != null)
-                                    _bitChat.RaiseEventFileAdded(sharedFile);
+                                    _bitChat.RaiseEventFileAdded(this, msg, sharedFile);
                             }
                         }
                         #endregion
