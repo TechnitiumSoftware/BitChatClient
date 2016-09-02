@@ -31,6 +31,7 @@ using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.Network
 {
+    delegate void NetworkChanged(BitChatNetwork sender, BinaryID oldNetworkID);
     delegate void VirtualPeerAdded(BitChatNetwork sender, BitChatNetwork.VirtualPeer virtualPeer);
     delegate void VirtualPeerHasRevokedCertificate(BitChatNetwork sender, InvalidCertificateException ex);
     delegate void VirtualPeerMessageReceived(BitChatNetwork.VirtualPeer sender, Stream messageDataStream, IPEndPoint remotePeerEP);
@@ -53,6 +54,7 @@ namespace BitChatCore.Network
     {
         #region events
 
+        public event NetworkChanged NetworkChanged;
         public event VirtualPeerAdded VirtualPeerAdded;
         public event VirtualPeerHasRevokedCertificate VirtualPeerHasRevokedCertificate;
         public event VirtualPeerSecureChannelException VirtualPeerSecureChannelException;
@@ -78,8 +80,8 @@ namespace BitChatCore.Network
         readonly SecureChannelCryptoOptionFlags _supportedCryptoOptions;
         MailAddress _peerEmailAddress;
         readonly string _networkName;
-        readonly string _sharedSecret;
-        readonly BinaryID _networkID;
+        string _sharedSecret;
+        BinaryID _networkID;
         BitChatNetworkStatus _status;
         readonly string _invitationSender;
         readonly string _invitationMessage;
@@ -315,14 +317,15 @@ namespace BitChatCore.Network
             }
             catch (SecureChannelException ex)
             {
-                if (ex.Code != SecureChannelCode.EndOfStream)
-                    VirtualPeerSecureChannelException?.Invoke(this, ex);
-
                 channel.Dispose();
+
+                VirtualPeerSecureChannelException(this, ex);
             }
-            catch
+            catch (Exception ex)
             {
                 channel.Dispose();
+
+                Debug.Write("BitChatNetwork.EstablishSecureChannelAndJoinNetwork", ex);
             }
         }
 
@@ -520,14 +523,15 @@ namespace BitChatCore.Network
             }
             catch (SecureChannelException ex)
             {
-                if (ex.Code != SecureChannelCode.EndOfStream)
-                    VirtualPeerSecureChannelException?.Invoke(this, ex);
-
                 channel.Dispose();
+
+                VirtualPeerSecureChannelException(this, ex);
             }
-            catch
+            catch (Exception ex)
             {
                 channel.Dispose();
+
+                Debug.Write("BitChatNetwork.AcceptConnectionAndJoinNetwork", ex);
             }
         }
 
@@ -689,7 +693,30 @@ namespace BitChatCore.Network
         }
 
         public string SharedSecret
-        { get { return _sharedSecret; } }
+        {
+            get { return _sharedSecret; }
+            set
+            {
+                BinaryID oldNetworkID = _networkID;
+
+                switch (_type)
+                {
+                    case BitChatNetworkType.PrivateChat:
+                        if (_peerEmailAddress == null)
+                            throw new BitChatException("Cannot change shared secret for current Bit Chat network.");
+
+                        _networkID = GetNetworkID(_connectionManager.Profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress, _peerEmailAddress, value);
+                        break;
+
+                    default:
+                        _networkID = GetNetworkID(_networkName, value);
+                        break;
+                }
+
+                _sharedSecret = value;
+                NetworkChanged(this, oldNetworkID);
+            }
+        }
 
         public BinaryID NetworkID
         { get { return _networkID; } }
@@ -798,14 +825,11 @@ namespace BitChatCore.Network
                 }
                 catch (SecureChannelException ex)
                 {
-                    if (ex.Code == SecureChannelCode.EndOfStream)
-                    {
-                        //gracefull secure channel disconnection done; do nothing
-                    }
-                    else
-                    {
-                        _network.VirtualPeerSecureChannelException?.Invoke(_network, ex);
-                    }
+                    _network.VirtualPeerSecureChannelException(_network, ex);
+                }
+                catch (EndOfStreamException)
+                {
+                    //gracefull secure channel disconnection done; do nothing
                 }
                 catch (ThreadAbortException)
                 {
@@ -813,7 +837,7 @@ namespace BitChatCore.Network
                 }
                 catch
                 {
-                    //try reconnection due to unexpected channel closure
+                    //try reconnection due to unexpected channel closure (mostly read timed out exception)
                     doReconnect = true;
                 }
                 finally
@@ -838,7 +862,7 @@ namespace BitChatCore.Network
                             if (totalStreamsAvailable == 0)
                                 _isOnline = false;
 
-                            StreamStateChanged?.Invoke(this, EventArgs.Empty);
+                            StreamStateChanged(this, EventArgs.Empty);
                         }
                     }
 
@@ -896,7 +920,7 @@ namespace BitChatCore.Network
                     else
                     {
                         if (!_peerCert.Equals(stream.RemotePeerCertificate))
-                            _network.VirtualPeerHasChangedCertificate?.Invoke(_network, stream.RemotePeerCertificate);
+                            _network.VirtualPeerHasChangedCertificate(_network, stream.RemotePeerCertificate);
 
                         _peerCert = stream.RemotePeerCertificate;
                     }
@@ -918,7 +942,7 @@ namespace BitChatCore.Network
                 {
                     _isOnline = true;
 
-                    StreamStateChanged?.Invoke(this, EventArgs.Empty);
+                    StreamStateChanged(this, EventArgs.Empty);
                 }
             }
 
