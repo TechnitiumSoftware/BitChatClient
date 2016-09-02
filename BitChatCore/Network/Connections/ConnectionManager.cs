@@ -343,17 +343,19 @@ namespace BitChatCore.Network.Connections
                         //existing is real/virtual and current is virtual; keep existing connection
                         return null;
                     }
-
-                    //compare existing and new peer ip end-point
-                    if (AllowNewConnection(existingConnection.RemotePeerEP, remotePeerEP))
-                    {
-                        //remove existing connection and allow new connection
-                        existingConnection.Dispose();
-                    }
                     else
                     {
-                        //keep existing connection
-                        return null;
+                        //compare existing and new peer ip end-point
+                        if (AllowNewConnection(existingConnection.RemotePeerEP, remotePeerEP))
+                        {
+                            //remove existing connection and allow new connection
+                            existingConnection.Dispose();
+                        }
+                        else
+                        {
+                            //keep existing connection
+                            return null;
+                        }
                     }
                 }
 
