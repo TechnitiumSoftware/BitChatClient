@@ -254,7 +254,7 @@ namespace BitChatCore.Network.SecureChannel
             lock (_writeLock)
             {
                 if (_channelClosed)
-                    return; //channel already closed
+                    throw new ObjectDisposedException("SecureChannelStream"); //channel already closed
 
                 do
                 {
@@ -287,7 +287,7 @@ namespace BitChatCore.Network.SecureChannel
             lock (_writeLock)
             {
                 if (_channelClosed)
-                    return; //channel already closed
+                    throw new ObjectDisposedException("SecureChannelStream"); //channel already closed
 
                 FlushBuffer(HEADER_FLAG_NONE);
             }
@@ -296,7 +296,7 @@ namespace BitChatCore.Network.SecureChannel
         public override int Read(byte[] buffer, int offset, int count)
         {
             if (count < 1)
-                throw new IOException("Count must be atleast 1 byte.");
+                throw new ArgumentOutOfRangeException("Count must be atleast 1 byte.");
 
             lock (_readLock)
             {
@@ -310,9 +310,16 @@ namespace BitChatCore.Network.SecureChannel
                 while (bytesAvailableForRead < 1)
                 {
                     if (_channelClosed)
-                        throw new SecureChannelException(SecureChannelCode.EndOfStream, _remotePeerEP, _remotePeerCert);
+                        return 0; //channel closed; end of stream
 
-                    bytesAvailableForRead = ReadSecureChannelPacket();
+                    try
+                    {
+                        bytesAvailableForRead = ReadSecureChannelPacket();
+                    }
+                    catch (EndOfStreamException)
+                    {
+                        return 0;
+                    }
 
                     //check header flags
                     switch (_readBufferData[2])
@@ -332,7 +339,7 @@ namespace BitChatCore.Network.SecureChannel
                         case HEADER_FLAG_CLOSE_CHANNEL:
                             //received close channel flag
                             Close();
-                            break;
+                            return 0;
 
                         default:
                             break;
@@ -373,7 +380,12 @@ namespace BitChatCore.Network.SecureChannel
                 if (_channelClosed)
                     return; //channel already closed
 
-                FlushBuffer(HEADER_FLAG_CLOSE_CHANNEL);
+                try
+                {
+                    FlushBuffer(HEADER_FLAG_CLOSE_CHANNEL);
+                }
+                catch
+                { }
 
                 _channelClosed = true;
             }

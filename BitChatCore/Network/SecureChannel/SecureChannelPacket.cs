@@ -58,7 +58,7 @@ namespace BitChatCore.Network.SecureChannel
             }
             else
             {
-                throw new SecureChannelException(SecureChannelCode.RemoteError, null, null, "Error packet received from remote.", new SecureChannelException(_code, null, null));
+                throw new SecureChannelException(SecureChannelCode.RemoteError, null, null, "Remote client sent an error response code: " + _code.ToString());
             }
         }
 
