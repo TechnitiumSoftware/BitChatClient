@@ -96,6 +96,7 @@ namespace BitChatCore
         IPEndPoint[] _bootstrapDhtNodes = new IPEndPoint[] { };
         bool _enableUPnP = true;
         bool _allowInboundInvitations = true;
+        bool _allowOnlyLocalInboundInvitations = false;
 
         string _proxyAddress = "127.0.0.1";
         int _proxyPort = 0;
@@ -310,6 +311,10 @@ namespace BitChatCore
                         _allowInboundInvitations = item.Value.GetBooleanValue();
                         break;
 
+                    case "allow_only_local_inbound_invitations":
+                        _allowOnlyLocalInboundInvitations = item.Value.GetBooleanValue();
+                        break;
+
                     case "download_folder":
                         _downloadFolder = item.Value.GetStringValue();
                         break;
@@ -432,6 +437,7 @@ namespace BitChatCore
 
             //enable invitation
             encoder.Encode("allow_inbound_invitations", _allowInboundInvitations);
+            encoder.Encode("allow_only_local_inbound_invitations", _allowOnlyLocalInboundInvitations);
 
             //download folder
             if (_downloadFolder != null)
@@ -645,6 +651,12 @@ namespace BitChatCore
         {
             get { return _allowInboundInvitations; }
             set { _allowInboundInvitations = value; }
+        }
+
+        public bool AllowOnlyLocalInboundInvitations
+        {
+            get { return _allowOnlyLocalInboundInvitations; }
+            set { _allowOnlyLocalInboundInvitations = value; }
         }
 
         public NetProxy Proxy
