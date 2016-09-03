@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2016  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@ using TechnitiumLibrary.Net;
 
 namespace BitChatCore.FileSharing
 {
-    public enum SharedFileState
+    public enum SharedFileState : byte
     {
         Advertisement = 0,
         Sharing = 1,
@@ -68,8 +68,6 @@ namespace BitChatCore.FileSharing
         const ushort MIN_BLOCK_SIZE = 57344; //56kb min block size
 
         readonly SynchronizationContext _syncCxt;
-
-        BitChatProfile _profile;
 
         //shared file input
         FileStream _fileStream;
@@ -148,12 +146,7 @@ namespace BitChatCore.FileSharing
 
         #region static
 
-        internal static SharedFile LoadFile(BitChatProfile.SharedFileInfo info, BitChat chat, SynchronizationContext syncCxt)
-        {
-            return LoadFile(info.FilePath, info.FileMetaData, info.BlockAvailable, info.IsPaused, chat, syncCxt);
-        }
-
-        internal static SharedFile LoadFile(string filePath, SharedFileMetaData metaData, FileBlockState[] blockAvailable, bool isPaused, BitChat chat, SynchronizationContext syncCxt)
+        internal static SharedFile LoadFile(string filePath, SharedFileMetaData metaData, FileBlockState[] blockAvailable, SharedFileState state, BitChat chat, SynchronizationContext syncCxt)
         {
             //check if file already shared
             lock (_sharedFiles)
@@ -166,28 +159,38 @@ namespace BitChatCore.FileSharing
                 }
                 else
                 {
-                    int availableBlocksCount = 0;
-
-                    for (int i = 0; i < blockAvailable.Length; i++)
+                    if (state == SharedFileState.Advertisement)
                     {
-                        if (blockAvailable[i] == FileBlockState.Available)
-                            availableBlocksCount++;
+                        sharedFile = new SharedFile(null, metaData, new FileBlockState[metaData.BlockHash.Length], 0, syncCxt);
+                        _sharedFiles.Add(metaData.FileID, sharedFile);
+
+                        sharedFile._state = SharedFileState.Advertisement;
                     }
-
-                    FileStream fS;
-
-                    if (blockAvailable.Length == availableBlocksCount)
-                        fS = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
                     else
-                        fS = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite);
+                    {
+                        int availableBlocksCount = 0;
 
-                    sharedFile = new SharedFile(fS, metaData, blockAvailable, availableBlocksCount, syncCxt);
-                    sharedFile._state = SharedFileState.Paused;
+                        for (int i = 0; i < blockAvailable.Length; i++)
+                        {
+                            if (blockAvailable[i] == FileBlockState.Available)
+                                availableBlocksCount++;
+                        }
 
-                    _sharedFiles.Add(metaData.FileID, sharedFile);
+                        FileStream fS;
 
-                    if (!isPaused)
-                        sharedFile.Start();
+                        if (blockAvailable.Length == availableBlocksCount)
+                            fS = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                        else
+                            fS = new FileStream(filePath, FileMode.Open, FileAccess.ReadWrite);
+
+                        sharedFile = new SharedFile(fS, metaData, blockAvailable, availableBlocksCount, syncCxt);
+                        _sharedFiles.Add(metaData.FileID, sharedFile);
+
+                        sharedFile._state = SharedFileState.Paused;
+
+                        if (state != SharedFileState.Paused)
+                            sharedFile.Start();
+                    }
                 }
 
                 sharedFile.AddChat(chat);
@@ -290,7 +293,7 @@ namespace BitChatCore.FileSharing
             }
         }
 
-        internal static SharedFile PrepareDownloadFile(SharedFileMetaData metaData, BitChat chat, BitChatProfile profile, SynchronizationContext syncCxt, BitChat.Peer seeder = null)
+        internal static SharedFile PrepareDownloadFile(SharedFileMetaData metaData, BitChat chat, SynchronizationContext syncCxt, BitChat.Peer seeder = null)
         {
             //check if file already exists
             lock (_sharedFiles)
@@ -304,8 +307,6 @@ namespace BitChatCore.FileSharing
                 else
                 {
                     sharedFile = new SharedFile(null, metaData, new FileBlockState[metaData.BlockHash.Length], 0, syncCxt);
-                    sharedFile._profile = profile;
-
                     _sharedFiles.Add(metaData.FileID, sharedFile);
                 }
 
@@ -429,7 +430,7 @@ namespace BitChatCore.FileSharing
 
         internal BitChatProfile.SharedFileInfo GetSharedFileInfo()
         {
-            return new BitChatProfile.SharedFileInfo(_fileStream.Name, _metaData, _blockAvailable, (_state == SharedFileState.Paused));
+            return new BitChatProfile.SharedFileInfo((_fileStream == null ? null : _fileStream.Name), _metaData, _blockAvailable, _state);
         }
 
         internal void AddChat(BitChat chat)
@@ -567,8 +568,15 @@ namespace BitChatCore.FileSharing
                 //get file
                 if (_fileStream == null)
                 {
+                    BitChatProfile profile;
+
+                    lock (_chats)
+                    {
+                        profile = _chats[0].Profile;
+                    }
+
                     //find file name
-                    string filePath = Path.Combine(_profile.DownloadFolder, _metaData.FileName);
+                    string filePath = Path.Combine(profile.DownloadFolder, _metaData.FileName);
 
                     int nameCount = 0;
 
@@ -578,7 +586,7 @@ namespace BitChatCore.FileSharing
                             throw new BitChatException("Cannot download file as local file name not available.");
 
                         nameCount++;
-                        filePath = Path.Combine(_profile.DownloadFolder, Path.GetFileNameWithoutExtension(_metaData.FileName) + " [" + nameCount + "]" + Path.GetExtension(_metaData.FileName));
+                        filePath = Path.Combine(profile.DownloadFolder, Path.GetFileNameWithoutExtension(_metaData.FileName) + " [" + nameCount + "]" + Path.GetExtension(_metaData.FileName));
                     }
 
                     //create file

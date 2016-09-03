@@ -160,7 +160,7 @@ namespace BitChatCore
             {
                 try
                 {
-                    _sharedFiles.Add(info.FileMetaData.FileID, SharedFile.LoadFile(info, this, _syncCxt));
+                    _sharedFiles.Add(info.FileMetaData.FileID, SharedFile.LoadFile(info.FilePath, info.FileMetaData, info.BlockAvailable, info.State, this, _syncCxt));
                 }
                 catch
                 { }
@@ -707,8 +707,7 @@ namespace BitChatCore
             {
                 foreach (KeyValuePair<BinaryID, SharedFile> sharedFile in _sharedFiles)
                 {
-                    if (sharedFile.Value.State != SharedFileState.Advertisement)
-                        sharedFileInfo.Add(sharedFile.Value.GetSharedFileInfo());
+                    sharedFileInfo.Add(sharedFile.Value.GetSharedFileInfo());
                 }
             }
             finally
@@ -1501,7 +1500,7 @@ namespace BitChatCore
                     case BitChatMessageType.FileAdvertisement:
                         #region FileAdvertisement
                         {
-                            SharedFile sharedFile = SharedFile.PrepareDownloadFile(BitChatMessage.ReadFileAdvertisement(messageDataStream), _bitChat, _bitChat._network.ConnectionManager.Profile, _bitChat._syncCxt, this);
+                            SharedFile sharedFile = SharedFile.PrepareDownloadFile(BitChatMessage.ReadFileAdvertisement(messageDataStream), _bitChat, _bitChat._syncCxt, this);
                             bool fileAlreadyExists = false;
                             bool fileWasAdded = false;
 

@@ -980,18 +980,18 @@ namespace BitChatCore
             readonly string _filePath;
             readonly SharedFileMetaData _fileMetaData;
             readonly FileBlockState[] _blockAvailable;
-            readonly bool _isPaused;
+            readonly SharedFileState _state = SharedFileState.Paused;
 
             #endregion
 
             #region constructor
 
-            public SharedFileInfo(string filePath, SharedFileMetaData fileMetaData, FileBlockState[] blockAvailable, bool isPaused)
+            public SharedFileInfo(string filePath, SharedFileMetaData fileMetaData, FileBlockState[] blockAvailable, SharedFileState state)
             {
                 _filePath = filePath;
                 _fileMetaData = fileMetaData;
                 _blockAvailable = blockAvailable;
-                _isPaused = isPaused;
+                _state = state;
             }
 
             public SharedFileInfo(Stream s)
@@ -1017,8 +1017,8 @@ namespace BitChatCore
                             _fileMetaData = new SharedFileMetaData(pair.Value.GetValueStream());
                             break;
 
-                        case "paused":
-                            _isPaused = pair.Value.GetBooleanValue();
+                        case "state":
+                            _state = (SharedFileState)pair.Value.GetByteValue();
                             break;
 
                         case "block_available":
@@ -1044,9 +1044,11 @@ namespace BitChatCore
             {
                 BincodingEncoder encoder = new BincodingEncoder(s, "FI", 2);
 
-                encoder.Encode("file_path", _filePath);
+                if (_filePath != null)
+                    encoder.Encode("file_path", _filePath);
+
                 encoder.Encode("file_metadata", _fileMetaData);
-                encoder.Encode("paused", _isPaused);
+                encoder.Encode("state", (byte)_state);
 
                 {
                     List<Bincoding> blockList = new List<Bincoding>(_blockAvailable.Length);
@@ -1091,8 +1093,8 @@ namespace BitChatCore
             public FileBlockState[] BlockAvailable
             { get { return _blockAvailable; } }
 
-            public bool IsPaused
-            { get { return _isPaused; } }
+            public SharedFileState State
+            { get { return _state; } }
 
             #endregion
         }
