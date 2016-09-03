@@ -1533,7 +1533,6 @@ namespace BitChatCore
                                 }
                                 else
                                 {
-                                    sharedFile.AddChat(_bitChat);
                                     sharedFile.AddSeeder(this); //add the seeder
 
                                     WriteMessage(BitChatMessage.CreateFileParticipate(sharedFile.MetaData.FileID));
@@ -1574,7 +1573,7 @@ namespace BitChatCore
                     case BitChatMessageType.FileBlockWanted:
                         #region FileBlockWanted
                         {
-                            FileBlockWanted blockWanted = BitChatMessage.ReadFileBlockWanted(messageDataStream);
+                            FileBlockInfo blockWanted = BitChatMessage.ReadFileBlockWanted(messageDataStream);
 
                             ThreadPool.QueueUserWorkItem(ProcessFileSharingMessagesAsync, new object[] { type, blockWanted });
                         }
@@ -1584,7 +1583,7 @@ namespace BitChatCore
                     case BitChatMessageType.FileBlockAvailable:
                         #region FileBlockAvailable
                         {
-                            FileBlockWanted blockWanted = BitChatMessage.ReadFileBlockWanted(messageDataStream);
+                            FileBlockInfo blockWanted = BitChatMessage.ReadFileBlockWanted(messageDataStream);
 
                             ThreadPool.QueueUserWorkItem(ProcessFileSharingMessagesAsync, new object[] { type, blockWanted });
                         }
@@ -1741,15 +1740,14 @@ namespace BitChatCore
 
                                 if (!sharedFile.PeerExists(this))
                                     return;
-
+                                
                                 FileBlockDataPart blockData = sharedFile.ReadBlock(blockRequest.BlockNumber, blockRequest.BlockOffset, blockRequest.Length);
 
                                 byte[] messageData = BitChatMessage.CreateFileBlockResponse(blockData);
                                 _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
-
-                                break;
                             }
-                        #endregion
+                            #endregion
+                            break;
 
                         case BitChatMessageType.FileBlockResponse:
                             #region FileBlockResponse
@@ -1785,15 +1783,14 @@ namespace BitChatCore
                                         }
                                     }
                                 }
-
-                                break;
                             }
-                        #endregion
+                            #endregion
+                            break;
 
                         case BitChatMessageType.FileBlockWanted:
                             #region FileBlockWanted
                             {
-                                FileBlockWanted blockWanted = parameters[1] as FileBlockWanted;
+                                FileBlockInfo blockWanted = parameters[1] as FileBlockInfo;
                                 SharedFile sharedFile;
 
                                 _bitChat._sharedFilesLock.EnterReadLock();
@@ -1817,15 +1814,14 @@ namespace BitChatCore
                                     byte[] messageData = BitChatMessage.CreateFileBlockAvailable(blockWanted);
                                     _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
                                 }
-
-                                break;
                             }
-                        #endregion
+                            #endregion
+                            break;
 
                         case BitChatMessageType.FileBlockAvailable:
                             #region FileBlockAvailable
                             {
-                                FileBlockWanted blockWanted = parameters[1] as FileBlockWanted;
+                                FileBlockInfo blockWanted = parameters[1] as FileBlockInfo;
                                 SharedFile sharedFile;
 
                                 _bitChat._sharedFilesLock.EnterReadLock();
@@ -1856,10 +1852,9 @@ namespace BitChatCore
                                         _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
                                     }
                                 }
-
-                                break;
                             }
                             #endregion
+                            break;
                     }
                 }
                 catch

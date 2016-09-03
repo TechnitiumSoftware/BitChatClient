@@ -458,6 +458,13 @@ namespace BitChatCore.FileSharing
 
         internal void AddSeeder(BitChat.Peer seeder)
         {
+            //remove from peers
+            lock (_peers)
+            {
+                _peers.Remove(seeder);
+            }
+
+            //add seeder
             lock (_seeders)
             {
                 if (!_seeders.Contains(seeder))
@@ -495,24 +502,20 @@ namespace BitChatCore.FileSharing
 
         internal void RemovePeerOrSeeder(BitChat.Peer peer)
         {
+            bool peerRemoved = false;
+
             //remove from peers
             lock (_peers)
             {
                 if (_peers.Remove(peer))
-                {
-                    if (PeerCountUpdate != null)
-                        RaiseEventPeerCountUpdate();
-                }
+                    peerRemoved = true;
             }
 
             //remove from seeds
             lock (_seeders)
             {
                 if (_seeders.Remove(peer))
-                {
-                    if (PeerCountUpdate != null)
-                        RaiseEventPeerCountUpdate();
-                }
+                    peerRemoved = true;
             }
 
             //remove from downloading blocks
@@ -525,6 +528,12 @@ namespace BitChatCore.FileSharing
                         download.RemoveDownloadPeer(peer);
                     }
                 }
+            }
+
+            if (peerRemoved)
+            {
+                if (PeerCountUpdate != null)
+                    RaiseEventPeerCountUpdate();
             }
         }
 
@@ -790,7 +799,7 @@ namespace BitChatCore.FileSharing
 
         private void AnnounceBlockWanted(int blockNumber)
         {
-            byte[] packetData = BitChatMessage.CreateFileBlockWanted(new FileBlockWanted(_metaData.FileID, blockNumber));
+            byte[] packetData = BitChatMessage.CreateFileBlockWanted(new FileBlockInfo(_metaData.FileID, blockNumber));
 
             //announce to all peers
             lock (_peers)

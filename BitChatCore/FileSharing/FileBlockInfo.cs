@@ -24,7 +24,7 @@ using TechnitiumLibrary.IO;
 
 namespace BitChatCore.FileSharing
 {
-    class FileBlockWanted : IWriteStream
+    class FileBlockInfo : IWriteStream
     {
         #region variables
 
@@ -35,13 +35,13 @@ namespace BitChatCore.FileSharing
 
         #region constructor
 
-        public FileBlockWanted(BinaryID fileID, int blockNumber)
+        public FileBlockInfo(BinaryID fileID, int blockNumber)
         {
             _fileID = fileID;
             _blockNumber = blockNumber;
         }
 
-        public FileBlockWanted(Stream s)
+        public FileBlockInfo(Stream s)
         {
             BinaryReader bR = new BinaryReader(s);
 

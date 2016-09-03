@@ -164,7 +164,7 @@ namespace BitChatCore
             }
         }
 
-        public static byte[] CreateFileBlockWanted(FileBlockWanted blockWanted)
+        public static byte[] CreateFileBlockWanted(FileBlockInfo blockWanted)
         {
             using (MemoryStream mS = new MemoryStream(1 + 4))
             {
@@ -176,13 +176,13 @@ namespace BitChatCore
             }
         }
 
-        public static byte[] CreateFileBlockAvailable(FileBlockWanted blockWanted)
+        public static byte[] CreateFileBlockAvailable(FileBlockInfo blockAvailable)
         {
             using (MemoryStream mS = new MemoryStream(1 + 4))
             {
                 mS.WriteByte((byte)BitChatMessageType.FileBlockAvailable); //1 byte
 
-                blockWanted.WriteTo(mS);
+                blockAvailable.WriteTo(mS);
 
                 return mS.ToArray();
             }
@@ -287,9 +287,9 @@ namespace BitChatCore
             return new BinaryID(buffer);
         }
 
-        public static FileBlockWanted ReadFileBlockWanted(Stream s)
+        public static FileBlockInfo ReadFileBlockWanted(Stream s)
         {
-            return new FileBlockWanted(s);
+            return new FileBlockInfo(s);
         }
 
         public static FileBlockRequest ReadFileBlockRequest(Stream s)
