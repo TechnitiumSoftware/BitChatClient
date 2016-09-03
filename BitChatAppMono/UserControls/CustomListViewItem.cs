@@ -21,7 +21,7 @@ using System;
 using System.Drawing;
 using System.Windows.Forms;
 
-namespace BitChatAppMono.UserControls
+namespace BitChatApp.UserControls
 {
     public partial class CustomListViewItem : UserControl
     {

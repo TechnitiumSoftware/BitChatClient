@@ -1,4 +1,4 @@
-﻿namespace BitChatAppMono.UserControls
+﻿namespace BitChatApp.UserControls
 {
     partial class BitChatPanel
     {
@@ -30,8 +30,8 @@
         {
             this.bitChatPanelSplitContainer = new System.Windows.Forms.SplitContainer();
             this.chatOptionsSplitContainer = new System.Windows.Forms.SplitContainer();
-            this.lstUsers = new BitChatAppMono.UserControls.CustomListViewPanel();
-            this.lstFiles = new BitChatAppMono.UserControls.CustomListViewPanel();
+            this.lstUsers = new BitChatApp.UserControls.CustomListViewPanel();
+            this.lstFiles = new BitChatApp.UserControls.CustomListViewPanel();
             ((System.ComponentModel.ISupportInitialize)(this.bitChatPanelSplitContainer)).BeginInit();
             this.bitChatPanelSplitContainer.Panel2.SuspendLayout();
             this.bitChatPanelSplitContainer.SuspendLayout();

@@ -7,7 +7,7 @@
     <ProjectGuid>{D561478D-7EA2-4066-8EC4-D9DF74E1B190}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>BitChatAppMono</RootNamespace>
+    <RootNamespace>BitChatApp</RootNamespace>
     <AssemblyName>BitChat</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
@@ -100,6 +100,12 @@
     <Compile Include="frmMain.Designer.cs">
       <DependentUpon>frmMain.cs</DependentUpon>
     </Compile>
+    <Compile Include="frmMessageInfo.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmMessageInfo.Designer.cs">
+      <DependentUpon>frmMessageInfo.cs</DependentUpon>
+    </Compile>
     <Compile Include="frmNetworkInfo.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -142,6 +148,12 @@
     <Compile Include="frmViewCertificate.Designer.cs">
       <DependentUpon>frmViewCertificate.cs</DependentUpon>
     </Compile>
+    <Compile Include="frmViewGroup.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmViewGroup.Designer.cs">
+      <DependentUpon>frmViewGroup.cs</DependentUpon>
+    </Compile>
     <Compile Include="frmViewProfile.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -174,17 +186,23 @@
     <Compile Include="UserControls\ChatListItem.Designer.cs">
       <DependentUpon>ChatListItem.cs</DependentUpon>
     </Compile>
+    <Compile Include="UserControls\ChatMessageFileItem.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UserControls\ChatMessageFileItem.Designer.cs">
+      <DependentUpon>ChatMessageFileItem.cs</DependentUpon>
+    </Compile>
     <Compile Include="UserControls\ChatMessageInfoItem.cs">
       <SubType>UserControl</SubType>
     </Compile>
     <Compile Include="UserControls\ChatMessageInfoItem.Designer.cs">
       <DependentUpon>ChatMessageInfoItem.cs</DependentUpon>
     </Compile>
-    <Compile Include="UserControls\ChatMessageItem.cs">
+    <Compile Include="UserControls\ChatMessageTextItem.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="UserControls\ChatMessageItem.Designer.cs">
-      <DependentUpon>ChatMessageItem.cs</DependentUpon>
+    <Compile Include="UserControls\ChatMessageTextItem.Designer.cs">
+      <DependentUpon>ChatMessageTextItem.cs</DependentUpon>
     </Compile>
     <Compile Include="UserControls\ChatMessageView.cs">
       <SubType>UserControl</SubType>
@@ -254,6 +272,9 @@
     <EmbeddedResource Include="frmMain.resx">
       <DependentUpon>frmMain.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="frmMessageInfo.resx">
+      <DependentUpon>frmMessageInfo.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="frmNetworkInfo.resx">
       <DependentUpon>frmNetworkInfo.cs</DependentUpon>
     </EmbeddedResource>
@@ -274,6 +295,9 @@
     </EmbeddedResource>
     <EmbeddedResource Include="frmViewCertificate.resx">
       <DependentUpon>frmViewCertificate.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmViewGroup.resx">
+      <DependentUpon>frmViewGroup.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmViewProfile.resx">
       <DependentUpon>frmViewProfile.cs</DependentUpon>
@@ -301,12 +325,15 @@
       <DependentUpon>ChatListItem.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
+    <EmbeddedResource Include="UserControls\ChatMessageFileItem.resx">
+      <DependentUpon>ChatMessageFileItem.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="UserControls\ChatMessageInfoItem.resx">
       <DependentUpon>ChatMessageInfoItem.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="UserControls\ChatMessageItem.resx">
-      <DependentUpon>ChatMessageItem.cs</DependentUpon>
+    <EmbeddedResource Include="UserControls\ChatMessageTextItem.resx">
+      <DependentUpon>ChatMessageTextItem.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UserControls\ChatMessageView.resx">
@@ -360,6 +387,13 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="logo2.ico" />
+    <None Include="Resources\waiting.png" />
+    <None Include="Resources\single-tick.png" />
+    <None Include="Resources\point-right.png" />
+    <None Include="Resources\point-left.png" />
+    <None Include="Resources\message-failed.png" />
+    <None Include="Resources\double-ticks.png" />
+    <None Include="Resources\change-photo.png" />
     <None Include="Resources\send message.png" />
     <None Include="Resources\Attachment.png" />
   </ItemGroup>
@@ -368,9 +402,9 @@
       <Project>{0bc4eac6-4a90-4126-900d-ab5eb691c3fd}</Project>
       <Name>AutomaticUpdate.Client</Name>
     </ProjectReference>
-    <ProjectReference Include="..\BitChatClient\BitChatClient.csproj">
+    <ProjectReference Include="..\BitChatCore\BitChatCore.csproj">
       <Project>{3038b7ea-d974-431f-a6c0-fe7c7e5308a2}</Project>
-      <Name>BitChatClient</Name>
+      <Name>BitChatCore</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

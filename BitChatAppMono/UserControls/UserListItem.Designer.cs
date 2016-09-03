@@ -1,4 +1,4 @@
-﻿namespace BitChatAppMono.UserControls
+﻿namespace BitChatApp.UserControls
 {
     partial class UserListItem
     {
@@ -78,7 +78,7 @@
             // picNetwork
             // 
             this.picNetwork.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.picNetwork.Image = global::BitChatAppMono.Properties.Resources.NoNetwork;
+            this.picNetwork.Image = global::BitChatApp.Properties.Resources.NoNetwork;
             this.picNetwork.Location = new System.Drawing.Point(194, 4);
             this.picNetwork.Name = "picNetwork";
             this.picNetwork.Size = new System.Drawing.Size(24, 24);

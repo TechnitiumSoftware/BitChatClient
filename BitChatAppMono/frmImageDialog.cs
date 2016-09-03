@@ -23,7 +23,7 @@ using System.Drawing.Drawing2D;
 using System.IO;
 using System.Windows.Forms;
 
-namespace BitChatAppMono
+namespace BitChatApp
 {
     public partial class frmImageDialog : Form
     {
@@ -32,8 +32,7 @@ namespace BitChatAppMono
         Pen cropPen = new Pen(Color.White, 2) { DashStyle = DashStyle.Dash };
         Rectangle cropRectangle;
 
-        Image imgSmall;
-        Image imglarge;
+        Image selectedImage;
 
         #endregion
 
@@ -112,7 +111,7 @@ namespace BitChatAppMono
         {
             using (OpenFileDialog oFD = new OpenFileDialog())
             {
-                if (oFD.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
+                if (oFD.ShowDialog(this) == DialogResult.OK)
                 {
                     oFD.CheckFileExists = true;
                     oFD.CheckPathExists = true;
@@ -136,7 +135,7 @@ namespace BitChatAppMono
 
         private void picImage_MouseDown(object sender, MouseEventArgs e)
         {
-            if (e.Button == System.Windows.Forms.MouseButtons.Left)
+            if (e.Button == MouseButtons.Left)
             {
                 cropRectangle.X = e.X;
                 cropRectangle.Y = e.Y;
@@ -149,7 +148,7 @@ namespace BitChatAppMono
 
         private void picImage_MouseMove(object sender, MouseEventArgs e)
         {
-            if (e.Button == System.Windows.Forms.MouseButtons.Left)
+            if (e.Button == MouseButtons.Left)
             {
                 if (picImage.Image != null)
                 {
@@ -177,11 +176,10 @@ namespace BitChatAppMono
         {
             using (Image croppedImage = CropImage(picImage, cropRectangle))
             {
-                imgSmall = new Bitmap(croppedImage, 48, 48);
-                imglarge = new Bitmap(croppedImage, 256, 256);
+                selectedImage = new Bitmap(croppedImage, 256, 256);
             }
 
-            this.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.DialogResult = DialogResult.OK;
             this.Close();
         }
 
@@ -194,11 +192,8 @@ namespace BitChatAppMono
 
         #region properties
 
-        public Image SelectedImageSmall
-        { get { return imgSmall; } }
-
-        public Image SelectedImageLarge
-        { get { return imglarge; } }
+        public Image SelectedImage
+        { get { return selectedImage; } }
 
         #endregion
     }

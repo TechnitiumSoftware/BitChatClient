@@ -12,7 +12,7 @@
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <TargetFrameworkProfile />
-    <IsWebBootstrapper>false</IsWebBootstrapper>
+    <IsWebBootstrapper>true</IsWebBootstrapper>
     <PublishUrl>publish\</PublishUrl>
     <Install>false</Install>
     <InstallFrom>Web</InstallFrom>
@@ -136,11 +136,23 @@
     <Compile Include="frmImportPEM.Designer.cs">
       <DependentUpon>frmImportPEM.cs</DependentUpon>
     </Compile>
+    <Compile Include="frmMessageInfo.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmMessageInfo.Designer.cs">
+      <DependentUpon>frmMessageInfo.cs</DependentUpon>
+    </Compile>
     <Compile Include="frmNetworkInfo.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="frmNetworkInfo.Designer.cs">
       <DependentUpon>frmNetworkInfo.cs</DependentUpon>
+    </Compile>
+    <Compile Include="frmViewGroup.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="frmViewGroup.Designer.cs">
+      <DependentUpon>frmViewGroup.cs</DependentUpon>
     </Compile>
     <Compile Include="frmViewProfile.cs">
       <SubType>Form</SubType>
@@ -190,11 +202,11 @@
     <Compile Include="UserControls\ChatMessageInfoItem.Designer.cs">
       <DependentUpon>ChatMessageInfoItem.cs</DependentUpon>
     </Compile>
-    <Compile Include="UserControls\ChatMessageItem.cs">
+    <Compile Include="UserControls\ChatMessageTextItem.cs">
       <SubType>UserControl</SubType>
     </Compile>
-    <Compile Include="UserControls\ChatMessageItem.Designer.cs">
-      <DependentUpon>ChatMessageItem.cs</DependentUpon>
+    <Compile Include="UserControls\ChatMessageTextItem.Designer.cs">
+      <DependentUpon>ChatMessageTextItem.cs</DependentUpon>
     </Compile>
     <Compile Include="UserControls\ChatMessageView.cs">
       <SubType>UserControl</SubType>
@@ -274,6 +286,12 @@
     <Compile Include="UserControls\SharedFileItem.Designer.cs">
       <DependentUpon>SharedFileItem.cs</DependentUpon>
     </Compile>
+    <Compile Include="UserControls\ChatMessageFileItem.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UserControls\ChatMessageFileItem.Designer.cs">
+      <DependentUpon>ChatMessageFileItem.cs</DependentUpon>
+    </Compile>
     <Compile Include="UserControls\UserListItem.cs">
       <SubType>UserControl</SubType>
     </Compile>
@@ -298,8 +316,14 @@
     <EmbeddedResource Include="frmImportPEM.resx">
       <DependentUpon>frmImportPEM.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="frmMessageInfo.resx">
+      <DependentUpon>frmMessageInfo.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="frmNetworkInfo.resx">
       <DependentUpon>frmNetworkInfo.cs</DependentUpon>
+    </EmbeddedResource>
+    <EmbeddedResource Include="frmViewGroup.resx">
+      <DependentUpon>frmViewGroup.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="frmViewProfile.resx">
       <DependentUpon>frmViewProfile.cs</DependentUpon>
@@ -322,12 +346,15 @@
     <EmbeddedResource Include="UserControls\ChatListItem.resx">
       <DependentUpon>ChatListItem.cs</DependentUpon>
     </EmbeddedResource>
+    <EmbeddedResource Include="UserControls\ChatMessageFileItem.resx">
+      <DependentUpon>ChatMessageFileItem.cs</DependentUpon>
+    </EmbeddedResource>
     <EmbeddedResource Include="UserControls\ChatMessageInfoItem.resx">
       <DependentUpon>ChatMessageInfoItem.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
-    <EmbeddedResource Include="UserControls\ChatMessageItem.resx">
-      <DependentUpon>ChatMessageItem.cs</DependentUpon>
+    <EmbeddedResource Include="UserControls\ChatMessageTextItem.resx">
+      <DependentUpon>ChatMessageTextItem.cs</DependentUpon>
       <SubType>Designer</SubType>
     </EmbeddedResource>
     <EmbeddedResource Include="UserControls\ChatMessageView.resx">
@@ -389,13 +416,20 @@
       <Project>{0bc4eac6-4a90-4126-900d-ab5eb691c3fd}</Project>
       <Name>AutomaticUpdate.Client</Name>
     </ProjectReference>
-    <ProjectReference Include="..\BitChatClient\BitChatClient.csproj">
+    <ProjectReference Include="..\BitChatCore\BitChatCore.csproj">
       <Project>{3038b7ea-d974-431f-a6c0-fe7c7e5308a2}</Project>
-      <Name>BitChatClient</Name>
+      <Name>BitChatCore</Name>
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <Content Include="logo2.ico" />
+    <None Include="Resources\message-failed.png" />
+    <None Include="Resources\change-photo.png" />
+    <None Include="Resources\waiting.png" />
+    <None Include="Resources\single-tick.png" />
+    <None Include="Resources\double-ticks.png" />
+    <None Include="Resources\point-left.png" />
+    <None Include="Resources\point-right.png" />
     <None Include="Resources\send message.png" />
     <None Include="Resources\Attachment.png" />
     <None Include="Resources\MessageNotification.wav" />
@@ -409,6 +443,11 @@
       <Visible>False</Visible>
       <ProductName>Microsoft .NET Framework 4 %28x86 and x64%29</ProductName>
       <Install>true</Install>
+    </BootstrapperPackage>
+    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
+      <Visible>False</Visible>
+      <ProductName>.NET Framework 3.5 SP1</ProductName>
+      <Install>false</Install>
     </BootstrapperPackage>
     <BootstrapperPackage Include="Microsoft.Windows.Installer.4.5">
       <Visible>False</Visible>

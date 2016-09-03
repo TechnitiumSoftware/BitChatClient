@@ -17,7 +17,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient;
+using BitChatCore;
+using BitChatCore.Network;
 using System;
 using System.Drawing;
 using System.IO;
@@ -25,7 +26,7 @@ using System.Net;
 using System.Windows.Forms;
 using TechnitiumLibrary.Security.Cryptography;
 
-namespace BitChatAppMono
+namespace BitChatApp
 {
     public partial class frmViewUserDetails : Form
     {
@@ -119,11 +120,11 @@ namespace BitChatAppMono
             }
 
             //image icon
-            if (_peer.ProfileImageSmall != null)
+            if (_peer.ProfileImage != null)
             {
-                using (MemoryStream mS = new MemoryStream(_peer.ProfileImageSmall))
+                using (MemoryStream mS = new MemoryStream(_peer.ProfileImage))
                 {
-                    picIcon.Image = Image.FromStream(mS);
+                    picIcon.Image = new Bitmap(Image.FromStream(mS), picIcon.Size);
                 }
 
                 picIcon.Visible = true;
@@ -136,30 +137,30 @@ namespace BitChatAppMono
                 case BitChatConnectivityStatus.NoNetwork:
                     labNetworkStatus.Text = "No Network";
                     labNetworkStatus.ForeColor = Color.DimGray;
-                    picNetwork.Image = BitChatAppMono.Properties.Resources.NoNetwork;
+                    picNetwork.Image = BitChatApp.Properties.Resources.NoNetwork;
                     break;
 
                 case BitChatConnectivityStatus.PartialNetwork:
                     labNetworkStatus.Text = "Partial Network";
                     labNetworkStatus.ForeColor = Color.OrangeRed;
-                    picNetwork.Image = BitChatAppMono.Properties.Resources.PartialNetwork;
+                    picNetwork.Image = BitChatApp.Properties.Resources.PartialNetwork;
                     break;
 
                 case BitChatConnectivityStatus.FullNetwork:
                     labNetworkStatus.Text = "Full Network";
                     labNetworkStatus.ForeColor = Color.Green;
-                    picNetwork.Image = BitChatAppMono.Properties.Resources.FullNetwork;
+                    picNetwork.Image = BitChatApp.Properties.Resources.FullNetwork;
                     break;
 
                 default:
                     labNetworkStatus.Text = "Unknown";
                     labNetworkStatus.ForeColor = Color.DimGray;
-                    picNetwork.Image = BitChatAppMono.Properties.Resources.NoNetwork;
+                    picNetwork.Image = BitChatApp.Properties.Resources.NoNetwork;
                     break;
             }
 
             //cipher suite
-            if (_peer.CipherSuite == BitChatClient.Network.SecureChannel.SecureChannelCryptoOptionFlags.None)
+            if (_peer.CipherSuite == BitChatCore.Network.SecureChannel.SecureChannelCryptoOptionFlags.None)
                 labCipherSuite.Text = "Not applicable";
             else
                 labCipherSuite.Text = _peer.CipherSuite.ToString();

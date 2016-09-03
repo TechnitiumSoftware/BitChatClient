@@ -17,13 +17,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient.Network;
+using BitChatCore.Network;
 using System;
-using System.Collections.Generic;
 using System.Net.Mail;
 using System.Windows.Forms;
 
-namespace BitChatAppMono
+namespace BitChatApp
 {
     public partial class frmAddChat : Form
     {
@@ -34,14 +33,6 @@ namespace BitChatAppMono
         #endregion
 
         #region Form Code
-
-        public frmAddChat()
-        {
-            InitializeComponent();
-
-            _type = BitChatNetworkType.GroupChat;
-            this.Text = "Add Group Chat";
-        }
 
         public frmAddChat(BitChatNetworkType type)
         {
@@ -57,6 +48,40 @@ namespace BitChatAppMono
                 label3.Text = "(case insensitive, example: user@example.com)";
                 label4.Text = "Both peers must use same Shared Secret and enter each other's email address.";
             }
+            else
+            {
+                this.Text = "Add Group Chat";
+
+                chkSendInvitation.Visible = false;
+                txtInvitationMessage.Visible = false;
+                label6.Visible = false;
+                label7.Visible = false;
+
+                this.Height = 200;
+            }
+        }
+
+        #endregion
+
+        #region form code
+
+        private void txtSharedSecret_TextChanged(object sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(txtSharedSecret.Text))
+            {
+                chkSendInvitation.Enabled = true;
+                txtInvitationMessage.Enabled = chkSendInvitation.Checked;
+            }
+            else
+            {
+                chkSendInvitation.Enabled = false;
+                txtInvitationMessage.Enabled = false;
+            }
+        }
+
+        private void chkSendInvitation_CheckedChanged(object sender, EventArgs e)
+        {
+            txtInvitationMessage.Enabled = chkSendInvitation.Checked;
         }
 
         private void btnOK_Click(object sender, EventArgs e)
@@ -87,7 +112,7 @@ namespace BitChatAppMono
                 }
             }
 
-            this.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.DialogResult = DialogResult.OK;
             this.Close();
         }
 
@@ -96,8 +121,29 @@ namespace BitChatAppMono
             this.Close();
         }
 
+        #endregion
+
+        #region properties
+
+        public string NetworkNameOrPeerEmailAddress
+        { get { return txtNetworkNameOrPeerEmailAddress.Text; } }
+
+        public string SharedSecret
+        { get { return txtSharedSecret.Text; } }
+
         public bool OnlyLanChat
         { get { return chkLANChat.Checked; } }
+
+        public string InvitationMessage
+        {
+            get
+            {
+                if (chkSendInvitation.Enabled && chkSendInvitation.Checked)
+                    return txtInvitationMessage.Text;
+                else
+                    return null;
+            }
+        }
 
         #endregion
     }

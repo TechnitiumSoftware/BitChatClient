@@ -1,4 +1,4 @@
-﻿namespace BitChatAppMono.UserControls
+﻿namespace BitChatApp.UserControls
 {
     partial class ChatMessageView
     {
@@ -31,7 +31,7 @@
             this.components = new System.ComponentModel.Container();
             this.splitContainer1 = new System.Windows.Forms.SplitContainer();
             this.labTypingNotification = new System.Windows.Forms.Label();
-            this.customListView1 = new BitChatAppMono.UserControls.CustomListView();
+            this.customListView1 = new BitChatApp.UserControls.CustomListView();
             this.btnShareFile = new System.Windows.Forms.Button();
             this.btnSend = new System.Windows.Forms.Button();
             this.txtMessage = new System.Windows.Forms.TextBox();
@@ -59,17 +59,17 @@
             // 
             // splitContainer1.Panel1
             // 
-            this.splitContainer1.Panel1.BackColor = System.Drawing.Color.White;
+            this.splitContainer1.Panel1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(224)))), ((int)(((byte)(224)))), ((int)(((byte)(224)))));
             this.splitContainer1.Panel1.Controls.Add(this.labTypingNotification);
             this.splitContainer1.Panel1.Controls.Add(this.customListView1);
             this.splitContainer1.Panel1MinSize = 100;
             // 
             // splitContainer1.Panel2
             // 
-            this.splitContainer1.Panel2.BackColor = System.Drawing.Color.White;
+            this.splitContainer1.Panel2.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(224)))), ((int)(((byte)(224)))), ((int)(((byte)(224)))));
+            this.splitContainer1.Panel2.Controls.Add(this.txtMessage);
             this.splitContainer1.Panel2.Controls.Add(this.btnShareFile);
             this.splitContainer1.Panel2.Controls.Add(this.btnSend);
-            this.splitContainer1.Panel2.Controls.Add(this.txtMessage);
             this.splitContainer1.Panel2MinSize = 52;
             this.splitContainer1.Size = new System.Drawing.Size(697, 371);
             this.splitContainer1.SplitterDistance = 317;
@@ -82,12 +82,12 @@
             this.labTypingNotification.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.labTypingNotification.AutoEllipsis = true;
-            this.labTypingNotification.BackColor = System.Drawing.Color.White;
+            this.labTypingNotification.BackColor = System.Drawing.Color.Transparent;
             this.labTypingNotification.Font = new System.Drawing.Font("Arial", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.labTypingNotification.ForeColor = System.Drawing.Color.Gray;
-            this.labTypingNotification.Location = new System.Drawing.Point(0, 303);
+            this.labTypingNotification.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
+            this.labTypingNotification.Location = new System.Drawing.Point(0, 302);
             this.labTypingNotification.Name = "labTypingNotification";
-            this.labTypingNotification.Size = new System.Drawing.Size(697, 14);
+            this.labTypingNotification.Size = new System.Drawing.Size(697, 15);
             this.labTypingNotification.TabIndex = 2;
             // 
             // customListView1
@@ -97,7 +97,7 @@
             | System.Windows.Forms.AnchorStyles.Right)));
             this.customListView1.AutoScroll = true;
             this.customListView1.AutoScrollToBottom = false;
-            this.customListView1.BackColor = System.Drawing.Color.White;
+            this.customListView1.BackColor = System.Drawing.Color.Transparent;
             this.customListView1.BorderColor = System.Drawing.Color.Empty;
             this.customListView1.Location = new System.Drawing.Point(0, 0);
             this.customListView1.Name = "customListView1";
@@ -112,7 +112,7 @@
             this.btnShareFile.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnShareFile.BackColor = System.Drawing.Color.Transparent;
             this.btnShareFile.Font = new System.Drawing.Font("Arial", 8F);
-            this.btnShareFile.Image = global::BitChatAppMono.Properties.Resources.Attachment;
+            this.btnShareFile.Image = global::BitChatApp.Properties.Resources.Attachment;
             this.btnShareFile.Location = new System.Drawing.Point(635, 26);
             this.btnShareFile.Name = "btnShareFile";
             this.btnShareFile.Size = new System.Drawing.Size(60, 24);
@@ -127,7 +127,7 @@
             this.btnSend.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnSend.BackColor = System.Drawing.Color.Transparent;
             this.btnSend.Font = new System.Drawing.Font("Arial", 8F);
-            this.btnSend.Image = global::BitChatAppMono.Properties.Resources.send_message;
+            this.btnSend.Image = global::BitChatApp.Properties.Resources.send_message;
             this.btnSend.Location = new System.Drawing.Point(635, 2);
             this.btnSend.Name = "btnSend";
             this.btnSend.Size = new System.Drawing.Size(60, 24);
@@ -149,7 +149,7 @@
             this.txtMessage.Multiline = true;
             this.txtMessage.Name = "txtMessage";
             this.txtMessage.ScrollBars = System.Windows.Forms.ScrollBars.Vertical;
-            this.txtMessage.Size = new System.Drawing.Size(607, 28);
+            this.txtMessage.Size = new System.Drawing.Size(607, 64);
             this.txtMessage.TabIndex = 0;
             this.txtMessage.KeyDown += new System.Windows.Forms.KeyEventHandler(this.txtMessage_KeyDown);
             this.txtMessage.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.txtMessage_KeyPress);

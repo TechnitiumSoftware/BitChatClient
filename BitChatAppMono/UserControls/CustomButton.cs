@@ -23,7 +23,7 @@ using System.Drawing;
 using System.Text;
 using System.Windows.Forms;
 
-namespace BitChatAppMono.UserControls
+namespace BitChatApp.UserControls
 {
     public class CustomButton : PictureBox
     {

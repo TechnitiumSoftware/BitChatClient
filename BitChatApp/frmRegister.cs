@@ -17,7 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient;
+using BitChatCore;
 using System;
 using System.IO;
 using System.Net;
@@ -404,7 +404,7 @@ namespace BitChatApp
 
         private void RegistrationFail(object state)
         {
-            MessageBox.Show("Error orrured while registering for profile certificate:\r\n\r\n" + (string)state, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show("Error occurred while registering for profile certificate:\r\n\r\n" + (string)state, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
             pnlMessages.Visible = false;
             pnlRegister.Visible = true;

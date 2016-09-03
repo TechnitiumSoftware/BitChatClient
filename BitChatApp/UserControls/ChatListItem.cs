@@ -18,11 +18,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Drawing;
-using System.Text;
-using System.Windows.Forms;
+using System.IO;
 
 namespace BitChatApp.UserControls
 {
@@ -30,7 +27,8 @@ namespace BitChatApp.UserControls
     {
         #region variables
 
-        int _newMessageCount;
+        DateTime _messageDate;
+        int _unreadMessageCount;
         bool _isOffline;
 
         #endregion
@@ -41,8 +39,9 @@ namespace BitChatApp.UserControls
         {
             InitializeComponent();
 
+            labLastMessage.Text = "";
             SetTitle(title);
-            ResetNewMessages();
+            ResetUnreadMessageCount();
         }
 
         #endregion
@@ -60,7 +59,7 @@ namespace BitChatApp.UserControls
                     this.BackColor = Color.FromArgb(61, 78, 93);
                     labIcon.BackColor = Color.Gray;
 
-                    ResetNewMessages();
+                    ResetUnreadMessageCount();
                 }
                 else
                 {
@@ -75,7 +74,7 @@ namespace BitChatApp.UserControls
                     this.BackColor = Color.FromArgb(61, 78, 93);
                     labIcon.BackColor = Color.FromArgb(255, 213, 89);
 
-                    ResetNewMessages();
+                    ResetUnreadMessageCount();
                 }
                 else
                 {
@@ -98,6 +97,13 @@ namespace BitChatApp.UserControls
             }
         }
 
+        private void ResetUnreadMessageCount()
+        {
+            _unreadMessageCount = 0;
+            labUnreadMessageCount.Visible = false;
+            labLastMessage.Width += labUnreadMessageCount.Width;
+        }
+
         #endregion
 
         #region public
@@ -118,50 +124,73 @@ namespace BitChatApp.UserControls
             }
         }
 
-        public void SetNewMessage(string message)
+        public void SetLastMessage(string message, DateTime messageDate, bool unread)
         {
+            _messageDate = messageDate;
+
             labLastMessage.Text = message;
+            labLastMessageDate.Text = _messageDate.ToLocalTime().ToShortTimeString();
 
-            if (_newMessageCount < 999)
-                _newMessageCount++;
-
-            if (!labNewMessageCount.Visible)
+            if (!this.Selected && unread)
             {
-                labNewMessageCount.Visible = true;
-                labTitle.Width -= labNewMessageCount.Width;
+                if (_unreadMessageCount < 999)
+                    _unreadMessageCount++;
+
+                if (!labUnreadMessageCount.Visible)
+                {
+                    labUnreadMessageCount.Visible = true;
+                    labLastMessage.Width -= labUnreadMessageCount.Width;
+                }
+
+                labUnreadMessageCount.Text = _unreadMessageCount.ToString();
             }
 
-            labNewMessageCount.Text = _newMessageCount.ToString();
+            this.SortListView();
         }
 
-        public void ResetNewMessages()
+        public void SetImageIcon(byte[] image)
         {
-            labLastMessage.Text = "";
-            _newMessageCount = 0;
-            labNewMessageCount.Visible = false;
-            labTitle.Width += labNewMessageCount.Width;
+            if (image == null)
+            {
+                picIcon.Image = null;
+
+                labIcon.Visible = true;
+                picIcon.Visible = false;
+            }
+            else
+            {
+                using (MemoryStream mS = new MemoryStream(image))
+                {
+                    picIcon.Image = new Bitmap(Image.FromStream(mS), picIcon.Size);
+                }
+
+                picIcon.Visible = !_isOffline;
+                labIcon.Visible = _isOffline;
+            }
         }
 
         public override string ToString()
         {
-            if (_isOffline)
-                return "1-" + labTitle.Text;
+            TimeSpan span = DateTime.UtcNow.Date - _messageDate.Date;
+
+            if (span.TotalDays >= 7)
+                labLastMessageDate.Text = _messageDate.ToLocalTime().ToShortDateString();
+            else if (span.TotalDays >= 2)
+                labLastMessageDate.Text = _messageDate.ToLocalTime().DayOfWeek.ToString();
+            else if (span.TotalDays >= 1)
+                labLastMessageDate.Text = "Yesterday";
             else
-                return "0-" + labTitle.Text;
+                labLastMessageDate.Text = _messageDate.ToLocalTime().ToShortTimeString();
+
+            labTitle.Width = this.Width - labTitle.Left - labLastMessageDate.Width - 3;
+            labLastMessageDate.Left = labTitle.Left + labTitle.Width;
+
+            return ((int)(DateTime.UtcNow - _messageDate).TotalSeconds).ToString().PadLeft(12, '0');
         }
 
         #endregion
 
         #region properties
-
-        public string Title
-        { get { return labTitle.Text; } }
-
-        public string LastMessage
-        { get { return labLastMessage.Text; } }
-
-        public int NewMessageCount
-        { get { return _newMessageCount; } }
 
         public bool GoOffline
         {
@@ -169,6 +198,13 @@ namespace BitChatApp.UserControls
             set
             {
                 _isOffline = value;
+
+                if (picIcon.Image != null)
+                {
+                    picIcon.Visible = !_isOffline;
+                    labIcon.Visible = _isOffline;
+                }
+
                 OnSelected();
                 SortListView();
             }

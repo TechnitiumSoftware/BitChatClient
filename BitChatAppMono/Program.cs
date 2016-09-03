@@ -23,7 +23,7 @@ using System.Threading;
 using System.Windows.Forms;
 using TechnitiumLibrary.Security.Cryptography;
 
-namespace BitChatAppMono
+namespace BitChatApp
 {
     static class Program
     {
@@ -118,7 +118,7 @@ NgEA
                             {
                                 bool loadMainForm = false;
 
-                                if ((mgr.Profile.LocalCertificateStore.Certificate.Type == CertificateType.Normal) && (mgr.Profile.LocalCertificateStore.Certificate.Capability == CertificateCapability.KeyExchange))
+                                if ((mgr.Profile.LocalCertificateStore.Certificate.Type == CertificateType.User) && (mgr.Profile.LocalCertificateStore.Certificate.Capability == CertificateCapability.UserAuthentication))
                                 {
                                     loadMainForm = true;
                                 }

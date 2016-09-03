@@ -17,7 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient;
+using BitChatCore;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -25,13 +25,11 @@ using System.Net;
 using System.Windows.Forms;
 using TechnitiumLibrary.Net.Proxy;
 
-namespace BitChatAppMono
+namespace BitChatApp
 {
     public partial class frmSettings : Form
     {
         #region variables
-
-        BitChatService _service;
 
         List<Uri> _trackers = new List<Uri>();
         ushort _port = 0;
@@ -43,13 +41,9 @@ namespace BitChatAppMono
 
         #region constructor
 
-        public frmSettings(BitChatService service)
+        public frmSettings(BitChatProfile profile)
         {
             InitializeComponent();
-
-            _service = service;
-
-            BitChatProfile profile = service.Profile;
 
             txtDownloadFolder.Text = profile.DownloadFolder;
             btnBrowseDLFolder.Enabled = !profile.IsPortableApp;
@@ -61,6 +55,9 @@ namespace BitChatAppMono
 
             txtPort.Text = profile.LocalPort.ToString();
             chkUseCRL.Checked = profile.CheckCertificateRevocationList;
+            chkAllowInvitations.Checked = profile.AllowInboundInvitations;
+            chkAllowOnlyLocalInvitations.Enabled = chkAllowInvitations.Checked;
+            chkAllowOnlyLocalInvitations.Checked = profile.AllowOnlyLocalInboundInvitations;
             chkUPnP.Checked = profile.EnableUPnP;
 
             if (profile.Proxy == null)
@@ -173,7 +170,7 @@ namespace BitChatAppMono
                 return;
             }
 
-            this.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.DialogResult = DialogResult.OK;
             this.Close();
         }
 
@@ -256,6 +253,11 @@ namespace BitChatAppMono
             }
         }
 
+        private void chkAllowInvitations_CheckedChanged(object sender, EventArgs e)
+        {
+            chkAllowOnlyLocalInvitations.Enabled = chkAllowInvitations.Checked;
+        }
+
         #endregion
 
         #region properties
@@ -277,6 +279,12 @@ namespace BitChatAppMono
 
         public bool CheckCertificateRevocationList
         { get { return chkUseCRL.Checked; } }
+
+        public bool AllowInboundInvitations
+        { get { return chkAllowInvitations.Checked; } }
+
+        public bool AllowOnlyLocalInboundInvitations
+        { get { return chkAllowOnlyLocalInvitations.Checked; } }
 
         public bool EnableUPnP
         { get { return chkUPnP.Checked; } }

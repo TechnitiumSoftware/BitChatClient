@@ -1,4 +1,4 @@
-﻿namespace BitChatAppMono.UserControls
+﻿namespace BitChatApp.UserControls
 {
     partial class CustomPanel
     {

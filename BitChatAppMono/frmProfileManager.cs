@@ -17,13 +17,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient;
+using BitChatCore;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Windows.Forms;
 
-namespace BitChatAppMono
+namespace BitChatApp
 {
     public partial class frmProfileManager : Form
     {
@@ -295,10 +295,10 @@ namespace BitChatAppMono
             {
                 switch (frm.ShowDialog(this))
                 {
-                    case System.Windows.Forms.DialogResult.OK:
+                    case DialogResult.OK:
                         _profile = frm.Profile;
 
-                        if (_profile.LocalCertificateStore.Certificate.Type == TechnitiumLibrary.Security.Cryptography.CertificateType.Normal)
+                        if (_profile.LocalCertificateStore.Certificate.Type == TechnitiumLibrary.Security.Cryptography.CertificateType.User)
                         {
                             //check for profile certificate expiry
                             double daysToExpire = (_profile.LocalCertificateStore.Certificate.ExpiresOnUTC - DateTime.UtcNow).TotalDays;
@@ -325,11 +325,11 @@ namespace BitChatAppMono
                             }
                         }
 
-                        this.DialogResult = System.Windows.Forms.DialogResult.OK;
+                        this.DialogResult = DialogResult.OK;
                         this.Close();
                         break;
 
-                    case System.Windows.Forms.DialogResult.Yes:
+                    case DialogResult.Yes:
                         btnNewProfile_Click(null, null);
                         break;
                 }

@@ -1,10 +1,10 @@
-﻿using BitChatClient;
+﻿using BitChatCore;
 using System;
 using System.Net;
 using System.Windows.Forms;
 using TechnitiumLibrary.Net.Proxy;
 
-namespace BitChatAppMono
+namespace BitChatApp
 {
     public partial class frmProxyConfig : Form
     {

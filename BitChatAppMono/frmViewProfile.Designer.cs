@@ -1,4 +1,4 @@
-﻿namespace BitChatAppMono
+﻿namespace BitChatApp
 {
     partial class frmViewProfile
     {
@@ -103,6 +103,7 @@
             this.labIcon.TabIndex = 40;
             this.labIcon.Text = "SZ";
             this.labIcon.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.labIcon.MouseEnter += new System.EventHandler(this.labIcon_MouseEnter);
             this.labIcon.MouseUp += new System.Windows.Forms.MouseEventHandler(this.labIcon_MouseUp);
             // 
             // mnuProfileImage
@@ -112,7 +113,6 @@
             this.mnuRemovePhoto});
             this.mnuProfileImage.Name = "mnuProfileImage";
             this.mnuProfileImage.Size = new System.Drawing.Size(153, 48);
-            this.mnuProfileImage.Opening += new System.ComponentModel.CancelEventHandler(this.mnuProfileImage_Opening);
             // 
             // mnuChangePhoto
             // 
@@ -131,6 +131,7 @@
             // picIcon
             // 
             this.picIcon.Cursor = System.Windows.Forms.Cursors.Hand;
+            this.picIcon.Image = global::BitChatApp.Properties.Resources.change_photo;
             this.picIcon.Location = new System.Drawing.Point(14, 68);
             this.picIcon.Name = "picIcon";
             this.picIcon.Size = new System.Drawing.Size(256, 256);
@@ -138,6 +139,8 @@
             this.picIcon.TabIndex = 45;
             this.picIcon.TabStop = false;
             this.picIcon.Visible = false;
+            this.picIcon.MouseEnter += new System.EventHandler(this.picIcon_MouseEnter);
+            this.picIcon.MouseLeave += new System.EventHandler(this.picIcon_MouseLeave);
             this.picIcon.MouseUp += new System.Windows.Forms.MouseEventHandler(this.labIcon_MouseUp);
             // 
             // lnkView

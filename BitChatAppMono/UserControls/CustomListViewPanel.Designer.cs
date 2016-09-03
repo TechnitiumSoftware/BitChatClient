@@ -1,4 +1,4 @@
-﻿namespace BitChatAppMono.UserControls
+﻿namespace BitChatApp.UserControls
 {
     partial class CustomListViewPanel
     {
@@ -28,7 +28,7 @@
         /// </summary>
         private void InitializeComponent()
         {
-            this.customListView1 = new BitChatAppMono.UserControls.CustomListView();
+            this.customListView1 = new BitChatApp.UserControls.CustomListView();
             this.panel2.SuspendLayout();
             this.SuspendLayout();
             // 

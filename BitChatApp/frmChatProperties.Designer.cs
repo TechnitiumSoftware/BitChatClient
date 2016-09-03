@@ -52,6 +52,7 @@
             this.label3 = new System.Windows.Forms.Label();
             this.chkShowSecret = new System.Windows.Forms.CheckBox();
             this.chkLANChat = new System.Windows.Forms.CheckBox();
+            this.btnOK = new System.Windows.Forms.Button();
             this.mnuTracker.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -211,11 +212,13 @@
             // txtSecret
             // 
             this.txtSecret.Location = new System.Drawing.Point(492, 12);
+            this.txtSecret.MaxLength = 255;
             this.txtSecret.Name = "txtSecret";
-            this.txtSecret.ReadOnly = true;
+            this.txtSecret.PasswordChar = '#';
             this.txtSecret.Size = new System.Drawing.Size(180, 20);
             this.txtSecret.TabIndex = 1;
             this.txtSecret.Text = "########";
+            this.txtSecret.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.txtSecret_KeyPress);
             // 
             // label3
             // 
@@ -247,18 +250,31 @@
             this.chkLANChat.Location = new System.Drawing.Point(12, 258);
             this.chkLANChat.Name = "chkLANChat";
             this.chkLANChat.Size = new System.Drawing.Size(237, 17);
-            this.chkLANChat.TabIndex = 55;
+            this.chkLANChat.TabIndex = 4;
             this.chkLANChat.Text = "Enable only local network (LAN or WiFi) chat";
             this.chkLANChat.UseVisualStyleBackColor = true;
             this.chkLANChat.CheckedChanged += new System.EventHandler(this.chkLANChat_CheckedChanged);
             // 
+            // btnOK
+            // 
+            this.btnOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnOK.Location = new System.Drawing.Point(516, 254);
+            this.btnOK.Name = "btnOK";
+            this.btnOK.Size = new System.Drawing.Size(75, 23);
+            this.btnOK.TabIndex = 5;
+            this.btnOK.Text = "OK";
+            this.btnOK.UseVisualStyleBackColor = true;
+            this.btnOK.Click += new System.EventHandler(this.btnOK_Click);
+            // 
             // frmChatProperties
             // 
+            this.AcceptButton = this.btnOK;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
             this.CancelButton = this.btnClose;
             this.ClientSize = new System.Drawing.Size(684, 282);
+            this.Controls.Add(this.btnOK);
             this.Controls.Add(this.chkLANChat);
             this.Controls.Add(this.chkShowSecret);
             this.Controls.Add(this.txtSecret);
@@ -306,5 +322,6 @@
         private System.Windows.Forms.ToolStripMenuItem copyAllTrackersToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem addDefaultTrackersToolStripMenuItem;
         private System.Windows.Forms.CheckBox chkLANChat;
+        private System.Windows.Forms.Button btnOK;
     }
 }

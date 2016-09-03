@@ -9,7 +9,7 @@ using System.Text;
 using System.Windows.Forms;
 using TechnitiumLibrary.Security.Cryptography;
 
-namespace BitChatAppMono
+namespace BitChatApp
 {
     public partial class frmImportPEM : Form
     {

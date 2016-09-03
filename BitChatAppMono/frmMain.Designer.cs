@@ -1,5 +1,5 @@
-﻿using BitChatAppMono.UserControls;
-namespace BitChatAppMono
+﻿using BitChatApp.UserControls;
+namespace BitChatApp
 {
     partial class frmMain
     {
@@ -32,9 +32,11 @@ namespace BitChatAppMono
             this.components = new System.ComponentModel.Container();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmMain));
             this.mnuChat = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.mnuMuteNotifications = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuGoOffline = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuLeaveChat = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
+            this.mnuGroupPhoto = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuProperties = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.mnuAddPrivateChat2 = new System.Windows.Forms.ToolStripMenuItem();
@@ -52,13 +54,16 @@ namespace BitChatAppMono
             this.mnuExit = new System.Windows.Forms.ToolStripMenuItem();
             this.mainContainer = new System.Windows.Forms.SplitContainer();
             this.panel1 = new System.Windows.Forms.Panel();
-            this.btnPlusButton = new BitChatAppMono.UserControls.CustomButton();
+            this.btnPlusButton = new BitChatApp.UserControls.CustomButton();
             this.lblUserName = new System.Windows.Forms.Label();
-            this.lstChats = new BitChatAppMono.UserControls.CustomListView();
+            this.lstChats = new BitChatApp.UserControls.CustomListView();
             this.panelGetStarted = new System.Windows.Forms.Panel();
             this.label2 = new System.Windows.Forms.Label();
             this.label4 = new System.Windows.Forms.Label();
-            this.btnCreateChat = new BitChatAppMono.UserControls.CustomButton();
+            this.mnuViewProfile = new System.Windows.Forms.ToolStripMenuItem();
+            this.btnCreateChat = new BitChatApp.UserControls.CustomButton();
+            this.toolStripSeparator7 = new System.Windows.Forms.ToolStripSeparator();
+            this.networkInfoToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuChat.SuspendLayout();
             this.mnuPlus.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.mainContainer)).BeginInit();
@@ -74,21 +79,30 @@ namespace BitChatAppMono
             // mnuChat
             // 
             this.mnuChat.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.mnuMuteNotifications,
             this.mnuGoOffline,
             this.mnuLeaveChat,
             this.toolStripSeparator2,
+            this.mnuGroupPhoto,
             this.mnuProperties,
             this.toolStripSeparator1,
             this.mnuAddPrivateChat2,
             this.mnuAddGroupChat2});
             this.mnuChat.Name = "chatContextMenu";
-            this.mnuChat.Size = new System.Drawing.Size(164, 126);
+            this.mnuChat.Size = new System.Drawing.Size(164, 170);
+            // 
+            // mnuMuteNotifications
+            // 
+            this.mnuMuteNotifications.Name = "mnuMuteNotifications";
+            this.mnuMuteNotifications.Size = new System.Drawing.Size(163, 22);
+            this.mnuMuteNotifications.Text = "&Mute";
+            this.mnuMuteNotifications.Click += new System.EventHandler(this.mnuMuteNotifications_Click);
             // 
             // mnuGoOffline
             // 
             this.mnuGoOffline.Name = "mnuGoOffline";
             this.mnuGoOffline.Size = new System.Drawing.Size(163, 22);
-            this.mnuGoOffline.Text = "Go Offline";
+            this.mnuGoOffline.Text = "Go &Offline";
             this.mnuGoOffline.Click += new System.EventHandler(this.mnuGoOffline_Click);
             // 
             // mnuLeaveChat
@@ -102,6 +116,14 @@ namespace BitChatAppMono
             // 
             this.toolStripSeparator2.Name = "toolStripSeparator2";
             this.toolStripSeparator2.Size = new System.Drawing.Size(160, 6);
+            // 
+            // mnuGroupPhoto
+            // 
+            this.mnuGroupPhoto.Name = "mnuGroupPhoto";
+            this.mnuGroupPhoto.Size = new System.Drawing.Size(163, 22);
+            this.mnuGroupPhoto.Text = "Group &Photo";
+            this.mnuGroupPhoto.Visible = false;
+            this.mnuGroupPhoto.Click += new System.EventHandler(this.mnuGroupPhoto_Click);
             // 
             // mnuProperties
             // 
@@ -135,15 +157,17 @@ namespace BitChatAppMono
             this.mnuAddPrivateChat1,
             this.mnuAddGroupChat1,
             this.toolStripSeparator3,
-            this.networkInfoToolStripMenuItem,
+            this.mnuViewProfile,
             this.mnuProfileSettings,
             this.mnuSwitchProfile,
+            this.toolStripSeparator7,
+            this.networkInfoToolStripMenuItem,
             this.mnuCheckUpdate,
             this.mnuAbout,
             this.toolStripSeparator5,
             this.mnuExit});
             this.mnuPlus.Name = "systrayMenu";
-            this.mnuPlus.Size = new System.Drawing.Size(174, 192);
+            this.mnuPlus.Size = new System.Drawing.Size(174, 220);
             // 
             // mnuAddPrivateChat1
             // 
@@ -152,6 +176,13 @@ namespace BitChatAppMono
             this.mnuAddPrivateChat1.Size = new System.Drawing.Size(173, 22);
             this.mnuAddPrivateChat1.Text = "Add &Private Chat";
             this.mnuAddPrivateChat1.Click += new System.EventHandler(this.mnuAddPrivateChat_Click);
+            // 
+            // mnuViewProfile
+            // 
+            this.mnuViewProfile.Name = "mnuViewProfile";
+            this.mnuViewProfile.Size = new System.Drawing.Size(173, 22);
+            this.mnuViewProfile.Text = "&View Profile";
+            this.mnuViewProfile.Click += new System.EventHandler(this.mnuViewProfile_Click);
             // 
             // mnuAddGroupChat1
             // 
@@ -196,7 +227,7 @@ namespace BitChatAppMono
             // 
             // mnuAbout
             // 
-            this.mnuAbout.Image = global::BitChatAppMono.Properties.Resources.logo2;
+            this.mnuAbout.Image = global::BitChatApp.Properties.Resources.logo2;
             this.mnuAbout.Name = "mnuAbout";
             this.mnuAbout.Size = new System.Drawing.Size(173, 22);
             this.mnuAbout.Text = "&About Bit Chat";
@@ -241,7 +272,7 @@ namespace BitChatAppMono
             // 
             // panel1
             // 
-            this.panel1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            this.panel1.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.panel1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(78)))));
             this.panel1.Controls.Add(this.btnPlusButton);
@@ -250,6 +281,9 @@ namespace BitChatAppMono
             this.panel1.Name = "panel1";
             this.panel1.Size = new System.Drawing.Size(277, 36);
             this.panel1.TabIndex = 14;
+            this.panel1.Click += new System.EventHandler(this.mnuViewProfile_Click);
+            this.panel1.MouseEnter += new System.EventHandler(this.lblUserName_MouseEnter);
+            this.panel1.MouseLeave += new System.EventHandler(this.lblUserName_MouseLeave);
             // 
             // btnPlusButton
             // 
@@ -267,7 +301,7 @@ namespace BitChatAppMono
             // 
             // lblUserName
             // 
-            this.lblUserName.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
+            this.lblUserName.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.lblUserName.AutoEllipsis = true;
             this.lblUserName.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(78)))));
@@ -280,7 +314,7 @@ namespace BitChatAppMono
             this.lblUserName.TabIndex = 11;
             this.lblUserName.Text = "Username";
             this.lblUserName.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
-            this.lblUserName.Click += new System.EventHandler(this.lblUserName_Click);
+            this.lblUserName.Click += new System.EventHandler(this.mnuViewProfile_Click);
             this.lblUserName.MouseEnter += new System.EventHandler(this.lblUserName_MouseEnter);
             this.lblUserName.MouseLeave += new System.EventHandler(this.lblUserName_MouseLeave);
             // 
@@ -393,8 +427,8 @@ namespace BitChatAppMono
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;
         private System.Windows.Forms.SplitContainer mainContainer;
         private System.Windows.Forms.Label lblUserName;
-        private BitChatAppMono.UserControls.CustomListView lstChats;
-        private BitChatAppMono.UserControls.CustomButton btnCreateChat;
+        private BitChatApp.UserControls.CustomListView lstChats;
+        private BitChatApp.UserControls.CustomButton btnCreateChat;
         private System.Windows.Forms.Panel panelGetStarted;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.Label label4;
@@ -412,6 +446,10 @@ namespace BitChatAppMono
         private System.Windows.Forms.ToolStripMenuItem networkInfoToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem mnuGoOffline;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
+        private System.Windows.Forms.ToolStripMenuItem mnuMuteNotifications;
+        private System.Windows.Forms.ToolStripMenuItem mnuGroupPhoto;
+        private System.Windows.Forms.ToolStripMenuItem mnuViewProfile;
+        private System.Windows.Forms.ToolStripSeparator toolStripSeparator7;
 
     }
 }

@@ -17,13 +17,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient;
+using BitChatCore;
 using System;
 using System.Drawing;
 using System.IO;
 using TechnitiumLibrary.Security.Cryptography;
 
-namespace BitChatAppMono.UserControls
+namespace BitChatApp.UserControls
 {
     public partial class UserListItem : CustomListViewItem
     {
@@ -41,9 +41,9 @@ namespace BitChatAppMono.UserControls
 
             _peer = peer;
 
-            _peer.StateChanged += _peer_StateChanged;
-            _peer.NetworkStatusUpdated += _peer_NetworkStatusUpdated;
-            _peer.ProfileImageChanged += _peer_ProfileImageChanged;
+            _peer.StateChanged += peer_StateChanged;
+            _peer.NetworkStatusUpdated += peer_NetworkStatusUpdated;
+            _peer.ProfileImageChanged += peer_ProfileImageChanged;
 
             if (_peer.PeerCertificate.IssuedTo.FieldExists(CertificateProfileFlags.Name))
             {
@@ -79,19 +79,19 @@ namespace BitChatAppMono.UserControls
 
             labEmail.Text = _peer.PeerCertificate.IssuedTo.EmailAddress.Address;
 
-            _peer_StateChanged(null, null);
-            _peer_NetworkStatusUpdated(null, null);
+            peer_StateChanged(null, null);
+            peer_NetworkStatusUpdated(null, null);
         }
 
         #endregion
 
         #region private
 
-        private void _peer_StateChanged(object sender, EventArgs e)
+        private void peer_StateChanged(object sender, EventArgs e)
         {
             if (_peer.IsOnline)
             {
-                _peer_ProfileImageChanged(null, null);
+                peer_ProfileImageChanged(null, null);
             }
             else
             {
@@ -104,30 +104,30 @@ namespace BitChatAppMono.UserControls
             SortListView();
         }
 
-        private void _peer_NetworkStatusUpdated(object sender, EventArgs e)
+        private void peer_NetworkStatusUpdated(object sender, EventArgs e)
         {
             switch (_peer.ConnectivityStatus)
             {
                 case BitChatConnectivityStatus.NoNetwork:
                     //labName.Text = _peer.PeerCertificate.IssuedTo.Name + " [N]";
-                    picNetwork.Image = BitChatAppMono.Properties.Resources.NoNetwork;
+                    picNetwork.Image = BitChatApp.Properties.Resources.NoNetwork;
                     break;
 
                 case BitChatConnectivityStatus.PartialNetwork:
                     //labName.Text = _peer.PeerCertificate.IssuedTo.Name + " [P]";
-                    picNetwork.Image = BitChatAppMono.Properties.Resources.PartialNetwork;
+                    picNetwork.Image = BitChatApp.Properties.Resources.PartialNetwork;
                     break;
 
                 case BitChatConnectivityStatus.FullNetwork:
                     //labName.Text = _peer.PeerCertificate.IssuedTo.Name + " [F]";
-                    picNetwork.Image = BitChatAppMono.Properties.Resources.FullNetwork;
+                    picNetwork.Image = BitChatApp.Properties.Resources.FullNetwork;
                     break;
             }
         }
 
-        private void _peer_ProfileImageChanged(object sender, EventArgs e)
+        private void peer_ProfileImageChanged(object sender, EventArgs e)
         {
-            if (_peer.ProfileImageSmall == null)
+            if (_peer.ProfileImage == null)
             {
                 labIcon.BackColor = Color.FromArgb(102, 153, 255);
 
@@ -136,9 +136,9 @@ namespace BitChatAppMono.UserControls
             }
             else
             {
-                using (MemoryStream mS = new MemoryStream(_peer.ProfileImageSmall))
+                using (MemoryStream mS = new MemoryStream(_peer.ProfileImage))
                 {
-                    picIcon.Image = Image.FromStream(mS);
+                    picIcon.Image = new Bitmap(Image.FromStream(mS), picIcon.Size);
                 }
 
                 labIcon.Visible = false;

@@ -1,4 +1,4 @@
-﻿using BitChatClient;
+﻿using BitChatCore;
 using System;
 using System.Net;
 using System.Windows.Forms;

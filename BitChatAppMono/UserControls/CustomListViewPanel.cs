@@ -24,9 +24,9 @@ using System.Drawing;
 using System.Text;
 using System.Windows.Forms;
 
-namespace BitChatAppMono.UserControls
+namespace BitChatApp.UserControls
 {
-    public partial class CustomListViewPanel : BitChatAppMono.UserControls.CustomPanel
+    public partial class CustomListViewPanel : BitChatApp.UserControls.CustomPanel
     {
         #region events
 

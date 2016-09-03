@@ -31,17 +31,20 @@
             this.labIcon = new System.Windows.Forms.Label();
             this.labTitle = new System.Windows.Forms.Label();
             this.labLastMessage = new System.Windows.Forms.Label();
-            this.labNewMessageCount = new System.Windows.Forms.Label();
+            this.labUnreadMessageCount = new System.Windows.Forms.Label();
+            this.picIcon = new System.Windows.Forms.PictureBox();
+            this.labLastMessageDate = new System.Windows.Forms.Label();
+            ((System.ComponentModel.ISupportInitialize)(this.picIcon)).BeginInit();
             this.SuspendLayout();
             // 
             // labIcon
             // 
             this.labIcon.BackColor = System.Drawing.Color.White;
-            this.labIcon.Font = new System.Drawing.Font("Arial", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.labIcon.Font = new System.Drawing.Font("Arial", 16F, System.Drawing.FontStyle.Bold);
             this.labIcon.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(78)))));
-            this.labIcon.Location = new System.Drawing.Point(3, 4);
+            this.labIcon.Location = new System.Drawing.Point(3, 3);
             this.labIcon.Name = "labIcon";
-            this.labIcon.Size = new System.Drawing.Size(32, 32);
+            this.labIcon.Size = new System.Drawing.Size(48, 48);
             this.labIcon.TabIndex = 0;
             this.labIcon.Text = "TO";
             this.labIcon.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -51,11 +54,11 @@
             this.labTitle.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
             | System.Windows.Forms.AnchorStyles.Right)));
             this.labTitle.AutoEllipsis = true;
-            this.labTitle.Font = new System.Drawing.Font("Arial", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.labTitle.Font = new System.Drawing.Font("Arial", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.labTitle.ForeColor = System.Drawing.Color.White;
-            this.labTitle.Location = new System.Drawing.Point(38, 4);
+            this.labTitle.Location = new System.Drawing.Point(53, 7);
             this.labTitle.Name = "labTitle";
-            this.labTitle.Size = new System.Drawing.Size(168, 17);
+            this.labTitle.Size = new System.Drawing.Size(190, 17);
             this.labTitle.TabIndex = 1;
             this.labTitle.Text = "Title Of Bit Chat";
             this.labTitle.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
@@ -67,39 +70,67 @@
             this.labLastMessage.AutoEllipsis = true;
             this.labLastMessage.Font = new System.Drawing.Font("Arial", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.labLastMessage.ForeColor = System.Drawing.Color.White;
-            this.labLastMessage.Location = new System.Drawing.Point(38, 22);
+            this.labLastMessage.Location = new System.Drawing.Point(54, 31);
             this.labLastMessage.Name = "labLastMessage";
-            this.labLastMessage.Size = new System.Drawing.Size(199, 14);
+            this.labLastMessage.Size = new System.Drawing.Size(215, 14);
             this.labLastMessage.TabIndex = 2;
             this.labLastMessage.Text = "Sender: new chat message";
             // 
-            // labNewMessageCount
+            // labUnreadMessageCount
             // 
-            this.labNewMessageCount.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
-            this.labNewMessageCount.AutoEllipsis = true;
-            this.labNewMessageCount.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(227)))), ((int)(((byte)(71)))), ((int)(((byte)(36)))));
-            this.labNewMessageCount.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.labNewMessageCount.ForeColor = System.Drawing.Color.White;
-            this.labNewMessageCount.Location = new System.Drawing.Point(210, 3);
-            this.labNewMessageCount.Name = "labNewMessageCount";
-            this.labNewMessageCount.Size = new System.Drawing.Size(28, 17);
-            this.labNewMessageCount.TabIndex = 3;
-            this.labNewMessageCount.Text = "999";
-            this.labNewMessageCount.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            this.labUnreadMessageCount.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.labUnreadMessageCount.AutoEllipsis = true;
+            this.labUnreadMessageCount.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(227)))), ((int)(((byte)(71)))), ((int)(((byte)(36)))));
+            this.labUnreadMessageCount.Font = new System.Drawing.Font("Microsoft Sans Serif", 8.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.labUnreadMessageCount.ForeColor = System.Drawing.Color.White;
+            this.labUnreadMessageCount.Location = new System.Drawing.Point(270, 30);
+            this.labUnreadMessageCount.Name = "labUnreadMessageCount";
+            this.labUnreadMessageCount.Size = new System.Drawing.Size(28, 17);
+            this.labUnreadMessageCount.TabIndex = 3;
+            this.labUnreadMessageCount.Text = "999";
+            this.labUnreadMessageCount.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // picIcon
+            // 
+            this.picIcon.Location = new System.Drawing.Point(3, 3);
+            this.picIcon.Name = "picIcon";
+            this.picIcon.Size = new System.Drawing.Size(48, 48);
+            this.picIcon.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
+            this.picIcon.TabIndex = 5;
+            this.picIcon.TabStop = false;
+            this.picIcon.Visible = false;
+            // 
+            // labLastMessageDate
+            // 
+            this.labLastMessageDate.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.labLastMessageDate.AutoEllipsis = true;
+            this.labLastMessageDate.AutoSize = true;
+            this.labLastMessageDate.Font = new System.Drawing.Font("Arial", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.labLastMessageDate.ForeColor = System.Drawing.Color.White;
+            this.labLastMessageDate.Location = new System.Drawing.Point(236, 10);
+            this.labLastMessageDate.Name = "labLastMessageDate";
+            this.labLastMessageDate.Size = new System.Drawing.Size(61, 14);
+            this.labLastMessageDate.TabIndex = 6;
+            this.labLastMessageDate.Text = "10/31/2016";
+            this.labLastMessageDate.TextAlign = System.Drawing.ContentAlignment.TopRight;
             // 
             // ChatListItem
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(51)))), ((int)(((byte)(65)))), ((int)(((byte)(78)))));
-            this.Controls.Add(this.labNewMessageCount);
+            this.Controls.Add(this.labLastMessageDate);
+            this.Controls.Add(this.labUnreadMessageCount);
             this.Controls.Add(this.labLastMessage);
             this.Controls.Add(this.labTitle);
             this.Controls.Add(this.labIcon);
+            this.Controls.Add(this.picIcon);
             this.Name = "ChatListItem";
             this.SeparatorColor = System.Drawing.Color.FromArgb(((int)(((byte)(236)))), ((int)(((byte)(237)))), ((int)(((byte)(238)))));
-            this.Size = new System.Drawing.Size(240, 40);
+            this.Size = new System.Drawing.Size(300, 55);
+            ((System.ComponentModel.ISupportInitialize)(this.picIcon)).EndInit();
             this.ResumeLayout(false);
+            this.PerformLayout();
 
         }
 
@@ -108,6 +139,8 @@
         private System.Windows.Forms.Label labIcon;
         private System.Windows.Forms.Label labTitle;
         private System.Windows.Forms.Label labLastMessage;
-        private System.Windows.Forms.Label labNewMessageCount;
+        private System.Windows.Forms.Label labUnreadMessageCount;
+        private System.Windows.Forms.PictureBox picIcon;
+        private System.Windows.Forms.Label labLastMessageDate;
     }
 }

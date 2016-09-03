@@ -17,7 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient;
+using BitChatCore;
 using System;
 using System.Drawing;
 using System.Windows.Forms;
@@ -26,15 +26,13 @@ namespace BitChatApp.UserControls
 {
     public partial class ChatMessageInfoItem : CustomListViewItem, IChatMessageItem
     {
-        const int BORDER_SIZE = 1;
+        #region variables
 
-        Color BorderColor = Color.FromArgb(224, 224, 223);
         MessageItem _message;
 
-        public ChatMessageInfoItem()
-        {
-            InitializeComponent();
-        }
+        #endregion
+
+        #region constructor
 
         public ChatMessageInfoItem(MessageItem message)
         {
@@ -45,29 +43,47 @@ namespace BitChatApp.UserControls
             if (string.IsNullOrEmpty(_message.Message))
             {
                 label1.Text = _message.MessageDate.ToLocalTime().ToString("dddd, MMMM d, yyyy");
-                label2.Visible = false;
             }
             else
             {
                 label1.Text = _message.Message;
-                label2.Text = _message.MessageDate.ToLocalTime().ToShortTimeString();
+                toolTip1.SetToolTip(label1, _message.MessageDate.ToLocalTime().ToString());
             }
+
+            OnResize(EventArgs.Empty);
         }
 
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            base.OnPaint(e);
+        #endregion
 
-            ControlPaint.DrawBorder(e.Graphics, ClientRectangle,
-                                         BorderColor, 0, ButtonBorderStyle.Solid,
-                                         BorderColor, BORDER_SIZE, ButtonBorderStyle.Solid,
-                                         BorderColor, 0, ButtonBorderStyle.Solid,
-                                         BorderColor, BORDER_SIZE, ButtonBorderStyle.Solid);
-        }
+        #region form code
 
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
+
+            if (label1 != null)
+            {
+                this.SuspendLayout();
+
+                if (label1.Width > (this.Width - 4))
+                {
+                    label1.AutoSize = false;
+                    label1.Left = 2;
+                    label1.Width = this.Width - 4;
+
+                    Size msgSize = TextRenderer.MeasureText(label1.Text, label1.Font, new Size(label1.Width - 3 - 3, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl);
+
+                    label1.Height = msgSize.Height + 3 + 3;
+                    this.Height = label1.Height + 6 + 6;
+                }
+                else
+                {
+                    label1.AutoSize = true;
+                    label1.Left = (this.Width - label1.Width) / 2;
+                }
+
+                this.ResumeLayout();
+            }
 
             this.Refresh();
         }
@@ -85,7 +101,13 @@ namespace BitChatApp.UserControls
             { }
         }
 
+        #endregion
+
+        #region properties
+
         public MessageItem Message
         { get { return _message; } }
+
+        #endregion
     }
 }

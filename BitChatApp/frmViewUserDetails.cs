@@ -17,7 +17,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient;
+using BitChatCore;
+using BitChatCore.Network;
 using System;
 using System.Drawing;
 using System.IO;
@@ -119,11 +120,11 @@ namespace BitChatApp
             }
 
             //image icon
-            if (_peer.ProfileImageSmall != null)
+            if (_peer.ProfileImage != null)
             {
-                using (MemoryStream mS = new MemoryStream(_peer.ProfileImageSmall))
+                using (MemoryStream mS = new MemoryStream(_peer.ProfileImage))
                 {
-                    picIcon.Image = Image.FromStream(mS);
+                    picIcon.Image = new Bitmap(Image.FromStream(mS), picIcon.Size);
                 }
 
                 picIcon.Visible = true;
@@ -159,7 +160,7 @@ namespace BitChatApp
             }
 
             //cipher suite
-            if (_peer.CipherSuite == BitChatClient.Network.SecureChannel.SecureChannelCryptoOptionFlags.None)
+            if (_peer.CipherSuite == BitChatCore.Network.SecureChannel.SecureChannelCryptoOptionFlags.None)
                 labCipherSuite.Text = "Not applicable";
             else
                 labCipherSuite.Text = _peer.CipherSuite.ToString();
