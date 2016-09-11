@@ -42,8 +42,11 @@ namespace BitChatCore.Network
         public BinaryID(Stream s)
         {
             int length = s.ReadByte();
+            if (length < 0)
+                throw new EndOfStreamException();
+
             _id = new byte[length];
-            s.Read(_id, 0, length);
+            OffsetStream.StreamRead(s, _id, 0, length);
         }
 
         #endregion
