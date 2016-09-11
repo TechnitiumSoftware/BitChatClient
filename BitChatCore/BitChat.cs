@@ -1436,7 +1436,7 @@ namespace BitChatCore
 
             private void virtualPeer_MessageReceived(BitChatNetwork.VirtualPeer.VirtualSession peerSession, Stream messageDataStream)
             {
-                BitChatMessageType type = BitChatMessage.ReadType(messageDataStream);
+                BitChatMessageType type = (BitChatMessageType)messageDataStream.ReadByte();
 
                 switch (type)
                 {
@@ -1554,16 +1554,19 @@ namespace BitChatCore
                         #region FileShareParticipate
                         {
                             BinaryID fileID = new BinaryID(messageDataStream);
+                            SharedFile sharedFile;
 
                             _bitChat._sharedFilesLock.EnterReadLock();
                             try
                             {
-                                _bitChat._sharedFiles[fileID].AddPeer(peerSession);
+                                sharedFile = _bitChat._sharedFiles[fileID];
                             }
                             finally
                             {
                                 _bitChat._sharedFilesLock.ExitReadLock();
                             }
+
+                            sharedFile.AddPeer(peerSession);
                         }
                         #endregion
                         break;
@@ -1572,16 +1575,19 @@ namespace BitChatCore
                         #region FileShareUnparticipate
                         {
                             BinaryID fileID = new BinaryID(messageDataStream);
+                            SharedFile sharedFile;
 
                             _bitChat._sharedFilesLock.EnterReadLock();
                             try
                             {
-                                _bitChat._sharedFiles[fileID].RemovePeerOrSeeder(peerSession);
+                                sharedFile = _bitChat._sharedFiles[fileID];
                             }
                             finally
                             {
                                 _bitChat._sharedFilesLock.ExitReadLock();
                             }
+
+                            sharedFile.RemovePeerOrSeeder(peerSession);
                         }
                         #endregion
                         break;
@@ -1612,7 +1618,7 @@ namespace BitChatCore
                             if (sharedFile.IsBlockAvailable(blockNumber))
                             {
                                 byte[] messageData = BitChatMessage.CreateFileBlockAvailable(fileID, blockNumber);
-                                _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
+                                peerSession.WriteMessage(messageData, 0, messageData.Length);
                             }
                         }
                         #endregion
@@ -1644,7 +1650,7 @@ namespace BitChatCore
                             if (!sharedFile.PeerExists(peerSession))
                                 return;
 
-                            sharedFile.BlockAvailable(peerSession, blockNumber);
+                            sharedFile.BlockAvailable(blockNumber, peerSession);
                         }
                         #endregion
                         break;

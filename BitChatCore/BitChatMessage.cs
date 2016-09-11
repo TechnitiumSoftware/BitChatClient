@@ -204,12 +204,7 @@ namespace BitChatCore
         #endregion
 
         #region static read
-
-        public static BitChatMessageType ReadType(Stream s)
-        {
-            return (BitChatMessageType)s.ReadByte();
-        }
-
+        
         public static int ReadInt32(Stream s)
         {
             byte[] buffer = new byte[4];
