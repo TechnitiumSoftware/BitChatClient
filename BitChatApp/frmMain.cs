@@ -357,7 +357,7 @@ namespace BitChatApp
         {
             if (!sender.Mute && (!this.Visible || !ApplicationIsActivated()))
             {
-                if (messageSender == null)
+                if ((messageSender == null) || (messageSender.IsSelf))
                     notifyIcon1.ShowBalloonTip(30000, sender.NetworkDisplayName + " - Bit Chat", message, ToolTipIcon.Info);
                 else
                     notifyIcon1.ShowBalloonTip(30000, sender.NetworkDisplayName + " - Bit Chat", messageSender.PeerCertificate.IssuedTo.Name + ": " + message, ToolTipIcon.Info);

@@ -40,6 +40,7 @@ namespace BitChatApp.UserControls
             InitializeComponent();
 
             labLastMessage.Text = "";
+            SetLastMessageDate();
             SetTitle(title);
             ResetUnreadMessageCount();
         }
@@ -104,6 +105,30 @@ namespace BitChatApp.UserControls
             labLastMessage.Width += labUnreadMessageCount.Width;
         }
 
+        private void SetLastMessageDate()
+        {
+            if (string.IsNullOrEmpty(labLastMessage.Text))
+            {
+                labLastMessageDate.Text = "";
+            }
+            else
+            {
+                TimeSpan span = DateTime.UtcNow.Date - _messageDate.Date;
+
+                if (span.TotalDays >= 7)
+                    labLastMessageDate.Text = _messageDate.ToLocalTime().ToShortDateString();
+                else if (span.TotalDays >= 2)
+                    labLastMessageDate.Text = _messageDate.ToLocalTime().DayOfWeek.ToString();
+                else if (span.TotalDays >= 1)
+                    labLastMessageDate.Text = "Yesterday";
+                else
+                    labLastMessageDate.Text = _messageDate.ToLocalTime().ToShortTimeString();
+            }
+
+            labTitle.Width = this.Width - labTitle.Left - labLastMessageDate.Width - 3;
+            labLastMessageDate.Left = labTitle.Left + labTitle.Width;
+        }
+
         #endregion
 
         #region public
@@ -129,7 +154,7 @@ namespace BitChatApp.UserControls
             _messageDate = messageDate;
 
             labLastMessage.Text = message;
-            labLastMessageDate.Text = _messageDate.ToLocalTime().ToShortTimeString();
+            SetLastMessageDate();
 
             if (!this.Selected && unread)
             {
@@ -171,19 +196,7 @@ namespace BitChatApp.UserControls
 
         public override string ToString()
         {
-            TimeSpan span = DateTime.UtcNow.Date - _messageDate.Date;
-
-            if (span.TotalDays >= 7)
-                labLastMessageDate.Text = _messageDate.ToLocalTime().ToShortDateString();
-            else if (span.TotalDays >= 2)
-                labLastMessageDate.Text = _messageDate.ToLocalTime().DayOfWeek.ToString();
-            else if (span.TotalDays >= 1)
-                labLastMessageDate.Text = "Yesterday";
-            else
-                labLastMessageDate.Text = _messageDate.ToLocalTime().ToShortTimeString();
-
-            labTitle.Width = this.Width - labTitle.Left - labLastMessageDate.Width - 3;
-            labLastMessageDate.Left = labTitle.Left + labTitle.Width;
+            SetLastMessageDate();
 
             return ((int)(DateTime.UtcNow - _messageDate).TotalSeconds).ToString().PadLeft(12, '0');
         }

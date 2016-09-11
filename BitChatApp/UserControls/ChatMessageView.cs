@@ -25,7 +25,6 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
-using TechnitiumLibrary.Net;
 using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatApp.UserControls
@@ -149,10 +148,15 @@ namespace BitChatApp.UserControls
                 if (msg.Length > 100)
                     msg = msg.Substring(0, 100);
 
-                _chatItem.SetLastMessage(sender.PeerCertificate.IssuedTo.Name + ": " + msg, message.MessageDate, true);
-
-                if (!sender.IsSelf)
+                if (sender.IsSelf)
+                {
+                    _chatItem.SetLastMessage(msg, message.MessageDate, true);
+                }
+                else
+                {
+                    _chatItem.SetLastMessage(sender.PeerCertificate.IssuedTo.Name + ": " + msg, message.MessageDate, true);
                     ShowPeerTypingNotification(sender.PeerCertificate.IssuedTo.Name, false);
+                }
             }
         }
 
@@ -173,7 +177,10 @@ namespace BitChatApp.UserControls
         {
             AddMessage(new ChatMessageFileItem(peer, message, sharedFile));
 
-            _chatItem.SetLastMessage(peer.PeerCertificate.IssuedTo.Name + " shared a file", message.MessageDate, true);
+            if (peer.IsSelf)
+                _chatItem.SetLastMessage("file was shared", message.MessageDate, true);
+            else
+                _chatItem.SetLastMessage(peer.PeerCertificate.IssuedTo.Name + " shared a file", message.MessageDate, true);
         }
 
         private void chat_PeerAdded(BitChat sender, BitChat.Peer peer)
@@ -410,6 +417,8 @@ namespace BitChatApp.UserControls
 
                             if (sender == null)
                                 lastMessage = item.Sender + ": " + item.Message;
+                            else if (sender.IsSelf)
+                                lastMessage = item.Message;
                             else
                                 lastMessage = sender.PeerCertificate.IssuedTo.Name + ": " + item.Message;
 
@@ -444,6 +453,8 @@ namespace BitChatApp.UserControls
 
                             if (sender == null)
                                 lastMessage = item.Sender + " shared a file";
+                            else if (sender.IsSelf)
+                                lastMessage = "file was shared";
                             else
                                 lastMessage = sender.PeerCertificate.IssuedTo.Name + " shared a file";
 

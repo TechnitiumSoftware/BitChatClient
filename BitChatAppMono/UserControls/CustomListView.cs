@@ -133,37 +133,43 @@ namespace BitChatApp.UserControls
         {
             if (_items.Count > 0)
             {
-                int requiredItemWidth;
+                int requiredItemWidth = this.Width - _borderPadding * 2 - this.Padding.Left - this.Padding.Right;
 
                 if (base.VerticalScroll.Visible)
+                    requiredItemWidth -= 17;
+
+                bool doneOnce = false;
+
+                while (true)
                 {
-                    //this means scrolling is enabled
-                    requiredItemWidth = this.Width - _borderPadding * 2 - this.Padding.Left - this.Padding.Right - 17;
-                }
-                else
-                {
-                    //this means scrolling is disabled
-                    requiredItemWidth = this.Width - _borderPadding * 2 - this.Padding.Left - this.Padding.Right;
-                }
+                    //check width
+                    if (requiredItemWidth != _items[0].Width)
+                    {
+                        for (int i = 0; i < _items.Count; i++)
+                            _items[i].Width = requiredItemWidth;
+                    }
 
-                base.HorizontalScroll.Visible = false;
+                    //check item placement
+                    _items[0].Location = new Point(this.Padding.Left, this.Padding.Top + this.AutoScrollPosition.Y);
 
-                //check width
-                if (requiredItemWidth != _items[0].Width)
-                {
-                    for (int i = 0; i < _items.Count; i++)
-                        _items[i].Width = requiredItemWidth;
-                }
+                    for (int i = 1; i < _items.Count; i++)
+                    {
+                        CustomListViewItem previousControl = _items[i - 1];
+                        CustomListViewItem currentControl = _items[i];
 
-                //check item placement
-                _items[0].Location = new Point(this.Padding.Left, this.Padding.Top + this.AutoScrollPosition.Y);
+                        currentControl.Location = new Point(previousControl.Location.X, previousControl.Location.Y + previousControl.Height + this.Padding.Bottom);
+                    }
 
-                for (int i = 1; i < _items.Count; i++)
-                {
-                    CustomListViewItem previousControl = _items[i - 1];
-                    CustomListViewItem currentControl = _items[i];
+                    CustomListViewItem lastItem = _items[_items.Count - 1];
 
-                    currentControl.Location = new Point(previousControl.Location.X, previousControl.Location.Y + previousControl.Height + this.Padding.Bottom);
+                    if (!doneOnce && !base.VerticalScroll.Visible && ((lastItem.Top + lastItem.Height) > this.Height))
+                    {
+                        requiredItemWidth -= 17;
+                        doneOnce = true;
+                        continue;
+                    }
+
+                    break;
                 }
             }
         }

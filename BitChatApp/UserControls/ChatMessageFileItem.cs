@@ -49,7 +49,7 @@ namespace BitChatApp.UserControls
 
             lblFileName.Text = _message.SharedFileMetaData.FileName;
             lblContentType.Text = _message.SharedFileMetaData.ContentType.ToString();
-            lblFileSize.Text = WebUtilities.GetFormattedSize(_message.SharedFileMetaData.FileSize, 1);
+            lblFileSize.Text = WebUtilities.GetFormattedSize(_message.SharedFileMetaData.FileSize);
 
             TimeSpan span = DateTime.UtcNow.Date - _message.MessageDate.Date;
 
