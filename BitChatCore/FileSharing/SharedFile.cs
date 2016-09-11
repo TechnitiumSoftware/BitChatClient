@@ -36,13 +36,6 @@ namespace BitChatCore.FileSharing
         Paused = 3
     }
 
-    public enum FileBlockState : byte
-    {
-        NotAvailable = 0,
-        Downloading = 1,
-        Available = 2
-    }
-
     public class SharedFile : IDisposable
     {
         #region events
@@ -62,9 +55,10 @@ namespace BitChatCore.FileSharing
         readonly static Dictionary<BinaryID, SharedFile> _sharedFiles = new Dictionary<BinaryID, SharedFile>();
 
         const int BUFFER_SIZE = 63488; //62kb data transfer buffer size
-        const int MAX_DOWNLOADING_BLOCKS = 5;
-        const int DOWNLOAD_MONITOR_INTERVAL = 10000; //10 seconds
-        const int DOWNLOAD_INACTIVE_INTERVAL_SECONDS = 30; //30 seconds
+        const int FILE_BLOCK_DOWNLOAD_THREADS = 3; //total downloading threads per file
+        const int FILE_BLOCK_MINIMUM_SIZE = 1048576; //1mb min block size
+        const byte FILE_BLOCK_NOT_AVAILABLE = 0;
+        const byte FILE_BLOCK_AVAILABLE = 1;
 
         readonly SynchronizationContext _syncCxt;
 
@@ -73,7 +67,7 @@ namespace BitChatCore.FileSharing
         readonly SharedFileMetaData _metaData;
 
         SharedFileState _state;
-        FileBlockState[] _blockAvailable;
+        byte[] _blockAvailable;
         int _availableBlocksCount;
         bool _isComplete;
 
@@ -88,8 +82,11 @@ namespace BitChatCore.FileSharing
         int _bytesUploadedLastSecond = 0;
 
         //peers
-        readonly List<BitChatNetwork.VirtualPeer.VirtualSession> _seeders = new List<BitChatNetwork.VirtualPeer.VirtualSession>();
         readonly List<BitChatNetwork.VirtualPeer.VirtualSession> _peers = new List<BitChatNetwork.VirtualPeer.VirtualSession>();
+        readonly ReaderWriterLockSlim _peersLock = new ReaderWriterLockSlim();
+
+        readonly List<BitChatNetwork.VirtualPeer.VirtualSession> _seeders = new List<BitChatNetwork.VirtualPeer.VirtualSession>();
+        readonly ReaderWriterLockSlim _seedersLock = new ReaderWriterLockSlim();
 
         //chats
         readonly List<BitChat> _chats = new List<BitChat>();
@@ -98,7 +95,7 @@ namespace BitChatCore.FileSharing
 
         #region constructor
 
-        private SharedFile(FileStream fS, SharedFileMetaData metaData, FileBlockState[] blockAvailable, int availableBlocksCount, SynchronizationContext syncCxt)
+        private SharedFile(FileStream fS, SharedFileMetaData metaData, byte[] blockAvailable, int availableBlocksCount, SynchronizationContext syncCxt)
         {
             _fileStream = fS;
             _metaData = metaData;
@@ -143,7 +140,7 @@ namespace BitChatCore.FileSharing
 
         #region static
 
-        internal static SharedFile LoadFile(string filePath, SharedFileMetaData metaData, FileBlockState[] blockAvailable, SharedFileState state, BitChat chat, SynchronizationContext syncCxt)
+        internal static SharedFile LoadFile(string filePath, SharedFileMetaData metaData, byte[] blockAvailable, SharedFileState state, BitChat chat, SynchronizationContext syncCxt)
         {
             //check if file already shared
             lock (_sharedFiles)
@@ -158,7 +155,7 @@ namespace BitChatCore.FileSharing
                 {
                     if (state == SharedFileState.Advertisement)
                     {
-                        sharedFile = new SharedFile(null, metaData, new FileBlockState[metaData.BlockHash.Length], 0, syncCxt);
+                        sharedFile = new SharedFile(null, metaData, new byte[metaData.BlockHash.Length], 0, syncCxt);
                         _sharedFiles.Add(metaData.FileID, sharedFile);
 
                         sharedFile._state = SharedFileState.Advertisement;
@@ -169,7 +166,7 @@ namespace BitChatCore.FileSharing
 
                         for (int i = 0; i < blockAvailable.Length; i++)
                         {
-                            if (blockAvailable[i] == FileBlockState.Available)
+                            if (blockAvailable[i] == FILE_BLOCK_AVAILABLE)
                                 availableBlocksCount++;
                         }
 
@@ -206,12 +203,13 @@ namespace BitChatCore.FileSharing
             //calculate block size
             int blockSize;
             {
-                //FileAdvertisement header
                 int totalBlocksPossible = BUFFER_SIZE / hashSize;
                 blockSize = Convert.ToInt32(fS.Length / totalBlocksPossible);
 
-                if (blockSize <= short.MaxValue)
-                    blockSize = short.MaxValue + 1;
+                if (blockSize < FILE_BLOCK_MINIMUM_SIZE)
+                {
+                    blockSize = FILE_BLOCK_MINIMUM_SIZE;
+                }
                 else
                 {
                     //align to 16 bytes
@@ -224,7 +222,7 @@ namespace BitChatCore.FileSharing
             //compute block hashes and file info hash
             int totalBlocks = Convert.ToInt32(Math.Ceiling(Convert.ToDouble((double)fS.Length / blockSize)));
             byte[][] blockHash = new byte[totalBlocks][];
-            FileBlockState[] blockAvailable = new FileBlockState[totalBlocks];
+            byte[] blockAvailable = new byte[totalBlocks];
 
             //init
             for (int i = 0; i < totalBlocks; i++)
@@ -236,7 +234,7 @@ namespace BitChatCore.FileSharing
                     length = fS.Length - offset;
 
                 blockHash[i] = hash.ComputeHash(new OffsetStream(fS, offset, length));
-                blockAvailable[i] = FileBlockState.Available;
+                blockAvailable[i] = FILE_BLOCK_AVAILABLE;
             }
 
             //get file meta data
@@ -301,7 +299,7 @@ namespace BitChatCore.FileSharing
                 }
                 else
                 {
-                    sharedFile = new SharedFile(null, metaData, new FileBlockState[metaData.BlockHash.Length], 0, syncCxt);
+                    sharedFile = new SharedFile(null, metaData, new byte[metaData.BlockHash.Length], 0, syncCxt);
                     _sharedFiles.Add(metaData.FileID, sharedFile);
                 }
 
@@ -439,36 +437,63 @@ namespace BitChatCore.FileSharing
 
         internal void AddPeer(BitChatNetwork.VirtualPeer.VirtualSession peer)
         {
-            lock (_peers)
+            bool peerWasAdded = false;
+
+            _peersLock.EnterWriteLock();
+            try
             {
                 if (!_peers.Contains(peer))
                 {
                     _peers.Add(peer);
-
-                    if (PeerCountUpdate != null)
-                        RaiseEventPeerCountUpdate();
+                    peerWasAdded = true;
                 }
+            }
+            finally
+            {
+                _peersLock.ExitWriteLock();
+            }
+
+            if (peerWasAdded)
+            {
+                if (PeerCountUpdate != null)
+                    RaiseEventPeerCountUpdate();
             }
         }
 
         internal void AddSeeder(BitChatNetwork.VirtualPeer.VirtualSession seeder)
         {
             //remove from peers
-            lock (_peers)
+            _peersLock.EnterWriteLock();
+            try
             {
                 _peers.Remove(seeder);
             }
+            finally
+            {
+                _peersLock.ExitWriteLock();
+            }
 
             //add seeder
-            lock (_seeders)
+            bool seederWasAdded = false;
+
+            _seedersLock.EnterWriteLock();
+            try
             {
                 if (!_seeders.Contains(seeder))
                 {
                     _seeders.Add(seeder);
-
-                    if (PeerCountUpdate != null)
-                        RaiseEventPeerCountUpdate();
+                    seederWasAdded = true;
                 }
+            }
+            finally
+            {
+                _seedersLock.ExitWriteLock();
+            }
+
+            if (seederWasAdded)
+            {
+                if (PeerCountUpdate != null)
+                    RaiseEventPeerCountUpdate();
             }
         }
 
@@ -500,17 +525,27 @@ namespace BitChatCore.FileSharing
             bool peerRemoved = false;
 
             //remove from peers
-            lock (_peers)
+            _peersLock.EnterWriteLock();
+            try
             {
                 if (_peers.Remove(peer))
                     peerRemoved = true;
             }
+            finally
+            {
+                _peersLock.ExitWriteLock();
+            }
 
             //remove from seeds
-            lock (_seeders)
+            _seedersLock.EnterWriteLock();
+            try
             {
                 if (_seeders.Remove(peer))
                     peerRemoved = true;
+            }
+            finally
+            {
+                _seedersLock.ExitWriteLock();
             }
 
             if (peerRemoved)
@@ -522,15 +557,25 @@ namespace BitChatCore.FileSharing
 
         internal bool PeerExists(BitChatNetwork.VirtualPeer.VirtualSession peer)
         {
-            lock (_seeders)
+            _seedersLock.EnterReadLock();
+            try
             {
                 if (_seeders.Contains(peer))
                     return true;
             }
+            finally
+            {
+                _seedersLock.ExitReadLock();
+            }
 
-            lock (_peers)
+            _peersLock.EnterReadLock();
+            try
             {
                 return _peers.Contains(peer);
+            }
+            finally
+            {
+                _peersLock.ExitReadLock();
             }
         }
 
@@ -588,7 +633,7 @@ namespace BitChatCore.FileSharing
                     _fileStream.SetLength(_metaData.FileSize);
 
                     //init block available
-                    _blockAvailable = new FileBlockState[_blockAvailable.Length];
+                    _blockAvailable = new byte[_blockAvailable.Length];
                     _availableBlocksCount = 0;
                 }
 
@@ -600,7 +645,7 @@ namespace BitChatCore.FileSharing
 
                     for (int i = 0; i < _blockAvailable.Length; i++)
                     {
-                        if (_blockAvailable[i] != FileBlockState.Available)
+                        if (_blockAvailable[i] == FILE_BLOCK_NOT_AVAILABLE)
                             _pendingBlocks.Add(i);
                     }
                 }
@@ -611,7 +656,7 @@ namespace BitChatCore.FileSharing
                     SendBroadcastFileShareParticipate();
 
                     //start block download
-                    int totalDownloaders = MAX_DOWNLOADING_BLOCKS;
+                    int totalDownloaders = FILE_BLOCK_DOWNLOAD_THREADS;
 
                     if (_pendingBlocks.Count < totalDownloaders)
                         totalDownloaders = _pendingBlocks.Count;
@@ -681,7 +726,7 @@ namespace BitChatCore.FileSharing
 
         internal bool IsBlockAvailable(int blockNumber)
         {
-            return _blockAvailable[blockNumber] == FileBlockState.Available;
+            return _blockAvailable[blockNumber] == FILE_BLOCK_AVAILABLE;
         }
 
         private int GetNextDownloadBlockNumber()
@@ -701,24 +746,37 @@ namespace BitChatCore.FileSharing
             return blockNumber;
         }
 
-        internal void BlockAvailable(BitChatNetwork.VirtualPeer.VirtualSession peerSession, int blockNumber)
+        private void AddPendingDownloadBlockNumber(int blockNumber)
         {
+            lock (_pendingBlocks)
+            {
+                _pendingBlocks.Add(blockNumber);
+            }
+        }
+
+        internal void BlockAvailable(int blockNumber, BitChatNetwork.VirtualPeer.VirtualSession peerSession)
+        {
+            FileBlockDownloader downloader = null;
+
             lock (_downloaders)
             {
-                foreach (FileBlockDownloader downloader in _downloaders)
+                foreach (FileBlockDownloader item in _downloaders)
                 {
-                    if (downloader.BlockNumber == blockNumber)
+                    if (item.BlockNumber == blockNumber)
                     {
-                        downloader.BlockAvailable(blockNumber, peerSession);
+                        downloader = item;
                         break;
                     }
                 }
             }
+
+            if (downloader != null)
+                downloader.BlockAvailable(blockNumber, peerSession);
         }
 
-        public bool DownloadBlock(int blockNumber, Stream dataStream)
+        private bool DownloadBlock(int blockNumber, Stream dataStream)
         {
-            if (_blockAvailable[blockNumber] == FileBlockState.Available)
+            if (_blockAvailable[blockNumber] == FILE_BLOCK_AVAILABLE)
                 return true;
 
             byte[] buffer = new byte[BUFFER_SIZE];
@@ -765,7 +823,7 @@ namespace BitChatCore.FileSharing
                     return false;
             }
 
-            _blockAvailable[blockNumber] = FileBlockState.Available;
+            _blockAvailable[blockNumber] = FILE_BLOCK_AVAILABLE;
             _availableBlocksCount++;
 
             if (FileBlockDownloaded != null)
@@ -774,12 +832,12 @@ namespace BitChatCore.FileSharing
             return true;
         }
 
-        public void TransferBlock(int blockNumber, Stream dataStream)
+        internal void TransferBlock(int blockNumber, Stream dataStream)
         {
             if ((blockNumber >= _blockAvailable.Length) || (blockNumber < 0))
                 throw new ArgumentException("Invalid block number.");
 
-            if (_blockAvailable[blockNumber] != FileBlockState.Available)
+            if (_blockAvailable[blockNumber] == FILE_BLOCK_NOT_AVAILABLE)
                 throw new ArgumentException("Block is not available to read.");
 
             byte[] buffer = new byte[BUFFER_SIZE];
@@ -850,27 +908,37 @@ namespace BitChatCore.FileSharing
             byte[] packetData = BitChatMessage.CreateFileBlockWanted(fileID, blockNumber);
 
             //announce to all peers
-            lock (_peers)
+            _peersLock.EnterReadLock();
+            try
             {
                 foreach (BitChatNetwork.VirtualPeer.VirtualSession peer in _peers)
                     peer.WriteMessage(packetData, 0, packetData.Length);
             }
+            finally
+            {
+                _peersLock.ExitReadLock();
+            }
 
             //announce to all seeds
-            lock (_seeders)
+            _seedersLock.EnterReadLock();
+            try
             {
                 foreach (BitChatNetwork.VirtualPeer.VirtualSession seeder in _seeders)
                     seeder.WriteMessage(packetData, 0, packetData.Length);
+            }
+            finally
+            {
+                _seedersLock.ExitReadLock();
             }
         }
 
         private void OnDownloadComplete()
         {
-            //stop timers
-            if (_fileTransferSpeedCalculator != null)
+            //verify if all blocks are available
+            for (int i = 0; i < _blockAvailable.Length; i++)
             {
-                _fileTransferSpeedCalculator.Dispose();
-                _fileTransferSpeedCalculator = null;
+                if (_blockAvailable[i] == FILE_BLOCK_NOT_AVAILABLE)
+                    return; //found a pending block; do nothing
             }
 
             //set variables
@@ -890,9 +958,14 @@ namespace BitChatCore.FileSharing
             _fileStream = new FileStream(newFilePath, FileMode.Open, FileAccess.Read, FileShare.Read);
 
             //remove seeders
-            lock (_seeders)
+            _seedersLock.EnterWriteLock();
+            try
             {
                 _seeders.Clear();
+            }
+            finally
+            {
+                _seedersLock.ExitWriteLock();
             }
 
             //announce advertisement for the complete file to all chats available with same file
@@ -1027,9 +1100,11 @@ namespace BitChatCore.FileSharing
             {
                 try
                 {
-                    lock (_waitLock)
+                    while (true)
                     {
-                        while (true)
+                        BitChatNetwork.VirtualPeer.VirtualSession peerSession = null;
+
+                        lock (_waitLock)
                         {
                             _blockNumber = _sharedFile.GetNextDownloadBlockNumber();
                             if (_blockNumber < 0)
@@ -1038,33 +1113,39 @@ namespace BitChatCore.FileSharing
                             _sharedFile.SendAnnouncementBlockWanted(_sharedFile._metaData.FileID, _blockNumber);
 
                             if (Monitor.Wait(_waitLock, 30000))
-                            {
-                                BitChatNetwork.VirtualPeer.VirtualSession.DataStream dataStream = null;
-                                try
-                                {
-                                    //open data stream on peer session
-                                    dataStream = _peerSession.OpenDataStream();
+                                peerSession = _peerSession;
+                        }
 
-                                    //send file block request to peer
-                                    byte[] packetData = BitChatMessage.CreateFileBlockRequest(_sharedFile._metaData.FileID, _blockNumber, dataStream.Port);
-                                    _peerSession.WriteMessage(packetData, 0, packetData.Length);
-
-                                    //download block data via stream
-                                    _sharedFile.DownloadBlock(_blockNumber, dataStream);
-                                }
-                                catch
-                                { }
-                                finally
-                                {
-                                    if (dataStream != null)
-                                        dataStream.Dispose();
-                                }
-                            }
-                            else
+                        if (peerSession != null)
+                        {
+                            BitChatNetwork.VirtualPeer.VirtualSession.DataStream dataStream = null;
+                            try
                             {
-                                //timeout
-                                //do nothing and let the loop retry
+                                //open data stream on peer session
+                                dataStream = peerSession.OpenDataStream();
+
+                                //send file block request to peer
+                                byte[] packetData = BitChatMessage.CreateFileBlockRequest(_sharedFile._metaData.FileID, _blockNumber, dataStream.Port);
+                                peerSession.WriteMessage(packetData, 0, packetData.Length);
+
+                                //download block data via stream
+                                _sharedFile.DownloadBlock(_blockNumber, dataStream);
                             }
+                            catch
+                            {
+                                //add the block number back to pending list
+                                _sharedFile.AddPendingDownloadBlockNumber(_blockNumber);
+                            }
+                            finally
+                            {
+                                if (dataStream != null)
+                                    dataStream.Dispose();
+                            }
+                        }
+                        else
+                        {
+                            //add the block number back to pending list and continue for next random block
+                            _sharedFile.AddPendingDownloadBlockNumber(_blockNumber);
                         }
                     }
                 }

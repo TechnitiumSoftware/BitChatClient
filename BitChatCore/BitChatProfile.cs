@@ -976,14 +976,14 @@ namespace BitChatCore
 
             readonly string _filePath;
             readonly SharedFileMetaData _fileMetaData;
-            readonly FileBlockState[] _blockAvailable;
+            readonly byte[] _blockAvailable;
             readonly SharedFileState _state = SharedFileState.Paused;
 
             #endregion
 
             #region constructor
 
-            public SharedFileInfo(string filePath, SharedFileMetaData fileMetaData, FileBlockState[] blockAvailable, SharedFileState state)
+            public SharedFileInfo(string filePath, SharedFileMetaData fileMetaData, byte[] blockAvailable, SharedFileState state)
             {
                 _filePath = filePath;
                 _fileMetaData = fileMetaData;
@@ -1019,15 +1019,7 @@ namespace BitChatCore
                             break;
 
                         case "block_available":
-                            {
-                                List<Bincoding> blockList = pair.Value.GetList();
-
-                                _blockAvailable = new FileBlockState[blockList.Count];
-                                int i = 0;
-
-                                foreach (Bincoding item in blockList)
-                                    _blockAvailable[i++] = (FileBlockState)item.GetByteValue();
-                            }
+                            _blockAvailable = pair.Value.Value;
                             break;
                     }
                 }
@@ -1046,15 +1038,7 @@ namespace BitChatCore
 
                 encoder.Encode("file_metadata", _fileMetaData);
                 encoder.Encode("state", (byte)_state);
-
-                {
-                    List<Bincoding> blockList = new List<Bincoding>(_blockAvailable.Length);
-
-                    foreach (FileBlockState state in _blockAvailable)
-                        blockList.Add(Bincoding.GetValue((byte)state));
-
-                    encoder.Encode("block_available", blockList);
-                }
+                encoder.Encode("block_available", _blockAvailable);
 
                 //signal end
                 encoder.EncodeNull();
@@ -1087,7 +1071,7 @@ namespace BitChatCore
             public SharedFileMetaData FileMetaData
             { get { return _fileMetaData; } }
 
-            public FileBlockState[] BlockAvailable
+            public byte[] BlockAvailable
             { get { return _blockAvailable; } }
 
             public SharedFileState State

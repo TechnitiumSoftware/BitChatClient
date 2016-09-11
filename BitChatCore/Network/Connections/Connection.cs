@@ -1359,7 +1359,7 @@ namespace BitChatCore.Network.Connections
                     lock (this)
                     {
                         if (_disposed)
-                            throw new IOException("Cannot write buffer to a closed stream.");
+                            throw new ObjectDisposedException("ChannelStream");
 
                         if (_count > 0)
                         {
