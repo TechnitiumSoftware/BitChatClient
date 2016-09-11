@@ -40,8 +40,7 @@ namespace BitChatCore
         FileShareUnparticipate = 12,
         FileBlockWanted = 13,
         FileBlockAvailable = 14,
-        FileBlockRequest = 15,
-        FileBlockResponse = 16
+        FileBlockRequest = 15
     }
 
     class BitChatMessage
@@ -137,7 +136,6 @@ namespace BitChatCore
             using (MemoryStream mS = new MemoryStream(64 * 1024))
             {
                 mS.WriteByte((byte)BitChatMessageType.FileAdvertisement); //1 byte
-
                 fileMetaData.WriteTo(mS);
 
                 return mS.ToArray();
@@ -146,67 +144,58 @@ namespace BitChatCore
 
         public static byte[] CreateFileParticipate(BinaryID fileID)
         {
-            using (MemoryStream mS = new MemoryStream(fileID.ID.Length + 1))
+            using (MemoryStream mS = new MemoryStream(fileID.ID.Length + 1 + 1))
             {
                 mS.WriteByte((byte)BitChatMessageType.FileShareParticipate); //1 byte
-                mS.Write(fileID.ID, 0, fileID.ID.Length);
+                fileID.WriteTo(mS);
+
                 return mS.ToArray();
             }
         }
 
         public static byte[] CreateFileUnparticipate(BinaryID fileID)
         {
-            using (MemoryStream mS = new MemoryStream(fileID.ID.Length + 1))
+            using (MemoryStream mS = new MemoryStream(fileID.ID.Length + 1 + 1))
             {
                 mS.WriteByte((byte)BitChatMessageType.FileShareUnparticipate); //1 byte
-                mS.Write(fileID.ID, 0, fileID.ID.Length);
+                fileID.WriteTo(mS);
+
                 return mS.ToArray();
             }
         }
 
-        public static byte[] CreateFileBlockWanted(FileBlockInfo blockWanted)
+        public static byte[] CreateFileBlockWanted(BinaryID fileID, int blockNumber)
         {
-            using (MemoryStream mS = new MemoryStream(1 + 4))
+            using (MemoryStream mS = new MemoryStream(fileID.ID.Length + 1 + 1 + 4))
             {
                 mS.WriteByte((byte)BitChatMessageType.FileBlockWanted); //1 byte
-
-                blockWanted.WriteTo(mS);
+                fileID.WriteTo(mS);
+                mS.Write(BitConverter.GetBytes(blockNumber), 0, 4); //4 bytes
 
                 return mS.ToArray();
             }
         }
 
-        public static byte[] CreateFileBlockAvailable(FileBlockInfo blockAvailable)
+        public static byte[] CreateFileBlockAvailable(BinaryID fileID, int blockNumber)
         {
-            using (MemoryStream mS = new MemoryStream(1 + 4))
+            using (MemoryStream mS = new MemoryStream(fileID.ID.Length + 1 + 1 + 4))
             {
                 mS.WriteByte((byte)BitChatMessageType.FileBlockAvailable); //1 byte
-
-                blockAvailable.WriteTo(mS);
+                fileID.WriteTo(mS);
+                mS.Write(BitConverter.GetBytes(blockNumber), 0, 4); //4 bytes
 
                 return mS.ToArray();
             }
         }
 
-        public static byte[] CreateFileBlockRequest(FileBlockRequest blockRequest)
+        public static byte[] CreateFileBlockRequest(BinaryID fileID, int blockNumber, ushort dataPort)
         {
-            using (MemoryStream mS = new MemoryStream(64 * 1024))
+            using (MemoryStream mS = new MemoryStream(fileID.ID.Length + 1 + 1 + 4 + 2))
             {
                 mS.WriteByte((byte)BitChatMessageType.FileBlockRequest); //1 byte
-
-                blockRequest.WriteTo(mS);
-
-                return mS.ToArray();
-            }
-        }
-
-        public static byte[] CreateFileBlockResponse(FileBlockDataPart blockData)
-        {
-            using (MemoryStream mS = new MemoryStream(64 * 1024))
-            {
-                mS.WriteByte((byte)BitChatMessageType.FileBlockResponse); //1 byte
-
-                blockData.WriteTo(mS);
+                fileID.WriteTo(mS);
+                mS.Write(BitConverter.GetBytes(blockNumber), 0, 4); //4 bytes
+                mS.Write(BitConverter.GetBytes(dataPort), 0, 2); //2 bytes
 
                 return mS.ToArray();
             }
@@ -235,6 +224,14 @@ namespace BitChatCore
             s.Read(buffer, 0, 8);
 
             return BitConverter.ToInt64(buffer, 0);
+        }
+
+        public static ushort ReadUInt16(Stream s)
+        {
+            byte[] buffer = new byte[2];
+            s.Read(buffer, 0, 2);
+
+            return BitConverter.ToUInt16(buffer, 0);
         }
 
         public static DateTime ReadDateTime(Stream s)
@@ -271,35 +268,6 @@ namespace BitChatCore
                 peerEPs.Add(new PeerInfo(s));
 
             return peerEPs;
-        }
-
-        public static SharedFileMetaData ReadFileAdvertisement(Stream s)
-        {
-            return new SharedFileMetaData(s);
-        }
-
-        public static BinaryID ReadFileID(Stream s)
-        {
-            int dataLen = Convert.ToInt32(s.Length - s.Position);
-            byte[] buffer = new byte[dataLen];
-            s.Read(buffer, 0, dataLen);
-
-            return new BinaryID(buffer);
-        }
-
-        public static FileBlockInfo ReadFileBlockWanted(Stream s)
-        {
-            return new FileBlockInfo(s);
-        }
-
-        public static FileBlockRequest ReadFileBlockRequest(Stream s)
-        {
-            return new FileBlockRequest(s);
-        }
-
-        public static FileBlockDataPart ReadFileBlockData(Stream s)
-        {
-            return new FileBlockDataPart(s);
         }
 
         #endregion

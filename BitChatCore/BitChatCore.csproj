@@ -61,15 +61,12 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="FileSharing\FileBlockRequest.cs" />
     <Compile Include="Network\BinaryID.cs" />
     <Compile Include="BitChat.cs" />
     <Compile Include="BitChatMessage.cs" />
     <Compile Include="BitChatProfile.cs" />
     <Compile Include="Debug.cs" />
     <Compile Include="BitChatException.cs" />
-    <Compile Include="FileSharing\FileBlockDataPart.cs" />
-    <Compile Include="FileSharing\FileBlockInfo.cs" />
     <Compile Include="FileSharing\SharedFileMetaData.cs" />
     <Compile Include="FileSharing\SharedFile.cs" />
     <Compile Include="IDebug.cs" />

@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2016  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -45,8 +45,6 @@ namespace BitChatCore.FileSharing
 
         BinaryID _fileID;
 
-        HashAlgorithm _hash;
-
         #endregion
 
         #region constructor
@@ -63,7 +61,6 @@ namespace BitChatCore.FileSharing
             _hashAlgo = hashAlgo;
             _blockHash = blockHash;
 
-            _hash = HashAlgorithm.Create(_hashAlgo);
             _fileID = ComputeFileID();
         }
 
@@ -82,7 +79,6 @@ namespace BitChatCore.FileSharing
                     _blockSize = bR.ReadInt32();
 
                     _hashAlgo = Encoding.ASCII.GetString(bR.ReadBytes(bR.ReadByte()));
-                    _hash = HashAlgorithm.Create(_hashAlgo);
 
                     int totalBlocks = Convert.ToInt32(Math.Ceiling(Convert.ToDouble((double)_fileSize / _blockSize)));
 
@@ -114,9 +110,9 @@ namespace BitChatCore.FileSharing
 
                 mS.Position = 0;
 
-                lock (_hash)
+                using (HashAlgorithm hash = HashAlgorithm.Create(_hashAlgo))
                 {
-                    return new BinaryID(_hash.ComputeHash(mS));
+                    return new BinaryID(hash.ComputeHash(mS));
                 }
             }
         }
@@ -127,9 +123,9 @@ namespace BitChatCore.FileSharing
 
         public byte[] ComputeBlockHash(byte[] blockData)
         {
-            lock (_hash)
+            using (HashAlgorithm hash = HashAlgorithm.Create(_hashAlgo))
             {
-                return _hash.ComputeHash(blockData);
+                return hash.ComputeHash(blockData);
             }
         }
 
