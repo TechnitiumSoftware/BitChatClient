@@ -91,8 +91,8 @@ namespace BitChatCore.Network
         BinaryID _maskedPeerEmailAddress;
 
         VirtualPeer _selfPeer;
-        readonly ReaderWriterLockSlim _virtualPeersLock = new ReaderWriterLockSlim();
         readonly Dictionary<string, VirtualPeer> _virtualPeers = new Dictionary<string, VirtualPeer>();
+        readonly ReaderWriterLockSlim _virtualPeersLock = new ReaderWriterLockSlim();
 
         #endregion
 
@@ -959,7 +959,6 @@ namespace BitChatCore.Network
                 readonly Thread _readThread;
 
                 readonly Dictionary<ushort, DataStream> _dataStreams = new Dictionary<ushort, DataStream>();
-                readonly ReaderWriterLockSlim _dataStreamsLock = new ReaderWriterLockSlim();
                 ushort _lastPort = 0;
 
                 #endregion
@@ -1010,20 +1009,13 @@ namespace BitChatCore.Network
                             Disconnect();
 
                             //close all data streams
-                            _dataStreamsLock.EnterWriteLock();
-                            try
+                            lock (_dataStreams)
                             {
                                 foreach (KeyValuePair<ushort, DataStream> dataStream in _dataStreams)
                                     dataStream.Value.Dispose();
 
                                 _dataStreams.Clear();
                             }
-                            finally
-                            {
-                                _dataStreamsLock.ExitWriteLock();
-                            }
-
-                            _dataStreamsLock.Dispose();
 
                             //close base secure channel
                             try
@@ -1118,17 +1110,12 @@ namespace BitChatCore.Network
 
                                 try
                                 {
-                                    _dataStreamsLock.EnterReadLock();
-                                    try
+                                    lock (_dataStreams)
                                     {
                                         stream = _dataStreams[port];
+                                    }
 
-                                        stream.WriteBuffer(buffer, 0, dataLength, 30000);
-                                    }
-                                    finally
-                                    {
-                                        _dataStreamsLock.ExitReadLock();
-                                    }
+                                    stream.WriteBuffer(buffer, 0, dataLength, 30000);
                                 }
                                 catch
                                 {
@@ -1175,8 +1162,7 @@ namespace BitChatCore.Network
 
                 public DataStream OpenDataStream(ushort port = 0)
                 {
-                    _dataStreamsLock.EnterWriteLock();
-                    try
+                    lock (_dataStreams)
                     {
                         if (port == 0)
                         {
@@ -1207,10 +1193,6 @@ namespace BitChatCore.Network
                         _dataStreams.Add(port, stream);
 
                         return stream;
-                    }
-                    finally
-                    {
-                        _dataStreamsLock.ExitWriteLock();
                     }
                 }
 
@@ -1292,14 +1274,9 @@ namespace BitChatCore.Network
 
                                 if (!_session._isDisposing)
                                 {
-                                    _session._dataStreamsLock.EnterWriteLock();
-                                    try
+                                    lock (_session._dataStreams)
                                     {
                                         _session._dataStreams.Remove(_port);
-                                    }
-                                    finally
-                                    {
-                                        _session._dataStreamsLock.ExitWriteLock();
                                     }
                                 }
 
@@ -1433,15 +1410,15 @@ namespace BitChatCore.Network
                             lock (this)
                             {
                                 if (_disposed)
-                                    throw new IOException("Cannot write buffer to a closed stream.");
+                                    throw new ObjectDisposedException("DataStream");
 
                                 if (_count > 0)
                                 {
                                     if (!Monitor.Wait(this, timeout))
-                                        throw new IOException("Channel WriteBuffer timed out.");
+                                        throw new IOException("DataStream WriteBuffer timed out.");
 
                                     if (_count > 0)
-                                        throw new IOException("Channel WriteBuffer failed. Buffer not empty.");
+                                        throw new IOException("DataStream WriteBuffer failed. Buffer not empty.");
                                 }
 
                                 Buffer.BlockCopy(buffer, offset, _buffer, 0, count);
