@@ -31,12 +31,13 @@ using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.Network
 {
-    delegate void NetworkChanged(BitChatNetwork sender, BinaryID oldNetworkID);
-    delegate void VirtualPeerAdded(BitChatNetwork sender, BitChatNetwork.VirtualPeer virtualPeer);
-    delegate void VirtualPeerHasRevokedCertificate(BitChatNetwork sender, InvalidCertificateException ex);
-    delegate void VirtualPeerMessageReceived(BitChatNetwork.VirtualPeer sender, Stream messageDataStream, IPEndPoint remotePeerEP);
-    delegate void VirtualPeerSecureChannelException(BitChatNetwork sender, SecureChannelException ex);
-    delegate void VirtualPeerHasChangedCertificate(BitChatNetwork sender, Certificate cert);
+    delegate void NetworkChanged(BitChatNetwork network, BinaryID oldNetworkID);
+    delegate void VirtualPeerAdded(BitChatNetwork network, BitChatNetwork.VirtualPeer virtualPeer);
+    delegate void VirtualPeerHasRevokedCertificate(BitChatNetwork network, InvalidCertificateException ex);
+    delegate void VirtualPeerMessageReceived(BitChatNetwork.VirtualPeer.VirtualSession peerSession, Stream messageDataStream);
+    delegate void VirtualPeerSecureChannelException(BitChatNetwork network, SecureChannelException ex);
+    delegate void VirtualPeerHasChangedCertificate(BitChatNetwork network, Certificate cert);
+    delegate void VirtualPeerStateChanged(BitChatNetwork.VirtualPeer virtualPeer, BitChatNetwork.VirtualPeer.VirtualSession peerSession);
 
     public enum BitChatNetworkType : byte
     {
@@ -329,29 +330,29 @@ namespace BitChatCore.Network
             }
         }
 
-        private void JoinNetwork(string peerID, SecureChannelStream peerStream)
+        private void JoinNetwork(string peerID, SecureChannelStream channel)
         {
             if (_status == BitChatNetworkStatus.Offline)
-                throw new BitChatException("BitChat network is offline.");
+                throw new BitChatException("Bit Chat network is offline.");
 
             if (_type == BitChatNetworkType.PrivateChat)
             {
                 if (_peerEmailAddress == null)
                 {
-                    BinaryID computedNetworkID = GetNetworkID(_connectionManager.Profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress, peerStream.RemotePeerCertificate.IssuedTo.EmailAddress, _sharedSecret);
+                    BinaryID computedNetworkID = GetNetworkID(_connectionManager.Profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress, channel.RemotePeerCertificate.IssuedTo.EmailAddress, _sharedSecret);
 
                     if (!computedNetworkID.Equals(_networkID))
-                        throw new BitChatException("User with email address '" + peerStream.RemotePeerCertificate.IssuedTo.EmailAddress.Address + " [" + peerStream.RemotePeerEP.Address.ToString() + "]' is trying to join this private chat.");
+                        throw new BitChatException("User with email address '" + channel.RemotePeerCertificate.IssuedTo.EmailAddress.Address + " [" + channel.RemotePeerEP.Address.ToString() + "]' is trying to join this private chat.");
 
-                    _peerEmailAddress = peerStream.RemotePeerCertificate.IssuedTo.EmailAddress;
+                    _peerEmailAddress = channel.RemotePeerCertificate.IssuedTo.EmailAddress;
                 }
                 else
                 {
-                    if (!peerStream.RemotePeerCertificate.IssuedTo.EmailAddress.Equals(_peerEmailAddress))
-                        throw new BitChatException("User with email address '" + peerStream.RemotePeerCertificate.IssuedTo.EmailAddress.Address + " [" + peerStream.RemotePeerEP.Address.ToString() + "]' is trying to join this private chat.");
+                    if (!channel.RemotePeerCertificate.IssuedTo.EmailAddress.Equals(_peerEmailAddress))
+                        throw new BitChatException("User with email address '" + channel.RemotePeerCertificate.IssuedTo.EmailAddress.Address + " [" + channel.RemotePeerEP.Address.ToString() + "]' is trying to join this private chat.");
                 }
 
-                _peerName = peerStream.RemotePeerCertificate.IssuedTo.Name;
+                _peerName = channel.RemotePeerCertificate.IssuedTo.Name;
             }
 
             peerID = peerID.ToLower();
@@ -368,7 +369,7 @@ namespace BitChatCore.Network
                 }
                 else
                 {
-                    vPeer = new VirtualPeer(peerStream.RemotePeerCertificate, this);
+                    vPeer = new VirtualPeer(channel.RemotePeerCertificate, this);
                     _virtualPeers.Add(peerID, vPeer);
 
                     peerAdded = true;
@@ -382,12 +383,12 @@ namespace BitChatCore.Network
             if (peerAdded)
                 VirtualPeerAdded(this, vPeer);
 
-            vPeer.AddStream(peerStream);
+            vPeer.AddSession(channel);
 
             if (_connectionManager.Profile.CheckCertificateRevocationList)
             {
                 //start async revocation list check process
-                ThreadPool.QueueUserWorkItem(CheckCertificateRevocationListAsync, peerStream);
+                ThreadPool.QueueUserWorkItem(CheckCertificateRevocationListAsync, channel);
             }
         }
 
@@ -736,7 +737,7 @@ namespace BitChatCore.Network
         {
             #region events
 
-            public event EventHandler StreamStateChanged;
+            public event VirtualPeerStateChanged StateChanged;
             public event VirtualPeerMessageReceived MessageReceived;
 
             #endregion
@@ -744,11 +745,12 @@ namespace BitChatCore.Network
             #region variables
 
             Certificate _peerCert;
-            BitChatNetwork _network;
-            bool _isOnline;
+            readonly BitChatNetwork _network;
 
-            List<SecureChannelStream> _streamList = new List<SecureChannelStream>();
-            List<Thread> _readThreadList = new List<Thread>();
+            bool _isOnline = false;
+
+            readonly List<VirtualSession> _sessions = new List<VirtualSession>(1);
+            readonly ReaderWriterLockSlim _sessionsLock = new ReaderWriterLockSlim();
 
             #endregion
 
@@ -775,106 +777,31 @@ namespace BitChatCore.Network
                 GC.SuppressFinalize(this);
             }
 
-            bool _disposing = false;
+            bool _isDisposing = false;
             bool _disposed = false;
 
             protected void Dispose(bool disposing)
             {
                 if (!_disposed)
                 {
-                    _disposing = true;
+                    _isDisposing = true;
 
-                    Disconnect();
-
-                    _disposed = true;
-                }
-            }
-
-            #endregion
-
-            #region private
-
-            private void ReadMessageAsync(object state)
-            {
-                SecureChannelStream stream = state as SecureChannelStream;
-                bool doReconnect = false;
-
-                try
-                {
-                    FixMemoryStream mS = new FixMemoryStream(BUFFER_SIZE);
-                    byte[] buffer = mS.Buffer;
-                    int dataLength;
-
-                    while (true)
-                    {
-                        OffsetStream.StreamRead(stream, buffer, 0, 2);
-                        dataLength = BitConverter.ToUInt16(buffer, 0);
-
-                        mS.SetLength(dataLength);
-                        mS.Position = 0;
-
-                        OffsetStream.StreamRead(stream, buffer, 0, dataLength);
-
-                        try
-                        {
-                            MessageReceived(this, mS, stream.RemotePeerEP);
-                        }
-                        catch
-                        { }
-                    }
-                }
-                catch (SecureChannelException ex)
-                {
-                    _network.VirtualPeerSecureChannelException(_network, ex);
-                }
-                catch (EndOfStreamException)
-                {
-                    //gracefull secure channel disconnection done; do nothing
-                }
-                catch (ThreadAbortException)
-                {
-                    //thread abort via Dispose()
-                }
-                catch
-                {
-                    //try reconnection due to unexpected channel closure (mostly read timed out exception)
-                    doReconnect = true;
-                }
-                finally
-                {
-                    int totalStreamsAvailable;
-
-                    lock (_streamList)
-                    {
-                        _streamList.Remove(stream);
-                        totalStreamsAvailable = _streamList.Count;
-                    }
-
-                    lock (_readThreadList)
-                    {
-                        _readThreadList.Remove(Thread.CurrentThread);
-                    }
-
-                    if (!_disposing)
-                    {
-                        lock (this)
-                        {
-                            if (totalStreamsAvailable == 0)
-                                _isOnline = false;
-
-                            StreamStateChanged(this, EventArgs.Empty);
-                        }
-                    }
-
+                    _sessionsLock.EnterWriteLock();
                     try
                     {
-                        stream.Dispose();
-                    }
-                    catch
-                    { }
+                        foreach (VirtualSession session in _sessions)
+                            session.Dispose();
 
-                    if (doReconnect)
-                        _network.MakeConnection(stream.RemotePeerEP);
+                        _sessions.Clear();
+                    }
+                    finally
+                    {
+                        _sessionsLock.ExitWriteLock();
+                    }
+
+                    _sessionsLock.Dispose();
+
+                    _disposed = true;
                 }
             }
 
@@ -887,74 +814,69 @@ namespace BitChatCore.Network
                 if (count > (MAX_MESSAGE_SIZE - 2))
                     throw new IOException("BitChatNetwork message data size cannot exceed " + MAX_MESSAGE_SIZE + " bytes.");
 
-                byte[] len = BitConverter.GetBytes(Convert.ToUInt16(count));
-
-                lock (_streamList)
+                _sessionsLock.EnterReadLock();
+                try
                 {
-                    foreach (SecureChannelStream stream in _streamList)
+                    foreach (VirtualSession session in _sessions)
                     {
-                        try
-                        {
-                            stream.Write(len, 0, 2);
-                            stream.Write(data, offset, count);
-                            stream.Flush();
-                        }
-                        catch
-                        { }
+                        session.WriteMessage(data, offset, count);
                     }
+                }
+                finally
+                {
+                    _sessionsLock.ExitReadLock();
                 }
             }
 
-            public void AddStream(SecureChannelStream stream)
+            public void AddSession(SecureChannelStream channel)
             {
-                if (!_peerCert.IssuedTo.EmailAddress.Address.Equals(stream.RemotePeerCertificate.IssuedTo.EmailAddress.Address, StringComparison.CurrentCultureIgnoreCase))
+                if (!_peerCert.IssuedTo.EmailAddress.Address.Equals(channel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, StringComparison.CurrentCultureIgnoreCase))
                     throw new BitChatException("Secure stream certificate email address doesn't match with existing peer email address.");
 
-                lock (_streamList)
+                VirtualSession peerSession;
+
+                _sessionsLock.EnterWriteLock();
+                try
                 {
-                    if (_streamList.Count > 0)
+                    if (_sessions.Count > 0)
                     {
-                        if (!_peerCert.Equals(stream.RemotePeerCertificate))
+                        if (!_peerCert.Equals(channel.RemotePeerCertificate))
                             throw new BitChatException("Secure stream certificates doesn't match with existing peer secure stream certificate.");
                     }
                     else
                     {
-                        if (!_peerCert.Equals(stream.RemotePeerCertificate))
-                            _network.VirtualPeerHasChangedCertificate(_network, stream.RemotePeerCertificate);
+                        if (!_peerCert.Equals(channel.RemotePeerCertificate))
+                            _network.VirtualPeerHasChangedCertificate(_network, channel.RemotePeerCertificate);
 
-                        _peerCert = stream.RemotePeerCertificate;
+                        _peerCert = channel.RemotePeerCertificate;
                     }
 
-                    _streamList.Add(stream);
+                    peerSession = new VirtualSession(this, channel);
+                    _sessions.Add(peerSession);
                 }
-
-                lock (_readThreadList)
+                finally
                 {
-                    Thread readThread = new Thread(ReadMessageAsync);
-                    readThread.IsBackground = true;
-
-                    _readThreadList.Add(readThread);
-
-                    readThread.Start(stream);
+                    _sessionsLock.ExitWriteLock();
                 }
 
-                lock (this)
-                {
-                    _isOnline = true;
-
-                    StreamStateChanged(this, EventArgs.Empty);
-                }
+                _isOnline = true;
+                StateChanged(this, peerSession);
             }
 
             public bool isConnectedVia(IPEndPoint peerEP)
             {
-                lock (_streamList)
+                _sessionsLock.EnterReadLock();
+                try
                 {
-                    foreach (SecureChannelStream stream in _streamList)
+                    foreach (VirtualSession session in _sessions)
                     {
-                        if (stream.RemotePeerEP.Equals(peerEP))
+                        if (session.RemotePeerEP.Equals(peerEP))
                             return true;
                     }
+                }
+                finally
+                {
+                    _sessionsLock.ExitReadLock();
                 }
 
                 return false;
@@ -964,12 +886,17 @@ namespace BitChatCore.Network
             {
                 List<IPEndPoint> peerEPList = new List<IPEndPoint>();
 
-                lock (_streamList)
+                _sessionsLock.EnterReadLock();
+                try
                 {
-                    foreach (SecureChannelStream stream in _streamList)
+                    foreach (VirtualSession session in _sessions)
                     {
-                        peerEPList.Add(stream.RemotePeerEP);
+                        peerEPList.Add(session.RemotePeerEP);
                     }
+                }
+                finally
+                {
+                    _sessionsLock.ExitReadLock();
                 }
 
                 return new PeerInfo(_peerCert.IssuedTo.EmailAddress.Address, peerEPList);
@@ -977,17 +904,17 @@ namespace BitChatCore.Network
 
             public void Disconnect()
             {
-                lock (_readThreadList)
+                _sessionsLock.EnterReadLock();
+                try
                 {
-                    foreach (Thread readThread in _readThreadList)
+                    foreach (VirtualSession session in _sessions)
                     {
-                        try
-                        {
-                            readThread.Abort();
-                        }
-                        catch
-                        { }
+                        session.Disconnect();
                     }
+                }
+                finally
+                {
+                    _sessionsLock.ExitReadLock();
                 }
             }
 
@@ -1005,17 +932,537 @@ namespace BitChatCore.Network
             {
                 get
                 {
-                    lock (_streamList)
+                    _sessionsLock.EnterReadLock();
+                    try
                     {
-                        if (_streamList.Count > 0)
-                            return _streamList[0].SelectedCryptoOption;
+                        if (_sessions.Count > 0)
+                            return _sessions[0].CipherSuite;
                         else
                             return SecureChannelCryptoOptionFlags.None;
+                    }
+                    finally
+                    {
+                        _sessionsLock.ExitReadLock();
                     }
                 }
             }
 
             #endregion
+
+            public class VirtualSession : IDisposable
+            {
+                #region variables
+
+                readonly VirtualPeer _peer;
+                readonly SecureChannelStream _channel;
+
+                readonly Thread _readThread;
+
+                readonly Dictionary<ushort, DataStream> _dataStreams = new Dictionary<ushort, DataStream>();
+                readonly ReaderWriterLockSlim _dataStreamsLock = new ReaderWriterLockSlim();
+                ushort _lastPort = 0;
+
+                #endregion
+
+                #region constructor
+
+                public VirtualSession(VirtualPeer peer, SecureChannelStream channel)
+                {
+                    _peer = peer;
+                    _channel = channel;
+
+                    //client will use odd port & server will use even port to avoid conflicts
+                    if (_channel is SecureChannelClientStream)
+                        _lastPort = 1;
+
+                    //start read thread
+                    _readThread = new Thread(ReadMessageAsync);
+                    _readThread.IsBackground = true;
+                    _readThread.Start();
+                }
+
+                #endregion
+
+                #region IDisposable
+
+                ~VirtualSession()
+                {
+                    Dispose(false);
+                }
+
+                public void Dispose()
+                {
+                    Dispose(true);
+                    GC.SuppressFinalize(this);
+                }
+
+                bool _isDisposing = false;
+                bool _disposed = false;
+
+                protected void Dispose(bool disposing)
+                {
+                    lock (this)
+                    {
+                        if (!_disposed)
+                        {
+                            _isDisposing = true;
+
+                            Disconnect();
+
+                            //close all data streams
+                            _dataStreamsLock.EnterWriteLock();
+                            try
+                            {
+                                foreach (KeyValuePair<ushort, DataStream> dataStream in _dataStreams)
+                                    dataStream.Value.Dispose();
+
+                                _dataStreams.Clear();
+                            }
+                            finally
+                            {
+                                _dataStreamsLock.ExitWriteLock();
+                            }
+
+                            _dataStreamsLock.Dispose();
+
+                            //close base secure channel
+                            try
+                            {
+                                _channel.Dispose();
+                            }
+                            catch
+                            { }
+
+                            if (!_peer._isDisposing)
+                            {
+                                //remove this session from peer
+                                _peer._sessionsLock.EnterWriteLock();
+                                try
+                                {
+                                    _peer._sessions.Remove(this);
+                                    _peer._isOnline = (_peer._sessions.Count > 0);
+                                }
+                                finally
+                                {
+                                    _peer._sessionsLock.ExitWriteLock();
+                                }
+
+                                _peer.StateChanged(_peer, this);
+                            }
+
+                            _disposed = true;
+                        }
+                    }
+                }
+
+                #endregion
+
+                #region private
+
+                private void WriteDataPacket(ushort port, byte[] data, int offset, int count)
+                {
+                    Monitor.Enter(_channel);
+                    try
+                    {
+                        _channel.Write(BitConverter.GetBytes(port), 0, 2); //port
+                        _channel.Write(BitConverter.GetBytes(Convert.ToUInt16(count)), 0, 2); //data length
+                        _channel.Write(data, offset, count);
+                        _channel.Flush();
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.Write("VirtualSession.WriteDataPacket", ex);
+                    }
+                    finally
+                    {
+                        Monitor.Exit(_channel);
+                    }
+                }
+
+                private void ReadMessageAsync(object state)
+                {
+                    bool doReconnect = false;
+
+                    try
+                    {
+                        FixMemoryStream mS = new FixMemoryStream(BUFFER_SIZE);
+                        byte[] buffer = mS.Buffer;
+                        ushort port;
+                        int dataLength;
+
+                        while (true)
+                        {
+                            OffsetStream.StreamRead(_channel, buffer, 0, 2);
+                            port = BitConverter.ToUInt16(buffer, 0);
+
+                            OffsetStream.StreamRead(_channel, buffer, 0, 2);
+                            dataLength = BitConverter.ToUInt16(buffer, 0);
+
+                            OffsetStream.StreamRead(_channel, buffer, 0, dataLength);
+
+                            if (port == 0)
+                            {
+                                mS.SetLength(dataLength);
+                                mS.Position = 0;
+
+                                try
+                                {
+                                    _peer.MessageReceived(this, mS);
+                                }
+                                catch
+                                { }
+                            }
+                            else
+                            {
+                                DataStream stream = null;
+
+                                try
+                                {
+                                    _dataStreamsLock.EnterReadLock();
+                                    try
+                                    {
+                                        stream = _dataStreams[port];
+
+                                        stream.WriteBuffer(buffer, 0, dataLength, 30000);
+                                    }
+                                    finally
+                                    {
+                                        _dataStreamsLock.ExitReadLock();
+                                    }
+                                }
+                                catch
+                                {
+                                    if (stream != null)
+                                        stream.Dispose();
+                                }
+                            }
+                        }
+                    }
+                    catch (SecureChannelException ex)
+                    {
+                        _peer._network.VirtualPeerSecureChannelException(_peer._network, ex);
+                    }
+                    catch (EndOfStreamException)
+                    {
+                        //gracefull secure channel disconnection done; do nothing
+                    }
+                    catch (ThreadAbortException)
+                    {
+                        //thread abort via Dispose()
+                    }
+                    catch
+                    {
+                        //try reconnection due to unexpected channel closure (mostly read timed out exception)
+                        doReconnect = true;
+                    }
+                    finally
+                    {
+                        Dispose();
+
+                        if (doReconnect)
+                            _peer._network.MakeConnection(_channel.RemotePeerEP);
+                    }
+                }
+
+                #endregion
+
+                #region public
+
+                public void WriteMessage(byte[] data, int offset, int count)
+                {
+                    WriteDataPacket(0, data, offset, count);
+                }
+
+                public DataStream OpenDataStream(ushort port = 0)
+                {
+                    _dataStreamsLock.EnterWriteLock();
+                    try
+                    {
+                        if (port == 0)
+                        {
+                            do
+                            {
+                                _lastPort += 2;
+
+                                if (_lastPort > (ushort.MaxValue - 3))
+                                {
+                                    if (_channel is SecureChannelClientStream)
+                                        _lastPort = 1;
+                                    else
+                                        _lastPort = 0;
+
+                                    continue;
+                                }
+                            }
+                            while (_dataStreams.ContainsKey(_lastPort));
+
+                            port = _lastPort;
+                        }
+                        else if (_dataStreams.ContainsKey(port))
+                        {
+                            throw new ArgumentException("Data port already in use.");
+                        }
+
+                        DataStream stream = new DataStream(this, port);
+                        _dataStreams.Add(port, stream);
+
+                        return stream;
+                    }
+                    finally
+                    {
+                        _dataStreamsLock.ExitWriteLock();
+                    }
+                }
+
+                public void Disconnect()
+                {
+                    try
+                    {
+                        _readThread.Abort();
+                    }
+                    catch
+                    { }
+                }
+
+                #endregion
+
+                #region properties
+
+                public VirtualPeer VirtualPeer
+                { get { return _peer; } }
+
+                public SecureChannelCryptoOptionFlags CipherSuite
+                { get { return _channel.SelectedCryptoOption; } }
+
+                public IPEndPoint RemotePeerEP
+                { get { return _channel.RemotePeerEP; } }
+
+                #endregion
+
+                public class DataStream : Stream
+                {
+                    #region variables
+
+                    const int DATA_READ_TIMEOUT = 30000;
+                    const int DATA_WRITE_TIMEOUT = 30000; //dummy
+
+                    readonly VirtualSession _session;
+                    readonly ushort _port;
+
+                    readonly byte[] _buffer = new byte[BUFFER_SIZE];
+                    int _offset;
+                    int _count;
+
+                    int _readTimeout = DATA_READ_TIMEOUT;
+                    int _writeTimeout = DATA_WRITE_TIMEOUT;
+
+                    #endregion
+
+                    #region constructor
+
+                    public DataStream(VirtualSession session, ushort port)
+                    {
+                        _session = session;
+                        _port = port;
+                    }
+
+                    #endregion
+
+                    #region IDisposable
+
+                    ~DataStream()
+                    {
+                        Dispose(false);
+                    }
+
+                    bool _disposed = false;
+
+                    protected override void Dispose(bool disposing)
+                    {
+                        lock (this)
+                        {
+                            if (!_disposed)
+                            {
+                                try
+                                {
+                                    _session.WriteDataPacket(_port, new byte[] { }, 0, 0);
+                                }
+                                catch
+                                { }
+
+                                if (!_session._isDisposing)
+                                {
+                                    _session._dataStreamsLock.EnterWriteLock();
+                                    try
+                                    {
+                                        _session._dataStreams.Remove(_port);
+                                    }
+                                    finally
+                                    {
+                                        _session._dataStreamsLock.ExitWriteLock();
+                                    }
+                                }
+
+                                Monitor.PulseAll(this);
+
+                                _disposed = true;
+                            }
+                        }
+                    }
+
+                    #endregion
+
+                    #region stream support
+
+                    public override bool CanRead
+                    {
+                        get { return true; }
+                    }
+
+                    public override bool CanSeek
+                    {
+                        get { return false; }
+                    }
+
+                    public override bool CanWrite
+                    {
+                        get { return true; }
+                    }
+
+                    public override bool CanTimeout
+                    {
+                        get { return true; }
+                    }
+
+                    public override int ReadTimeout
+                    {
+                        get { return _readTimeout; }
+                        set { _readTimeout = value; }
+                    }
+
+                    public override int WriteTimeout
+                    {
+                        get { return _writeTimeout; }
+                        set { _writeTimeout = value; }
+                    }
+
+                    public override void Flush()
+                    {
+                        //do nothing
+                    }
+
+                    public override long Length
+                    {
+                        get { throw new NotSupportedException("DataStream stream does not support seeking."); }
+                    }
+
+                    public override long Position
+                    {
+                        get
+                        {
+                            throw new NotSupportedException("DataStream stream does not support seeking.");
+                        }
+                        set
+                        {
+                            throw new NotSupportedException("DataStream stream does not support seeking.");
+                        }
+                    }
+
+                    public override long Seek(long offset, SeekOrigin origin)
+                    {
+                        throw new NotSupportedException("DataStream stream does not support seeking.");
+                    }
+
+                    public override void SetLength(long value)
+                    {
+                        throw new NotSupportedException("DataStream stream does not support seeking.");
+                    }
+
+                    public override int Read(byte[] buffer, int offset, int count)
+                    {
+                        if (count < 1)
+                            throw new ArgumentOutOfRangeException("Count must be atleast 1 byte.");
+
+                        lock (this)
+                        {
+                            if (_count < 1)
+                            {
+                                if (_disposed)
+                                    return 0;
+
+                                if (!Monitor.Wait(this, _readTimeout))
+                                    throw new IOException("Read timed out.");
+
+                                if (_count < 1)
+                                    return 0;
+                            }
+
+                            int bytesToCopy = count;
+
+                            if (bytesToCopy > _count)
+                                bytesToCopy = _count;
+
+                            Buffer.BlockCopy(_buffer, _offset, buffer, offset, bytesToCopy);
+
+                            _offset += bytesToCopy;
+                            _count -= bytesToCopy;
+
+                            if (_count < 1)
+                                Monitor.Pulse(this);
+
+                            return bytesToCopy;
+                        }
+                    }
+
+                    public override void Write(byte[] buffer, int offset, int count)
+                    {
+                        if (_disposed)
+                            throw new ObjectDisposedException("DataStream");
+
+                        _session.WriteDataPacket(_port, buffer, offset, count);
+                    }
+
+                    #endregion
+
+                    #region private
+
+                    internal void WriteBuffer(byte[] buffer, int offset, int count, int timeout)
+                    {
+                        if (count > 0)
+                        {
+                            lock (this)
+                            {
+                                if (_disposed)
+                                    throw new IOException("Cannot write buffer to a closed stream.");
+
+                                if (_count > 0)
+                                {
+                                    if (!Monitor.Wait(this, timeout))
+                                        throw new IOException("Channel WriteBuffer timed out.");
+
+                                    if (_count > 0)
+                                        throw new IOException("Channel WriteBuffer failed. Buffer not empty.");
+                                }
+
+                                Buffer.BlockCopy(buffer, offset, _buffer, 0, count);
+                                _offset = 0;
+                                _count = count;
+
+                                Monitor.Pulse(this);
+                            }
+                        }
+                    }
+
+                    #endregion
+
+                    #region properties
+
+                    public ushort Port
+                    { get { return _port; } }
+
+                    #endregion
+                }
+            }
         }
     }
 }
