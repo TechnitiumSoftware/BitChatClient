@@ -66,7 +66,7 @@ namespace BitChatCore.Network
 
         #region variables
 
-        public const int MAX_MESSAGE_SIZE = 65220; //max payload size of secure channel packet
+        public const int MAX_MESSAGE_SIZE = 65216; //max payload size of secure channel packet - 4 bytes header
         const int BUFFER_SIZE = 65535;
 
         const int RE_NEGOTIATE_AFTER_BYTES_SENT = 104857600; //100mb
@@ -811,7 +811,7 @@ namespace BitChatCore.Network
 
             public void WriteMessage(byte[] data, int offset, int count)
             {
-                if (count > (MAX_MESSAGE_SIZE - 2))
+                if (count > MAX_MESSAGE_SIZE)
                     throw new IOException("BitChatNetwork message data size cannot exceed " + MAX_MESSAGE_SIZE + " bytes.");
 
                 _sessionsLock.EnterReadLock();
@@ -1405,28 +1405,31 @@ namespace BitChatCore.Network
 
                     internal void WriteBuffer(byte[] buffer, int offset, int count, int timeout)
                     {
-                        if (count > 0)
+                        if (count < 1)
                         {
-                            lock (this)
+                            Dispose();
+                            return;
+                        }
+
+                        lock (this)
+                        {
+                            if (_disposed)
+                                throw new ObjectDisposedException("DataStream");
+
+                            if (_count > 0)
                             {
-                                if (_disposed)
-                                    throw new ObjectDisposedException("DataStream");
+                                if (!Monitor.Wait(this, timeout))
+                                    throw new IOException("DataStream WriteBuffer timed out.");
 
                                 if (_count > 0)
-                                {
-                                    if (!Monitor.Wait(this, timeout))
-                                        throw new IOException("DataStream WriteBuffer timed out.");
-
-                                    if (_count > 0)
-                                        throw new IOException("DataStream WriteBuffer failed. Buffer not empty.");
-                                }
-
-                                Buffer.BlockCopy(buffer, offset, _buffer, 0, count);
-                                _offset = 0;
-                                _count = count;
-
-                                Monitor.Pulse(this);
+                                    throw new IOException("DataStream WriteBuffer failed. Buffer not empty.");
                             }
+
+                            Buffer.BlockCopy(buffer, offset, _buffer, 0, count);
+                            _offset = 0;
+                            _count = count;
+
+                            Monitor.Pulse(this);
                         }
                     }
 
