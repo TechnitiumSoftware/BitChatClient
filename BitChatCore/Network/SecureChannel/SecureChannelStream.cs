@@ -73,6 +73,14 @@ HMACSHA256(client hello, master key)  --->
 <==============================================================================>
  */
 
+/*  Encrypted Secure Channel Data Packet
+* 
+*  +----------------+----------------+----------------+---------------//----------------+---------------//----------------+
+*  |     data length (uint16)        | flags (8 bits) |              data               |           HMAC (EtM)            |
+*  +----------------+----------------+----------------+---------------//----------------+---------------//----------------+
+*  
+*/
+
 namespace BitChatCore.Network.SecureChannel
 {
     public enum SecureChannelCryptoOptionFlags : byte
@@ -221,29 +229,29 @@ namespace BitChatCore.Network.SecureChannel
 
         public override long Length
         {
-            get { throw new IOException("SecureChannel stream is not seekable."); }
+            get { throw new NotSupportedException("SecureChannel stream is not seekable."); }
         }
 
         public override long Position
         {
             get
             {
-                throw new IOException("SecureChannel stream is not seekable.");
+                throw new NotSupportedException("SecureChannel stream is not seekable.");
             }
             set
             {
-                throw new IOException("SecureChannel stream is not seekable.");
+                throw new NotSupportedException("SecureChannel stream is not seekable.");
             }
         }
 
         public override long Seek(long offset, SeekOrigin origin)
         {
-            throw new IOException("SecureChannel stream is not seekable.");
+            throw new NotSupportedException("SecureChannel stream is not seekable.");
         }
 
         public override void SetLength(long value)
         {
-            throw new IOException("SecureChannel stream is not seekable.");
+            throw new NotSupportedException("SecureChannel stream is not seekable.");
         }
 
         public override void Write(byte[] buffer, int offset, int count)
@@ -263,8 +271,8 @@ namespace BitChatCore.Network.SecureChannel
                     {
                         if (bytesAvailable > 0)
                         {
-                            Buffer.BlockCopy(buffer, offset, _writeBufferData, _writeBufferPosition, count);
-                            _writeBufferPosition += count;
+                            Buffer.BlockCopy(buffer, offset, _writeBufferData, _writeBufferPosition, bytesAvailable);
+                            _writeBufferPosition += bytesAvailable;
                             offset += bytesAvailable;
                             count -= bytesAvailable;
                         }
