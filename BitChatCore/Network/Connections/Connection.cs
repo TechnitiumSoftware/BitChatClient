@@ -17,6 +17,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+/*  Connection Frame
+*   0                8                                 168                               184
+*  +----------------+---------------//----------------+----------------+----------------+---------------//----------------+
+*  | signal (1 byte)| channel name  (20 bytes)        |     data length (uint16)        |              data               |
+*  +----------------+---------------//----------------+----------------+----------------+---------------//----------------+
+*  
+*/
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -1258,29 +1266,29 @@ namespace BitChatCore.Network.Connections
 
             public override long Length
             {
-                get { throw new IOException("ChannelStream stream does not support seeking."); }
+                get { throw new NotSupportedException("ChannelStream stream does not support seeking."); }
             }
 
             public override long Position
             {
                 get
                 {
-                    throw new IOException("ChannelStream stream does not support seeking.");
+                    throw new NotSupportedException("ChannelStream stream does not support seeking.");
                 }
                 set
                 {
-                    throw new IOException("ChannelStream stream does not support seeking.");
+                    throw new NotSupportedException("ChannelStream stream does not support seeking.");
                 }
             }
 
             public override long Seek(long offset, SeekOrigin origin)
             {
-                throw new IOException("ChannelStream stream does not support seeking.");
+                throw new NotSupportedException("ChannelStream stream does not support seeking.");
             }
 
             public override void SetLength(long value)
             {
-                throw new IOException("ChannelStream stream does not support seeking.");
+                throw new NotSupportedException("ChannelStream stream does not support seeking.");
             }
 
             public override int Read(byte[] buffer, int offset, int count)
