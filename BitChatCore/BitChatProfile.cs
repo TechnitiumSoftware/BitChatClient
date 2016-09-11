@@ -448,11 +448,10 @@ namespace BitChatCore
                 encoder.Encode("local_cert_store", _localCertStore);
 
             //profile image
+            encoder.Encode("profile_image_date_modified", _profileImageDateModified);
+
             if (_profileImage != null)
-            {
-                encoder.Encode("profile_image_date_modified", _profileImageDateModified);
                 encoder.Encode("profile_image", _profileImage);
-            }
 
             //tracker urls
             {
@@ -863,11 +862,9 @@ namespace BitChatCore
                 encoder.Encode("message_store_id", _messageStoreID);
                 encoder.Encode("message_store_key", _messageStoreKey);
 
+                encoder.Encode("group_image_date_modified", _groupImageDateModified);
                 if (_groupImage != null)
-                {
-                    encoder.Encode("group_image_date_modified", _groupImageDateModified);
                     encoder.Encode("group_image", _groupImage);
-                }
 
                 encoder.Encode("mute", _mute);
 
