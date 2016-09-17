@@ -122,6 +122,7 @@ namespace BitChatApp.UserControls
             {
                 SetTitle(peer.PeerCertificate.IssuedTo.Name);
 
+                _peer = peer;
                 peer.ProfileImageChanged += peer_ProfileImageChanged;
                 peer.StateChanged += peer_StateChanged;
             }
