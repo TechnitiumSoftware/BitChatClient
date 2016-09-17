@@ -28,12 +28,14 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.labIcon = new System.Windows.Forms.Label();
             this.labTitle = new System.Windows.Forms.Label();
             this.labLastMessage = new System.Windows.Forms.Label();
             this.labUnreadMessageCount = new System.Windows.Forms.Label();
             this.picIcon = new System.Windows.Forms.PictureBox();
             this.labLastMessageDate = new System.Windows.Forms.Label();
+            this.timerTypingNotification = new System.Windows.Forms.Timer(this.components);
             ((System.ComponentModel.ISupportInitialize)(this.picIcon)).BeginInit();
             this.SuspendLayout();
             // 
@@ -72,9 +74,9 @@
             this.labLastMessage.ForeColor = System.Drawing.Color.White;
             this.labLastMessage.Location = new System.Drawing.Point(54, 31);
             this.labLastMessage.Name = "labLastMessage";
-            this.labLastMessage.Size = new System.Drawing.Size(215, 14);
+            this.labLastMessage.Size = new System.Drawing.Size(205, 14);
             this.labLastMessage.TabIndex = 2;
-            this.labLastMessage.Text = "Sender: new chat message";
+            this.labLastMessage.Text = "typing...";
             // 
             // labUnreadMessageCount
             // 
@@ -114,6 +116,11 @@
             this.labLastMessageDate.Text = "10/31/2016";
             this.labLastMessageDate.TextAlign = System.Drawing.ContentAlignment.TopRight;
             // 
+            // timerTypingNotification
+            // 
+            this.timerTypingNotification.Interval = 10000;
+            this.timerTypingNotification.Tick += new System.EventHandler(this.timerTypingNotification_Tick);
+            // 
             // ChatListItem
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -142,5 +149,6 @@
         private System.Windows.Forms.Label labUnreadMessageCount;
         private System.Windows.Forms.PictureBox picIcon;
         private System.Windows.Forms.Label labLastMessageDate;
+        private System.Windows.Forms.Timer timerTypingNotification;
     }
 }

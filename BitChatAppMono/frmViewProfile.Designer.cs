@@ -40,8 +40,11 @@
             this.mnuRemovePhoto = new System.Windows.Forms.ToolStripMenuItem();
             this.picIcon = new System.Windows.Forms.PictureBox();
             this.lnkView = new System.Windows.Forms.LinkLabel();
+            this.mnuCopyUtility = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.mnuCopy = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuProfileImage.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.picIcon)).BeginInit();
+            this.mnuCopyUtility.SuspendLayout();
             this.SuspendLayout();
             // 
             // labLocation
@@ -54,6 +57,7 @@
             this.labLocation.Size = new System.Drawing.Size(257, 14);
             this.labLocation.TabIndex = 44;
             this.labLocation.Text = "Mumbai, India";
+            this.labLocation.MouseUp += new System.Windows.Forms.MouseEventHandler(this.labName_MouseUp);
             // 
             // btnClose
             // 
@@ -78,6 +82,7 @@
             this.labEmail.TabIndex = 42;
             this.labEmail.Text = "shreyas@technitium.com";
             this.labEmail.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.labEmail.MouseUp += new System.Windows.Forms.MouseEventHandler(this.labName_MouseUp);
             // 
             // labName
             // 
@@ -90,6 +95,7 @@
             this.labName.TabIndex = 41;
             this.labName.Text = "Shreyas Zare";
             this.labName.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
+            this.labName.MouseUp += new System.Windows.Forms.MouseEventHandler(this.labName_MouseUp);
             // 
             // labIcon
             // 
@@ -156,6 +162,20 @@
             this.lnkView.Text = "View Certificate";
             this.lnkView.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.lnkView_LinkClicked);
             // 
+            // mnuCopyUtility
+            // 
+            this.mnuCopyUtility.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.mnuCopy});
+            this.mnuCopyUtility.Name = "mnuCopyUtility";
+            this.mnuCopyUtility.Size = new System.Drawing.Size(103, 26);
+            // 
+            // mnuCopy
+            // 
+            this.mnuCopy.Name = "mnuCopy";
+            this.mnuCopy.Size = new System.Drawing.Size(102, 22);
+            this.mnuCopy.Text = "&Copy";
+            this.mnuCopy.Click += new System.EventHandler(this.mnuCopy_Click);
+            // 
             // frmViewProfile
             // 
             this.AcceptButton = this.btnClose;
@@ -181,6 +201,7 @@
             this.Text = "Profile Viewer";
             this.mnuProfileImage.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.picIcon)).EndInit();
+            this.mnuCopyUtility.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -198,5 +219,7 @@
         private System.Windows.Forms.ToolStripMenuItem mnuChangePhoto;
         private System.Windows.Forms.ToolStripMenuItem mnuRemovePhoto;
         private System.Windows.Forms.LinkLabel lnkView;
+        private System.Windows.Forms.ContextMenuStrip mnuCopyUtility;
+        private System.Windows.Forms.ToolStripMenuItem mnuCopy;
     }
 }

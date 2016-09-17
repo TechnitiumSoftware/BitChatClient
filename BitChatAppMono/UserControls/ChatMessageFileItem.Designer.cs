@@ -39,9 +39,18 @@
             this.picPointLeft = new System.Windows.Forms.PictureBox();
             this.picPointRight = new System.Windows.Forms.PictureBox();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
+            this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.startDownloadToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.startSharingToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.pauseToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.shareToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.openFileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.openContainingFolderToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.removeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.pnlBubble.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.picPointLeft)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.picPointRight)).BeginInit();
+            this.contextMenuStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
             // lblFileName
@@ -171,10 +180,74 @@
             this.picPointRight.TabStop = false;
             this.picPointRight.Visible = false;
             // 
+            // contextMenuStrip1
+            // 
+            this.contextMenuStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.startDownloadToolStripMenuItem,
+            this.startSharingToolStripMenuItem,
+            this.pauseToolStripMenuItem,
+            this.shareToolStripMenuItem,
+            this.openFileToolStripMenuItem,
+            this.openContainingFolderToolStripMenuItem,
+            this.removeToolStripMenuItem});
+            this.contextMenuStrip1.Name = "contextMenuStrip1";
+            this.contextMenuStrip1.Size = new System.Drawing.Size(202, 158);
+            this.contextMenuStrip1.Opening += new System.ComponentModel.CancelEventHandler(this.contextMenuStrip1_Opening);
+            // 
+            // startDownloadToolStripMenuItem
+            // 
+            this.startDownloadToolStripMenuItem.Name = "startDownloadToolStripMenuItem";
+            this.startDownloadToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
+            this.startDownloadToolStripMenuItem.Text = "&Start Download";
+            this.startDownloadToolStripMenuItem.Click += new System.EventHandler(this.startDownloadToolStripMenuItem_Click);
+            // 
+            // startSharingToolStripMenuItem
+            // 
+            this.startSharingToolStripMenuItem.Name = "startSharingToolStripMenuItem";
+            this.startSharingToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
+            this.startSharingToolStripMenuItem.Text = "&Start Sharing";
+            this.startSharingToolStripMenuItem.Click += new System.EventHandler(this.startSharingToolStripMenuItem_Click);
+            // 
+            // pauseToolStripMenuItem
+            // 
+            this.pauseToolStripMenuItem.Name = "pauseToolStripMenuItem";
+            this.pauseToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
+            this.pauseToolStripMenuItem.Text = "&Pause";
+            this.pauseToolStripMenuItem.Click += new System.EventHandler(this.pauseToolStripMenuItem_Click);
+            // 
+            // shareToolStripMenuItem
+            // 
+            this.shareToolStripMenuItem.Name = "shareToolStripMenuItem";
+            this.shareToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
+            this.shareToolStripMenuItem.Text = "&Share With";
+            this.shareToolStripMenuItem.Click += new System.EventHandler(this.shareToolStripMenuItem_Click);
+            // 
+            // openFileToolStripMenuItem
+            // 
+            this.openFileToolStripMenuItem.Name = "openFileToolStripMenuItem";
+            this.openFileToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
+            this.openFileToolStripMenuItem.Text = "&Open File";
+            this.openFileToolStripMenuItem.Click += new System.EventHandler(this.openFileToolStripMenuItem_Click);
+            // 
+            // openContainingFolderToolStripMenuItem
+            // 
+            this.openContainingFolderToolStripMenuItem.Name = "openContainingFolderToolStripMenuItem";
+            this.openContainingFolderToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
+            this.openContainingFolderToolStripMenuItem.Text = "Open Containing &Folder";
+            this.openContainingFolderToolStripMenuItem.Click += new System.EventHandler(this.openContainingFolderToolStripMenuItem_Click);
+            // 
+            // removeToolStripMenuItem
+            // 
+            this.removeToolStripMenuItem.Name = "removeToolStripMenuItem";
+            this.removeToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
+            this.removeToolStripMenuItem.Text = "&Remove";
+            this.removeToolStripMenuItem.Click += new System.EventHandler(this.removeToolStripMenuItem_Click);
+            // 
             // ChatMessageFileItem
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.BackColor = System.Drawing.Color.Transparent;
+            this.ContextMenuStrip = this.contextMenuStrip1;
             this.Controls.Add(this.picPointRight);
             this.Controls.Add(this.picPointLeft);
             this.Controls.Add(this.pnlBubble);
@@ -184,6 +257,7 @@
             this.pnlBubble.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.picPointLeft)).EndInit();
             ((System.ComponentModel.ISupportInitialize)(this.picPointRight)).EndInit();
+            this.contextMenuStrip1.ResumeLayout(false);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -201,5 +275,13 @@
         private System.Windows.Forms.PictureBox picPointRight;
         private System.Windows.Forms.Label lblDateTime;
         private System.Windows.Forms.ToolTip toolTip1;
+        private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
+        private System.Windows.Forms.ToolStripMenuItem startDownloadToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem startSharingToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem pauseToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem openFileToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem openContainingFolderToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem removeToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem shareToolStripMenuItem;
     }
 }

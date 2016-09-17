@@ -171,6 +171,17 @@ namespace BitChatApp
             }
         }
 
+        private void mnuCopy_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Clipboard.Clear();
+                Clipboard.SetText(labName.Text);
+            }
+            catch
+            { }
+        }
+
         private void btnClose_Click(object sender, EventArgs e)
         {
             if (_changesMade)

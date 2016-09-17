@@ -40,7 +40,7 @@ namespace BitChatApp
 
         #region constructor
 
-        public frmViewProfile(BitChatProfile profile, BitChat.Peer peer = null)
+        public frmViewProfile(BitChatProfile profile, BitChat.Peer peer)
         {
             InitializeComponent();
 
@@ -263,6 +263,31 @@ namespace BitChatApp
                 {
                     frm.ShowDialog(this);
                 }
+            }
+        }
+
+        private void labName_MouseUp(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Right)
+            {
+                mnuCopyUtility.Tag = sender;
+                mnuCopyUtility.Show(sender as Control, e.Location);
+            }
+        }
+
+        private void mnuCopy_Click(object sender, EventArgs e)
+        {
+            Label label = mnuCopyUtility.Tag as Label;
+
+            if (label != null)
+            {
+                try
+                {
+                    Clipboard.Clear();
+                    Clipboard.SetText(label.Text);
+                }
+                catch
+                { }
             }
         }
 

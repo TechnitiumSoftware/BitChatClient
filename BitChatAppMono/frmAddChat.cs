@@ -34,11 +34,14 @@ namespace BitChatApp
 
         #region Form Code
 
-        public frmAddChat(BitChatNetworkType type)
+        public frmAddChat(BitChatNetworkType type, string networkNameOrPeerEmailAddress)
         {
             InitializeComponent();
 
             _type = type;
+
+            if (networkNameOrPeerEmailAddress != null)
+                txtNetworkNameOrPeerEmailAddress.Text = networkNameOrPeerEmailAddress;
 
             if (type == BitChatNetworkType.PrivateChat)
             {

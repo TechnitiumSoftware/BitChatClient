@@ -185,7 +185,7 @@ namespace BitChatApp.UserControls
             this.ResumeLayout();
 
             if (ItemClick != null)
-                ItemClick(this, EventArgs.Empty);
+                ItemClick(sender, EventArgs.Empty);
         }
 
         private void item_DoubleClick(object sender, EventArgs e)
@@ -197,7 +197,7 @@ namespace BitChatApp.UserControls
             this.ResumeLayout();
 
             if (ItemDoubleClick != null)
-                ItemDoubleClick(this, EventArgs.Empty);
+                ItemDoubleClick(sender, EventArgs.Empty);
         }
 
         private void item_MouseUp(object sender, MouseEventArgs e)
@@ -211,30 +211,28 @@ namespace BitChatApp.UserControls
             this.ResumeLayout();
 
             if (selected && (ItemClick != null))
-                ItemClick(this, EventArgs.Empty);
-
-            e = new MouseEventArgs(e.Button, e.Clicks, obj.Location.X + e.X, obj.Location.Y + e.Y, e.Delta);
+                ItemClick(sender, EventArgs.Empty);
 
             if (ItemMouseUp != null)
-                ItemMouseUp(this, e);
+                ItemMouseUp(sender, e);
         }
 
         private void item_KeyPress(object sender, KeyPressEventArgs e)
         {
             if (ItemKeyPress != null)
-                ItemKeyPress(this, e);
+                ItemKeyPress(sender, e);
         }
 
         private void item_KeyUp(object sender, KeyEventArgs e)
         {
             if (ItemKeyUp != null)
-                ItemKeyUp(this, e);
+                ItemKeyUp(sender, e);
         }
 
         private void item_KeyDown(object sender, KeyEventArgs e)
         {
             if (ItemKeyDown != null)
-                ItemKeyDown(this, e);
+                ItemKeyDown(sender, e);
         }
 
         private void item_SortList(object sender, EventArgs e)

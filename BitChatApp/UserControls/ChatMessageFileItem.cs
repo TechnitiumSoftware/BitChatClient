@@ -22,6 +22,7 @@ using BitChatCore.FileSharing;
 using System;
 using System.Diagnostics;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
 using TechnitiumLibrary.Net;
 
@@ -29,6 +30,12 @@ namespace BitChatApp.UserControls
 {
     public partial class ChatMessageFileItem : CustomListViewItem, IChatMessageItem
     {
+        #region events
+
+        public event EventHandler ShareFile;
+
+        #endregion  
+
         #region variables
 
         BitChat.Peer _senderPeer;
@@ -88,7 +95,11 @@ namespace BitChatApp.UserControls
                         break;
 
                     case SharedFileState.Paused:
-                        linkAction.Text = "Start";
+                        if (_sharedFile.IsComplete)
+                            linkAction.Text = "Open";
+                        else
+                            linkAction.Text = "Download";
+
                         break;
                 }
             }
@@ -123,28 +134,15 @@ namespace BitChatApp.UserControls
             switch (linkAction.Text)
             {
                 case "Download":
-                case "Start":
                     _sharedFile.Start();
-                    linkAction.Text = "Pause";
                     break;
 
                 case "Pause":
                     _sharedFile.Pause();
-                    linkAction.Text = "Start";
                     break;
 
                 case "Open":
-                    if (MessageBox.Show("Are you sure to open the file?\r\n\r\nFile: " + _sharedFile.MetaData.FileName + "\r\nType: " + _sharedFile.MetaData.ContentType.MediaType + "\r\nSize: " + WebUtilities.GetFormattedSize(_sharedFile.MetaData.FileSize) + "\r\n\r\nWARNING! Do NOT open files sent by untrusted people as the files may be infected with trojan/virus.", "Open File Warning!", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.Yes)
-                    {
-                        try
-                        {
-                            Process.Start(_sharedFile.FilePath);
-                        }
-                        catch (Exception ex)
-                        {
-                            MessageBox.Show("Error! " + ex.Message, "Error!", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                        }
-                    }
+                    openFileToolStripMenuItem_Click(null, null);
                     break;
             }
         }
@@ -156,12 +154,15 @@ namespace BitChatApp.UserControls
 
         private void sharedFile_FileSharingStarted(object sender, EventArgs e)
         {
-            linkAction.Text = "Pause";
+            linkAction.Text = "Open";
         }
 
         private void sharedFile_FilePaused(object sender, EventArgs e)
         {
-            linkAction.Text = "Start";
+            if (_sharedFile.IsComplete)
+                linkAction.Text = "Open";
+            else
+                linkAction.Text = "Download";
         }
 
         private void sharedFile_FileDownloaded(object sender, EventArgs e)
@@ -172,7 +173,10 @@ namespace BitChatApp.UserControls
         private void BitChat_FileRemoved(BitChat chat, SharedFile sharedFile)
         {
             if (_sharedFile == sharedFile)
+            {
                 linkAction.Visible = false;
+                _sharedFile = null;
+            }
         }
 
         private void lblUsername_Click(object sender, EventArgs e)
@@ -194,6 +198,106 @@ namespace BitChatApp.UserControls
         private void lblUsername_MouseLeave(object sender, EventArgs e)
         {
             lblUsername.Font = new Font(lblUsername.Font, FontStyle.Regular | FontStyle.Bold);
+        }
+
+        private void contextMenuStrip1_Opening(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            if (_sharedFile == null)
+            {
+                e.Cancel = true;
+                return;
+            }
+
+            switch (_sharedFile.State)
+            {
+                case SharedFileState.Advertisement:
+                    startDownloadToolStripMenuItem.Visible = true;
+                    startSharingToolStripMenuItem.Visible = false;
+                    pauseToolStripMenuItem.Visible = false;
+                    shareToolStripMenuItem.Visible = false;
+                    openFileToolStripMenuItem.Visible = false;
+                    openContainingFolderToolStripMenuItem.Visible = false;
+                    break;
+
+                case SharedFileState.Sharing:
+                    startDownloadToolStripMenuItem.Visible = false;
+                    startSharingToolStripMenuItem.Visible = false;
+                    pauseToolStripMenuItem.Visible = true;
+                    shareToolStripMenuItem.Visible = true;
+                    openFileToolStripMenuItem.Visible = true;
+                    openContainingFolderToolStripMenuItem.Visible = true;
+                    break;
+
+                case SharedFileState.Downloading:
+                    startDownloadToolStripMenuItem.Visible = false;
+                    startSharingToolStripMenuItem.Visible = false;
+                    pauseToolStripMenuItem.Visible = true;
+                    shareToolStripMenuItem.Visible = false;
+                    openFileToolStripMenuItem.Visible = false;
+                    openContainingFolderToolStripMenuItem.Visible = false;
+                    break;
+
+                case SharedFileState.Paused:
+                    startDownloadToolStripMenuItem.Visible = !_sharedFile.IsComplete;
+                    startSharingToolStripMenuItem.Visible = _sharedFile.IsComplete;
+                    pauseToolStripMenuItem.Visible = false;
+                    shareToolStripMenuItem.Visible = _sharedFile.IsComplete;
+                    openFileToolStripMenuItem.Visible = _sharedFile.IsComplete;
+                    openContainingFolderToolStripMenuItem.Visible = _sharedFile.IsComplete;
+                    break;
+            }
+        }
+
+        private void startDownloadToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            _sharedFile.Start();
+        }
+
+        private void startSharingToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            _sharedFile.Start();
+        }
+
+        private void pauseToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            _sharedFile.Pause();
+        }
+
+        private void openFileToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            if (MessageBox.Show("Are you sure to open the file?\r\n\r\nFile: " + _sharedFile.MetaData.FileName + "\r\nType: " + _sharedFile.MetaData.ContentType.MediaType + "\r\nSize: " + WebUtilities.GetFormattedSize(_sharedFile.MetaData.FileSize) + "\r\n\r\nWARNING! Do NOT open files sent by untrusted people as the files may be infected with trojan/virus.", "Open File Warning!", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.Yes)
+            {
+                try
+                {
+                    Process.Start(_sharedFile.FilePath);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Error! " + ex.Message, "Error!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void openContainingFolderToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                Process.Start(Path.GetDirectoryName(_sharedFile.FilePath));
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error! " + ex.Message, "Error!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void removeToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            _senderPeer.BitChat.RemoveSharedFile(_sharedFile);
+        }
+
+        private void shareToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ShareFile?.Invoke(_sharedFile, EventArgs.Empty);
         }
 
         #endregion

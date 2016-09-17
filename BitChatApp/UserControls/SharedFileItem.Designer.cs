@@ -44,6 +44,7 @@
             this.openFileToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.openContainingFolderToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.removeToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.shareToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.btnStart)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.btnPause)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.btnRemove)).BeginInit();
@@ -147,53 +148,61 @@
             this.startDownloadToolStripMenuItem,
             this.startSharingToolStripMenuItem,
             this.pauseToolStripMenuItem,
+            this.shareToolStripMenuItem,
             this.openFileToolStripMenuItem,
             this.openContainingFolderToolStripMenuItem,
             this.removeToolStripMenuItem});
             this.contextMenuStrip1.Name = "contextMenuStrip1";
-            this.contextMenuStrip1.Size = new System.Drawing.Size(202, 136);
+            this.contextMenuStrip1.Size = new System.Drawing.Size(202, 180);
             // 
             // startDownloadToolStripMenuItem
             // 
             this.startDownloadToolStripMenuItem.Name = "startDownloadToolStripMenuItem";
             this.startDownloadToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
-            this.startDownloadToolStripMenuItem.Text = "Start Download";
+            this.startDownloadToolStripMenuItem.Text = "&Start Download";
             this.startDownloadToolStripMenuItem.Click += new System.EventHandler(this.startDownloadToolStripMenuItem_Click);
             // 
             // startSharingToolStripMenuItem
             // 
             this.startSharingToolStripMenuItem.Name = "startSharingToolStripMenuItem";
             this.startSharingToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
-            this.startSharingToolStripMenuItem.Text = "Start Sharing";
+            this.startSharingToolStripMenuItem.Text = "&Start Sharing";
             this.startSharingToolStripMenuItem.Click += new System.EventHandler(this.startSharingToolStripMenuItem_Click);
             // 
             // pauseToolStripMenuItem
             // 
             this.pauseToolStripMenuItem.Name = "pauseToolStripMenuItem";
             this.pauseToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
-            this.pauseToolStripMenuItem.Text = "Pause";
+            this.pauseToolStripMenuItem.Text = "&Pause";
             this.pauseToolStripMenuItem.Click += new System.EventHandler(this.pauseToolStripMenuItem_Click);
             // 
             // openFileToolStripMenuItem
             // 
             this.openFileToolStripMenuItem.Name = "openFileToolStripMenuItem";
             this.openFileToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
-            this.openFileToolStripMenuItem.Text = "Open File";
+            this.openFileToolStripMenuItem.Text = "&Open File";
             this.openFileToolStripMenuItem.Click += new System.EventHandler(this.openFileToolStripMenuItem_Click);
             // 
             // openContainingFolderToolStripMenuItem
             // 
             this.openContainingFolderToolStripMenuItem.Name = "openContainingFolderToolStripMenuItem";
             this.openContainingFolderToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
-            this.openContainingFolderToolStripMenuItem.Text = "Open Containing Folder";
+            this.openContainingFolderToolStripMenuItem.Text = "Open Containing &Folder";
             this.openContainingFolderToolStripMenuItem.Click += new System.EventHandler(this.openContainingFolderToolStripMenuItem_Click);
             // 
             // removeToolStripMenuItem
             // 
             this.removeToolStripMenuItem.Name = "removeToolStripMenuItem";
             this.removeToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
-            this.removeToolStripMenuItem.Text = "Remove";
+            this.removeToolStripMenuItem.Text = "&Remove";
             this.removeToolStripMenuItem.Click += new System.EventHandler(this.removeToolStripMenuItem_Click);
+            // 
+            // shareWithToolStripMenuItem
+            // 
+            this.shareToolStripMenuItem.Name = "shareWithToolStripMenuItem";
+            this.shareToolStripMenuItem.Size = new System.Drawing.Size(201, 22);
+            this.shareToolStripMenuItem.Text = "&Share With";
+            this.shareToolStripMenuItem.Click += new System.EventHandler(this.shareToolStripMenuItem_Click);
             // 
             // SharedFileItem
             // 
@@ -233,5 +242,6 @@
         private System.Windows.Forms.ToolStripMenuItem removeToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem openFileToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem openContainingFolderToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem shareToolStripMenuItem;
     }
 }

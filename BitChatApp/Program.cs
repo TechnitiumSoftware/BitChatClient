@@ -24,6 +24,7 @@ using System.Reflection;
 using System.Security.Principal;
 using System.Threading;
 using System.Windows.Forms;
+using TechnitiumLibrary.Net.Firewall;
 using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatApp
@@ -93,24 +94,34 @@ NgEA
                 Application.EnableVisualStyles();
                 Application.SetCompatibleTextRenderingDefault(false);
 
-                #region check for admin priviledge
+                #region check windows firewall entry
 
-                if (!(new WindowsPrincipal(WindowsIdentity.GetCurrent())).IsInRole(WindowsBuiltInRole.Administrator))
+                string appPath = Assembly.GetExecutingAssembly().CodeBase.Replace("file:///", "").Replace("/", "\\");
+                bool firewallEntryExists = WindowsFirewallEntryExists(appPath);
+
+                if (!firewallEntryExists)
                 {
-                    string appPath = Assembly.GetExecutingAssembly().CodeBase.Replace("file:///", "").Replace("/", "\\");
+                    bool isAdmin = (new WindowsPrincipal(WindowsIdentity.GetCurrent())).IsInRole(WindowsBuiltInRole.Administrator);
 
-                    ProcessStartInfo processInfo = new ProcessStartInfo(appPath, string.Join(" ", args));
-
-                    processInfo.UseShellExecute = true;
-                    processInfo.Verb = "runas";
-
-                    try
+                    if (isAdmin)
                     {
-                        Process.Start(processInfo);
-                        return;
+                        AddWindowsFirewallEntry(appPath);
                     }
-                    catch
-                    { }
+                    else
+                    {
+                        ProcessStartInfo processInfo = new ProcessStartInfo(appPath, string.Join(" ", args));
+
+                        processInfo.UseShellExecute = true;
+                        processInfo.Verb = "runas";
+
+                        try
+                        {
+                            Process.Start(processInfo);
+                            return;
+                        }
+                        catch
+                        { }
+                    }
                 }
 
                 #endregion
@@ -187,5 +198,93 @@ NgEA
         }
 
         #endregion
+
+        private static bool WindowsFirewallEntryExists(string appPath)
+        {
+            switch (Environment.OSVersion.Platform)
+            {
+                case PlatformID.Win32NT:
+                    if (Environment.OSVersion.Version.Major > 5)
+                    {
+                        //vista and above
+                        try
+                        {
+                            return WindowsFirewall.RuleExistsVista("", appPath) == RuleStatus.Allowed;
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            return WindowsFirewall.ApplicationExists(appPath) == RuleStatus.Allowed;
+                        }
+                        catch
+                        {
+                            return false;
+                        }
+                    }
+
+                default:
+                    return true;
+            }
+        }
+
+        private static void AddWindowsFirewallEntry(string appPath)
+        {
+            switch (Environment.OSVersion.Platform)
+            {
+                case PlatformID.Win32NT:
+                    if (Environment.OSVersion.Version.Major > 5)
+                    {
+                        //vista and above
+                        try
+                        {
+                            RuleStatus status = WindowsFirewall.RuleExistsVista("", appPath);
+
+                            switch (status)
+                            {
+                                case RuleStatus.Blocked:
+                                case RuleStatus.Disabled:
+                                    WindowsFirewall.RemoveRuleVista("", appPath);
+                                    break;
+
+                                case RuleStatus.Allowed:
+                                    return;
+                            }
+
+                            WindowsFirewall.AddRuleVista("Bit Chat", "Allow incoming connection request to Bit Chat application.", FirewallAction.Allow, appPath, Protocol.ANY);
+                        }
+                        catch
+                        { }
+                    }
+                    else
+                    {
+                        try
+                        {
+                            RuleStatus status = WindowsFirewall.ApplicationExists(appPath);
+
+                            switch (status)
+                            {
+                                case RuleStatus.Disabled:
+                                    WindowsFirewall.RemoveApplication(appPath);
+                                    break;
+
+                                case RuleStatus.Allowed:
+                                    return;
+                            }
+
+                            WindowsFirewall.AddApplication("Bit Chat", appPath);
+                        }
+                        catch
+                        { }
+                    }
+
+                    break;
+            }
+        }
     }
 }

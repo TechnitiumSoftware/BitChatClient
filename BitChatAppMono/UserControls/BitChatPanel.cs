@@ -33,6 +33,8 @@ namespace BitChatApp.UserControls
 
         public event EventHandler SettingsModified;
         public event MessageNotification MessageNotification;
+        public event EventHandler SwitchToPrivateChat;
+        public event EventHandler ShareFile;
 
         #endregion
 
@@ -62,6 +64,7 @@ namespace BitChatApp.UserControls
             _view.Dock = DockStyle.Fill;
             _view.AllowDrop = true;
             _view.SettingsModified += view_SettingsModified;
+            _view.ShareFile += view_ShareFile;
             _view.DragEnter += lstFiles_DragEnter;
             _view.DragDrop += lstFiles_DragDrop;
 
@@ -69,11 +72,7 @@ namespace BitChatApp.UserControls
             foreach (BitChat.Peer peer in _chat.GetPeerList())
             {
                 lstUsers.AddItem(new UserListItem(peer));
-
-                if (!peer.IsSelf)
-                    peer.ProfileImageChanged += _view.peer_ProfileImageChanged;
-
-                peer.StateChanged += _view.peer_StateChanged;
+                
                 peer.StateChanged += peer_StateChanged;
             }
 
@@ -92,15 +91,15 @@ namespace BitChatApp.UserControls
         private void chat_PeerAdded(BitChat sender, BitChat.Peer peer)
         {
             lstUsers.AddItem(new UserListItem(peer));
-            peer.ProfileImageChanged += _view.peer_ProfileImageChanged;
-            peer.StateChanged += _view.peer_StateChanged;
+
             peer.StateChanged += peer_StateChanged;
         }
 
         private void chat_FileAdded(BitChat.Peer peer, MessageItem message, SharedFile sharedFile)
         {
             SharedFileItem item = new SharedFileItem(sharedFile, _chat);
-            item.FileRemoved += OnFileRemoved;
+            item.FileRemoved += sharedFile_FileRemoved;
+            item.ShareFile += view_ShareFile;
 
             lstFiles.AddItem(item);
         }
@@ -115,17 +114,33 @@ namespace BitChatApp.UserControls
         {
             BitChat.Peer peer = sender as BitChat.Peer;
 
+            string message;
+
             if (peer.IsOnline)
-                MessageNotification(_chat, null, peer.PeerCertificate.IssuedTo.Name + " is online");
+                message = peer.PeerCertificate.IssuedTo.Name + " is online";
             else
-                MessageNotification(_chat, null, peer.PeerCertificate.IssuedTo.Name + " is offline");
+                message = peer.PeerCertificate.IssuedTo.Name + " is offline";
+
+            _chat.WriteInfoMessage(message);
+
+            if (_chat.NetworkType == BitChatCore.Network.BitChatNetworkType.PrivateChat)
+                _view.Title = peer.PeerCertificate.IssuedTo.Name + " <" + peer.PeerCertificate.IssuedTo.EmailAddress.Address + ">";
+
+            MessageNotification(_chat, null, message);
         }
-        
+
+        private void sharedFile_FileRemoved(object sender, EventArgs e)
+        {
+            SharedFileItem item = sender as SharedFileItem;
+
+            lstFiles.RemoveItem(item);
+        }
+
         #endregion
 
         #region private
 
-        private void lstUsers_ItemClick(object sender, EventArgs e)
+        private void mnuViewUserProfile_Click(object sender, EventArgs e)
         {
             UserListItem item = lstUsers.SelectedItem as UserListItem;
 
@@ -138,13 +153,35 @@ namespace BitChatApp.UserControls
             }
         }
 
-        private void OnFileRemoved(object sender, EventArgs e)
+        private void mnuMessageUser_Click(object sender, EventArgs e)
         {
-            SharedFileItem item = sender as SharedFileItem;
+            UserListItem item = lstUsers.SelectedItem as UserListItem;
 
-            lstFiles.RemoveItem(item);
+            if (item != null)
+                SwitchToPrivateChat(item, EventArgs.Empty);
         }
 
+        private void lstUsers_ItemMouseUp(object sender, MouseEventArgs e)
+        {
+            UserListItem item = lstUsers.SelectedItem as UserListItem;
+
+            if (item != null)
+            {
+                if (e.Button == MouseButtons.Right)
+                {
+                    mnuMessageUser.Enabled = (item.Peer.BitChat.NetworkType == BitChatCore.Network.BitChatNetworkType.GroupChat) && !item.Peer.IsSelf;
+                    mnuUserList.Show(sender as Control, e.Location);
+                }
+                else
+                {
+                    using (frmViewProfile frm = new frmViewProfile(_chat.Profile, item.Peer))
+                    {
+                        frm.ShowDialog(this);
+                    }
+                }
+            }
+        }
+        
         private void SplitContainer_SplitterMoved(object sender, SplitterEventArgs e)
         {
             if ((SettingsModified != null) && !_skipSettingsModifiedEvent)
@@ -155,6 +192,11 @@ namespace BitChatApp.UserControls
         {
             if ((SettingsModified != null) && !_skipSettingsModifiedEvent)
                 SettingsModified(this, EventArgs.Empty);
+        }
+
+        private void view_ShareFile(object sender, EventArgs e)
+        {
+            ShareFile?.Invoke(sender, e);
         }
 
         private void lstFiles_DragDrop(object sender, DragEventArgs e)
@@ -182,6 +224,11 @@ namespace BitChatApp.UserControls
         #endregion
 
         #region public
+
+        public void SetFocusMessageEditor()
+        {
+            _view.SetFocusMessageEditor();
+        }
 
         public void TrimMessageList()
         {
@@ -217,13 +264,6 @@ namespace BitChatApp.UserControls
 
             _view.WriteSettingsTo(bW);
         }
-
-        #endregion
-
-        #region properties
-
-        public BitChat BitChat
-        { get { return _chat; } }
 
         #endregion
     }

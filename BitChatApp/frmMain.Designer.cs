@@ -72,6 +72,7 @@ namespace BitChatApp
             this.mnuAbout2 = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
             this.mnuExit2 = new System.Windows.Forms.ToolStripMenuItem();
+            this.mnuViewPeerProfile = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuChat.SuspendLayout();
             this.mnuSysTray.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.mainContainer)).BeginInit();
@@ -92,13 +93,14 @@ namespace BitChatApp
             this.mnuGoOffline,
             this.mnuLeaveChat,
             this.toolStripSeparator6,
+            this.mnuViewPeerProfile,
             this.mnuGroupPhoto,
             this.mnuProperties,
             this.toolStripSeparator1,
             this.mnuAddPrivateChat2,
             this.mnuAddGroupChat2});
             this.mnuChat.Name = "chatContextMenu";
-            this.mnuChat.Size = new System.Drawing.Size(164, 170);
+            this.mnuChat.Size = new System.Drawing.Size(164, 214);
             // 
             // mnuMuteNotifications
             // 
@@ -469,6 +471,13 @@ namespace BitChatApp
             this.mnuExit2.Text = "E&xit";
             this.mnuExit2.Click += new System.EventHandler(this.mnuExit_Click);
             // 
+            // mnuViewPeerProfile
+            // 
+            this.mnuViewPeerProfile.Name = "mnuViewPeerProfile";
+            this.mnuViewPeerProfile.Size = new System.Drawing.Size(163, 22);
+            this.mnuViewPeerProfile.Text = "&View Profile";
+            this.mnuViewPeerProfile.Click += new System.EventHandler(this.mnuViewPeerProfile_Click);
+            // 
             // frmMain
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -546,6 +555,7 @@ namespace BitChatApp
         private System.Windows.Forms.ToolStripMenuItem mnuGroupPhoto;
         private System.Windows.Forms.ToolStripMenuItem mnuViewProfile;
         private System.Windows.Forms.ToolStripSeparator toolStripSeparator7;
+        private System.Windows.Forms.ToolStripMenuItem mnuViewPeerProfile;
     }
 }
 

@@ -18,15 +18,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
-using System.Text;
 using System.Windows.Forms;
 
 namespace BitChatApp.UserControls
 {
-    public partial class CustomListViewPanel : BitChatApp.UserControls.CustomPanel
+    public partial class CustomListViewPanel : CustomPanel
     {
         #region events
 
@@ -72,37 +68,37 @@ namespace BitChatApp.UserControls
         private void customListView1_ItemClick(object sender, EventArgs e)
         {
             if (ItemClick != null)
-                ItemClick(this, e);
+                ItemClick(sender, e);
         }
 
         private void customListView1_ItemDoubleClick(object sender, EventArgs e)
         {
             if (ItemDoubleClick != null)
-                ItemDoubleClick(this, e);
+                ItemDoubleClick(sender, e);
         }
 
         private void customListView1_ItemKeyDown(object sender, KeyEventArgs e)
         {
             if (ItemKeyDown != null)
-                ItemKeyDown(this, e);
+                ItemKeyDown(sender, e);
         }
 
         private void customListView1_ItemKeyPress(object sender, KeyPressEventArgs e)
         {
             if (ItemKeyPress != null)
-                ItemKeyPress(this, e);
+                ItemKeyPress(sender, e);
         }
 
         private void customListView1_ItemKeyUp(object sender, KeyEventArgs e)
         {
             if (ItemKeyUp != null)
-                ItemKeyUp(this, e);
+                ItemKeyUp(sender, e);
         }
 
         private void customListView1_ItemMouseUp(object sender, MouseEventArgs e)
         {
             if (ItemMouseUp != null)
-                ItemMouseUp(this, e);
+                ItemMouseUp(sender, e);
         }
 
         #endregion

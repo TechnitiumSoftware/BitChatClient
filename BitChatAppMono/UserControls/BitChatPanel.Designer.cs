@@ -28,10 +28,14 @@
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.bitChatPanelSplitContainer = new System.Windows.Forms.SplitContainer();
             this.chatOptionsSplitContainer = new System.Windows.Forms.SplitContainer();
             this.lstUsers = new BitChatApp.UserControls.CustomListViewPanel();
             this.lstFiles = new BitChatApp.UserControls.CustomListViewPanel();
+            this.mnuUserList = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.mnuViewUserProfile = new System.Windows.Forms.ToolStripMenuItem();
+            this.mnuMessageUser = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.bitChatPanelSplitContainer)).BeginInit();
             this.bitChatPanelSplitContainer.Panel2.SuspendLayout();
             this.bitChatPanelSplitContainer.SuspendLayout();
@@ -39,6 +43,7 @@
             this.chatOptionsSplitContainer.Panel1.SuspendLayout();
             this.chatOptionsSplitContainer.Panel2.SuspendLayout();
             this.chatOptionsSplitContainer.SuspendLayout();
+            this.mnuUserList.SuspendLayout();
             this.SuspendLayout();
             // 
             // bitChatPanelSplitContainer
@@ -58,7 +63,7 @@
             this.bitChatPanelSplitContainer.Panel2.Controls.Add(this.chatOptionsSplitContainer);
             this.bitChatPanelSplitContainer.Panel2MinSize = 100;
             this.bitChatPanelSplitContainer.Size = new System.Drawing.Size(738, 431);
-            this.bitChatPanelSplitContainer.SplitterDistance = 482;
+            this.bitChatPanelSplitContainer.SplitterDistance = 486;
             this.bitChatPanelSplitContainer.SplitterWidth = 2;
             this.bitChatPanelSplitContainer.TabIndex = 12;
             this.bitChatPanelSplitContainer.SplitterMoved += new System.Windows.Forms.SplitterEventHandler(this.SplitContainer_SplitterMoved);
@@ -81,8 +86,8 @@
             this.chatOptionsSplitContainer.Panel2.Controls.Add(this.lstFiles);
             this.chatOptionsSplitContainer.Panel2.Padding = new System.Windows.Forms.Padding(3, 3, 6, 6);
             this.chatOptionsSplitContainer.Panel2MinSize = 100;
-            this.chatOptionsSplitContainer.Size = new System.Drawing.Size(254, 431);
-            this.chatOptionsSplitContainer.SplitterDistance = 172;
+            this.chatOptionsSplitContainer.Size = new System.Drawing.Size(250, 431);
+            this.chatOptionsSplitContainer.SplitterDistance = 176;
             this.chatOptionsSplitContainer.SplitterWidth = 2;
             this.chatOptionsSplitContainer.TabIndex = 12;
             this.chatOptionsSplitContainer.SplitterMoved += new System.Windows.Forms.SplitterEventHandler(this.SplitContainer_SplitterMoved);
@@ -95,11 +100,11 @@
             this.lstUsers.Name = "lstUsers";
             this.lstUsers.Padding = new System.Windows.Forms.Padding(1, 1, 2, 2);
             this.lstUsers.SeperatorSize = 0;
-            this.lstUsers.Size = new System.Drawing.Size(245, 163);
+            this.lstUsers.Size = new System.Drawing.Size(241, 167);
             this.lstUsers.SortItems = true;
             this.lstUsers.TabIndex = 0;
             this.lstUsers.Title = "People";
-            this.lstUsers.ItemClick += new System.EventHandler(this.lstUsers_ItemClick);
+            this.lstUsers.ItemMouseUp += new System.Windows.Forms.MouseEventHandler(this.lstUsers_ItemMouseUp);
             // 
             // lstFiles
             // 
@@ -110,12 +115,34 @@
             this.lstFiles.Name = "lstFiles";
             this.lstFiles.Padding = new System.Windows.Forms.Padding(1, 1, 2, 2);
             this.lstFiles.SeperatorSize = 0;
-            this.lstFiles.Size = new System.Drawing.Size(245, 248);
+            this.lstFiles.Size = new System.Drawing.Size(241, 244);
             this.lstFiles.SortItems = true;
             this.lstFiles.TabIndex = 0;
             this.lstFiles.Title = "Files";
             this.lstFiles.DragDrop += new System.Windows.Forms.DragEventHandler(this.lstFiles_DragDrop);
             this.lstFiles.DragEnter += new System.Windows.Forms.DragEventHandler(this.lstFiles_DragEnter);
+            // 
+            // mnuUserList
+            // 
+            this.mnuUserList.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.mnuViewUserProfile,
+            this.mnuMessageUser});
+            this.mnuUserList.Name = "mnuUserList";
+            this.mnuUserList.Size = new System.Drawing.Size(147, 48);
+            // 
+            // mnuViewUserProfile
+            // 
+            this.mnuViewUserProfile.Name = "mnuViewUserProfile";
+            this.mnuViewUserProfile.Size = new System.Drawing.Size(146, 22);
+            this.mnuViewUserProfile.Text = "&View Profile";
+            this.mnuViewUserProfile.Click += new System.EventHandler(this.mnuViewUserProfile_Click);
+            // 
+            // mnuMessageUser
+            // 
+            this.mnuMessageUser.Name = "mnuMessageUser";
+            this.mnuMessageUser.Size = new System.Drawing.Size(146, 22);
+            this.mnuMessageUser.Text = "Message User";
+            this.mnuMessageUser.Click += new System.EventHandler(this.mnuMessageUser_Click);
             // 
             // BitChatPanel
             // 
@@ -132,6 +159,7 @@
             this.chatOptionsSplitContainer.Panel2.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.chatOptionsSplitContainer)).EndInit();
             this.chatOptionsSplitContainer.ResumeLayout(false);
+            this.mnuUserList.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -142,5 +170,8 @@
         private System.Windows.Forms.SplitContainer chatOptionsSplitContainer;
         private UserControls.CustomListViewPanel lstUsers;
         private CustomListViewPanel lstFiles;
+        private System.Windows.Forms.ContextMenuStrip mnuUserList;
+        private System.Windows.Forms.ToolStripMenuItem mnuViewUserProfile;
+        private System.Windows.Forms.ToolStripMenuItem mnuMessageUser;
     }
 }

@@ -37,13 +37,17 @@
             this.mnuGroupImage = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.mnuChangePhoto = new System.Windows.Forms.ToolStripMenuItem();
             this.mnuRemovePhoto = new System.Windows.Forms.ToolStripMenuItem();
+            this.mnuCopyUtility = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.mnuCopy = new System.Windows.Forms.ToolStripMenuItem();
             ((System.ComponentModel.ISupportInitialize)(this.picIcon)).BeginInit();
             this.mnuGroupImage.SuspendLayout();
+            this.mnuCopyUtility.SuspendLayout();
             this.SuspendLayout();
             // 
             // labName
             // 
             this.labName.AutoEllipsis = true;
+            this.labName.ContextMenuStrip = this.mnuCopyUtility;
             this.labName.Font = new System.Drawing.Font("Arial", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
             this.labName.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
             this.labName.Location = new System.Drawing.Point(10, 8);
@@ -117,6 +121,20 @@
             this.mnuRemovePhoto.Text = "Remove Photo";
             this.mnuRemovePhoto.Click += new System.EventHandler(this.mnuRemovePhoto_Click);
             // 
+            // mnuCopyUtility
+            // 
+            this.mnuCopyUtility.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.mnuCopy});
+            this.mnuCopyUtility.Name = "mnuCopyUtility";
+            this.mnuCopyUtility.Size = new System.Drawing.Size(153, 48);
+            // 
+            // mnuCopy
+            // 
+            this.mnuCopy.Name = "mnuCopy";
+            this.mnuCopy.Size = new System.Drawing.Size(152, 22);
+            this.mnuCopy.Text = "&Copy";
+            this.mnuCopy.Click += new System.EventHandler(this.mnuCopy_Click);
+            // 
             // frmViewGroup
             // 
             this.AcceptButton = this.btnClose;
@@ -139,6 +157,7 @@
             this.Text = "Group Viewer";
             ((System.ComponentModel.ISupportInitialize)(this.picIcon)).EndInit();
             this.mnuGroupImage.ResumeLayout(false);
+            this.mnuCopyUtility.ResumeLayout(false);
             this.ResumeLayout(false);
 
         }
@@ -152,5 +171,7 @@
         private System.Windows.Forms.ContextMenuStrip mnuGroupImage;
         private System.Windows.Forms.ToolStripMenuItem mnuChangePhoto;
         private System.Windows.Forms.ToolStripMenuItem mnuRemovePhoto;
+        private System.Windows.Forms.ContextMenuStrip mnuCopyUtility;
+        private System.Windows.Forms.ToolStripMenuItem mnuCopy;
     }
 }

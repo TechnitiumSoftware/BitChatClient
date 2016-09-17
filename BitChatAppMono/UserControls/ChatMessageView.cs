@@ -34,6 +34,7 @@ namespace BitChatApp.UserControls
         #region events
 
         public event EventHandler SettingsModified;
+        public event EventHandler ShareFile;
 
         #endregion
 
@@ -70,10 +71,7 @@ namespace BitChatApp.UserControls
             this.Title = _chat.NetworkDisplayTitle;
 
             if (_chat.NetworkType == BitChatCore.Network.BitChatNetworkType.GroupChat)
-            {
-                _chatItem.SetImageIcon(_chat.GroupImage);
                 _chat.GroupImageChanged += chat_GroupImageChanged;
-            }
 
             //load stored messages
             int totalMessageCount = _chat.GetMessageCount();
@@ -92,44 +90,9 @@ namespace BitChatApp.UserControls
         #endregion
 
         #region bitchat events
-
-        internal void peer_ProfileImageChanged(object sender, EventArgs e)
-        {
-            if (_chat.NetworkType == BitChatCore.Network.BitChatNetworkType.PrivateChat)
-            {
-                BitChat.Peer _peer = sender as BitChat.Peer;
-                _chatItem.SetImageIcon(_peer.ProfileImage);
-            }
-        }
-
-        internal void peer_StateChanged(object sender, EventArgs e)
-        {
-            BitChat.Peer peer = sender as BitChat.Peer;
-
-            string message;
-
-            if (peer.IsOnline)
-                message = peer.PeerCertificate.IssuedTo.Name + " is online";
-            else
-                message = peer.PeerCertificate.IssuedTo.Name + " is offline";
-
-            _chat.WriteInfoMessage(message);
-
-            if (_chat.NetworkType == BitChatCore.Network.BitChatNetworkType.PrivateChat)
-            {
-                _chatItem.SetTitle(peer.PeerCertificate.IssuedTo.Name);
-                this.Title = peer.PeerCertificate.IssuedTo.Name + " <" + peer.PeerCertificate.IssuedTo.EmailAddress.Address + ">";
-
-                if (peer.IsOnline)
-                    _chatItem.SetImageIcon(peer.ProfileImage);
-                else
-                    _chatItem.SetImageIcon(null);
-            }
-        }
-
+        
         private void chat_GroupImageChanged(BitChat sender, BitChat.Peer peer)
         {
-            _chatItem.SetImageIcon(_chat.GroupImage);
             _chat.WriteInfoMessage(peer.PeerCertificate.IssuedTo.Name + " changed group photo");
         }
 
@@ -137,26 +100,18 @@ namespace BitChatApp.UserControls
         {
             if (message.Type == MessageType.Info)
             {
-                AddMessage(new ChatMessageInfoItem(message));
+                AddMessage(new ChatMessageInfoItem(message), sender.IsSelf);
             }
             else
             {
-                AddMessage(new ChatMessageTextItem(sender, message));
+                AddMessage(new ChatMessageTextItem(sender, message), sender.IsSelf);
 
                 string msg = message.Message;
 
                 if (msg.Length > 100)
                     msg = msg.Substring(0, 100);
 
-                if (sender.IsSelf)
-                {
-                    _chatItem.SetLastMessage(msg, message.MessageDate, true);
-                }
-                else
-                {
-                    _chatItem.SetLastMessage(sender.PeerCertificate.IssuedTo.Name + ": " + msg, message.MessageDate, true);
-                    ShowPeerTypingNotification(sender.PeerCertificate.IssuedTo.Name, false);
-                }
+                ShowPeerTypingNotification(sender.PeerCertificate.IssuedTo.Name, false);
             }
         }
 
@@ -175,12 +130,10 @@ namespace BitChatApp.UserControls
 
         private void chat_FileAdded(BitChat.Peer peer, MessageItem message, SharedFile sharedFile)
         {
-            AddMessage(new ChatMessageFileItem(peer, message, sharedFile));
+            ChatMessageFileItem fileItem = new ChatMessageFileItem(peer, message, sharedFile);
+            AddMessage(fileItem, true);
 
-            if (peer.IsSelf)
-                _chatItem.SetLastMessage("file was shared", message.MessageDate, true);
-            else
-                _chatItem.SetLastMessage(peer.PeerCertificate.IssuedTo.Name + " shared a file", message.MessageDate, true);
+            fileItem.ShareFile += FileItem_ShareFile;
         }
 
         private void chat_PeerAdded(BitChat sender, BitChat.Peer peer)
@@ -188,10 +141,7 @@ namespace BitChatApp.UserControls
             _chat.WriteInfoMessage(peer.PeerCertificate.IssuedTo.Name + " joined chat");
 
             if (sender.NetworkType == BitChatCore.Network.BitChatNetworkType.PrivateChat)
-            {
-                _chatItem.SetTitle(peer.PeerCertificate.IssuedTo.Name);
                 this.Title = peer.PeerCertificate.IssuedTo.Name + " <" + peer.PeerCertificate.IssuedTo.EmailAddress.Address + ">";
-            }
         }
 
         private void chat_PeerTyping(BitChat sender, BitChat.Peer peer)
@@ -244,6 +194,11 @@ namespace BitChatApp.UserControls
 
         #region public
 
+        public void SetFocusMessageEditor()
+        {
+            txtMessage.Focus();
+        }
+
         public void TrimMessageList()
         {
             if (customListView1.IsScrolledToBottom())
@@ -264,7 +219,7 @@ namespace BitChatApp.UserControls
 
         public void ShareFiles(string[] fileNames)
         {
-            AddMessage(new ChatMessageInfoItem(new MessageItem("Please wait while file(s) are being shared")));
+            AddMessage(new ChatMessageInfoItem(new MessageItem("Please wait while file(s) are being shared")), true);
 
             Action<string[]> d = new Action<string[]>(ShareFileAsync);
             d.BeginInvoke(fileNames, null, null);
@@ -273,6 +228,11 @@ namespace BitChatApp.UserControls
         #endregion
 
         #region UI code
+
+        private void FileItem_ShareFile(object sender, EventArgs e)
+        {
+            ShareFile?.Invoke(sender, e);
+        }
 
         private void splitContainer1_SplitterMoved(object sender, SplitterEventArgs e)
         {
@@ -449,7 +409,10 @@ namespace BitChatApp.UserControls
                                 }
                             }
 
-                            listItems.Add(new ChatMessageFileItem(sender, item, file));
+                            ChatMessageFileItem fileItem = new ChatMessageFileItem(sender, item, file);
+                            listItems.Add(fileItem);
+
+                            fileItem.ShareFile += FileItem_ShareFile;
 
                             if (sender == null)
                                 lastMessage = item.Sender + " shared a file";
@@ -533,16 +496,12 @@ namespace BitChatApp.UserControls
                         labTypingNotification.Text = peerNames[0] + " and " + peerNames[1] + " are typing...";
                         break;
 
+                    case 3:
+                        labTypingNotification.Text = peerNames[0] + ", " + peerNames[1] + " and " + peerNames[2] + " are typing...";
+                        break;
+
                     default:
-                        string tmp = peerNames[0];
-
-                        for (int i = 1; i < peerNames.Count - 1; i++)
-                        {
-                            tmp += ", " + peerNames[i];
-                        }
-
-                        tmp += " and " + peerNames[peerNames.Count - 1];
-                        labTypingNotification.Text = tmp + " are typing...";
+                        labTypingNotification.Text = "many people are typing...";
                         break;
                 }
 
@@ -579,7 +538,7 @@ namespace BitChatApp.UserControls
             }
         }
 
-        private void AddMessage(CustomListViewItem item)
+        private void AddMessage(CustomListViewItem item, bool selfSender)
         {
             CustomListViewItem lastItem = customListView1.GetLastItem();
 
@@ -599,11 +558,11 @@ namespace BitChatApp.UserControls
             bool wasScrolledToBottom = customListView1.IsScrolledToBottom();
 
             if (insertDateInfo)
-                customListView1.AddItem(new ChatMessageInfoItem(new MessageItem("")));
+                customListView1.AddItem(new ChatMessageInfoItem(new MessageItem(DateTime.UtcNow)));
 
             customListView1.AddItem(item);
 
-            if (_chatItem.Selected && wasScrolledToBottom)
+            if (_chatItem.Selected && (wasScrolledToBottom || selfSender))
                 customListView1.ScrollToBottom();
         }
 
