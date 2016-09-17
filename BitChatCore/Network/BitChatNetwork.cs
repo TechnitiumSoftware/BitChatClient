@@ -337,22 +337,28 @@ namespace BitChatCore.Network
 
             if (_type == BitChatNetworkType.PrivateChat)
             {
-                if (_peerEmailAddress == null)
+                MailAddress remotePeerEmail = channel.RemotePeerCertificate.IssuedTo.EmailAddress;
+                MailAddress selfEmail = _connectionManager.Profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress;
+
+                if (!remotePeerEmail.Equals(selfEmail))
                 {
-                    BinaryID computedNetworkID = GetNetworkID(_connectionManager.Profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress, channel.RemotePeerCertificate.IssuedTo.EmailAddress, _sharedSecret);
+                    if (_peerEmailAddress == null)
+                    {
+                        BinaryID computedNetworkID = GetNetworkID(selfEmail, remotePeerEmail, _sharedSecret);
 
-                    if (!computedNetworkID.Equals(_networkID))
-                        throw new BitChatException("User with email address '" + channel.RemotePeerCertificate.IssuedTo.EmailAddress.Address + " [" + channel.RemotePeerEP.Address.ToString() + "]' is trying to join this private chat.");
+                        if (!computedNetworkID.Equals(_networkID))
+                            throw new BitChatException("User with email address '" + remotePeerEmail.Address + " [" + channel.RemotePeerEP.Address.ToString() + "]' is trying to join this private chat.");
 
-                    _peerEmailAddress = channel.RemotePeerCertificate.IssuedTo.EmailAddress;
+                        _peerEmailAddress = remotePeerEmail;
+                    }
+                    else
+                    {
+                        if (!remotePeerEmail.Equals(_peerEmailAddress))
+                            throw new BitChatException("User with email address '" + remotePeerEmail.Address + " [" + channel.RemotePeerEP.Address.ToString() + "]' is trying to join this private chat.");
+                    }
+
+                    _peerName = channel.RemotePeerCertificate.IssuedTo.Name;
                 }
-                else
-                {
-                    if (!channel.RemotePeerCertificate.IssuedTo.EmailAddress.Equals(_peerEmailAddress))
-                        throw new BitChatException("User with email address '" + channel.RemotePeerCertificate.IssuedTo.EmailAddress.Address + " [" + channel.RemotePeerEP.Address.ToString() + "]' is trying to join this private chat.");
-                }
-
-                _peerName = channel.RemotePeerCertificate.IssuedTo.Name;
             }
 
             peerID = peerID.ToLower();
@@ -573,13 +579,8 @@ namespace BitChatCore.Network
             {
                 foreach (KeyValuePair<string, VirtualPeer> vPeer in _virtualPeers)
                 {
-                    try
-                    {
-                        if (vPeer.Value.IsOnline)
-                            vPeer.Value.WriteMessage(data, offset, count);
-                    }
-                    catch
-                    { }
+                    if (vPeer.Value.IsOnline)
+                        vPeer.Value.WriteMessage(data, offset, count);
                 }
             }
             finally
