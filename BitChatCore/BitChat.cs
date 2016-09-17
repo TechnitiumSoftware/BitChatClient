@@ -160,7 +160,10 @@ namespace BitChatCore
             {
                 try
                 {
-                    _sharedFiles.Add(info.FileMetaData.FileID, SharedFile.LoadFile(info.FilePath, info.FileMetaData, info.BlockAvailable, info.State, this, _syncCxt));
+                    SharedFile sharedFile = SharedFile.LoadFile(info.FilePath, info.FileMetaData, info.BlockAvailable, info.State, _syncCxt);
+                    _sharedFiles.Add(info.FileMetaData.FileID, sharedFile);
+
+                    sharedFile.AddChat(this);
                 }
                 catch
                 { }
@@ -578,7 +581,7 @@ namespace BitChatCore
 
         public void ShareFile(string filePath, string hashAlgo = "SHA1")
         {
-            ShareFile(SharedFile.ShareFile(filePath, hashAlgo, this, _syncCxt));
+            ShareFile(SharedFile.ShareFile(filePath, hashAlgo, _syncCxt));
         }
 
         public void ShareFile(SharedFile sharedFile)
@@ -602,6 +605,8 @@ namespace BitChatCore
 
             if (fileWasAdded)
             {
+                sharedFile.AddChat(this);
+
                 MessageItem msg = new MessageItem(_selfPeer.PeerCertificate.IssuedTo.EmailAddress.Address, sharedFile.MetaData);
                 msg.WriteTo(_store);
 
@@ -609,7 +614,8 @@ namespace BitChatCore
                     RaiseEventFileAdded(_selfPeer, msg, sharedFile);
 
                 //advertise file
-                SendFileAdvertisement(sharedFile);
+                byte[] messageData = BitChatMessage.CreateFileAdvertisement(sharedFile.MetaData);
+                _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
             }
         }
 
@@ -677,6 +683,11 @@ namespace BitChatCore
             //raise event to remove object from service and refresh UI
             if (Leave != null)
                 RaiseEventLeave();
+        }
+
+        public override string ToString()
+        {
+            return _network.NetworkDisplayName;
         }
 
         #endregion
@@ -771,12 +782,6 @@ namespace BitChatCore
         {
             if (PeerHasChangedCertificate != null)
                 RaiseEventPeerHasChangedCertificate(cert);
-        }
-
-        private void SendFileAdvertisement(SharedFile sharedFile)
-        {
-            byte[] messageData = BitChatMessage.CreateFileAdvertisement(sharedFile.MetaData);
-            _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
         }
 
         private void profile_ProxyUpdated(object sender, EventArgs e)
@@ -1464,7 +1469,7 @@ namespace BitChatCore
 
                             //send delivery notification
                             byte[] notificationData = BitChatMessage.CreateTextDeliveryNotification(messageNumber);
-                            WriteMessage(notificationData);
+                            peerSession.WriteMessage(notificationData, 0, notificationData.Length);
                         }
                         #endregion
                         break;
@@ -1500,7 +1505,7 @@ namespace BitChatCore
                     case BitChatMessageType.FileAdvertisement:
                         #region FileAdvertisement
                         {
-                            SharedFile sharedFile = SharedFile.PrepareDownloadFile(new SharedFileMetaData(messageDataStream), _bitChat, _bitChat._syncCxt, peerSession);
+                            SharedFile sharedFile = SharedFile.PrepareDownloadFile(new SharedFileMetaData(messageDataStream), _bitChat._syncCxt);
                             bool fileAlreadyExists = false;
                             bool fileWasAdded = false;
 
@@ -1535,11 +1540,18 @@ namespace BitChatCore
                                 {
                                     sharedFile.AddSeeder(peerSession); //add the seeder
 
-                                    WriteMessage(BitChatMessage.CreateFileParticipate(sharedFile.MetaData.FileID));
+                                    if (sharedFile.State == SharedFileState.Downloading)
+                                    {
+                                        byte[] packetData = BitChatMessage.CreateFileParticipate(sharedFile.MetaData.FileID);
+                                        peerSession.WriteMessage(packetData, 0, packetData.Length);
+                                    }
                                 }
                             }
                             else if (fileWasAdded)
                             {
+                                sharedFile.AddChat(_bitChat); //add chat
+                                sharedFile.AddSeeder(peerSession); //add the seeder
+
                                 MessageItem msg = new MessageItem(this.PeerCertificate.IssuedTo.EmailAddress.Address, sharedFile.MetaData);
                                 msg.WriteTo(_bitChat._store);
 

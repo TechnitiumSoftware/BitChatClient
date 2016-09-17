@@ -140,7 +140,7 @@ namespace BitChatCore.FileSharing
 
         #region static
 
-        internal static SharedFile LoadFile(string filePath, SharedFileMetaData metaData, byte[] blockAvailable, SharedFileState state, BitChat chat, SynchronizationContext syncCxt)
+        internal static SharedFile LoadFile(string filePath, SharedFileMetaData metaData, byte[] blockAvailable, SharedFileState state, SynchronizationContext syncCxt)
         {
             //check if file already shared
             lock (_sharedFiles)
@@ -187,13 +187,11 @@ namespace BitChatCore.FileSharing
                     }
                 }
 
-                sharedFile.AddChat(chat);
-
                 return sharedFile;
             }
         }
 
-        internal static SharedFile ShareFile(string filePath, string hashAlgo, BitChat chat, SynchronizationContext syncCxt)
+        internal static SharedFile ShareFile(string filePath, string hashAlgo, SynchronizationContext syncCxt)
         {
             FileStream fS = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
 
@@ -280,13 +278,11 @@ namespace BitChatCore.FileSharing
                     _sharedFiles.Add(metaData.FileID, sharedFile);
                 }
 
-                sharedFile.AddChat(chat);
-
                 return sharedFile;
             }
         }
 
-        internal static SharedFile PrepareDownloadFile(SharedFileMetaData metaData, BitChat chat, SynchronizationContext syncCxt, BitChatNetwork.VirtualPeer.VirtualSession seeder = null)
+        internal static SharedFile PrepareDownloadFile(SharedFileMetaData metaData, SynchronizationContext syncCxt)
         {
             //check if file already exists
             lock (_sharedFiles)
@@ -302,11 +298,6 @@ namespace BitChatCore.FileSharing
                     sharedFile = new SharedFile(null, metaData, new byte[metaData.BlockHash.Length], 0, syncCxt);
                     _sharedFiles.Add(metaData.FileID, sharedFile);
                 }
-
-                sharedFile.AddChat(chat);
-
-                if (seeder != null)
-                    sharedFile.AddSeeder(seeder);
 
                 return sharedFile;
             }
@@ -642,12 +633,16 @@ namespace BitChatCore.FileSharing
                 {
                     _pendingBlocks = new List<int>(_blockAvailable.Length);
                     _rndPendingBlock = new Random(DateTime.UtcNow.Second);
+                }
+                else
+                {
+                    _pendingBlocks.Clear();
+                }
 
-                    for (int i = 0; i < _blockAvailable.Length; i++)
-                    {
-                        if (_blockAvailable[i] == FILE_BLOCK_NOT_AVAILABLE)
-                            _pendingBlocks.Add(i);
-                    }
+                for (int i = 0; i < _blockAvailable.Length; i++)
+                {
+                    if (_blockAvailable[i] == FILE_BLOCK_NOT_AVAILABLE)
+                        _pendingBlocks.Add(i);
                 }
 
                 if (_pendingBlocks.Count > 0)
@@ -1004,6 +999,14 @@ namespace BitChatCore.FileSharing
 
                 if (FilePaused != null)
                     RaiseEventFilePaused();
+            }
+        }
+
+        public BitChat[] GetChatList()
+        {
+            lock (_chats)
+            {
+                return _chats.ToArray();
             }
         }
 
