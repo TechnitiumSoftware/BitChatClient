@@ -37,8 +37,8 @@ namespace BitChatCore
     {
         #region event
 
-        public event EventHandler ProxyUpdated;
-        public event EventHandler ProfileImageChanged;
+        internal event EventHandler ProxyUpdated;
+        internal event EventHandler ProfileImageChanged;
 
         #endregion
 
@@ -536,14 +536,14 @@ namespace BitChatCore
                     break;
             }
 
-            ProxyUpdated?.Invoke(this, EventArgs.Empty);
+            ProxyUpdated?.BeginInvoke(this, EventArgs.Empty, null, null);
         }
 
         public void DisableProxy()
         {
             _proxy = null;
 
-            ProxyUpdated?.Invoke(this, EventArgs.Empty);
+            ProxyUpdated?.BeginInvoke(this, EventArgs.Empty, null, null);
         }
 
         internal bool SetProfileImage(long dateModified, byte[] image)
@@ -588,7 +588,7 @@ namespace BitChatCore
                 _profileImageDateModified = Convert.ToInt64((DateTime.UtcNow - _epoch).TotalMilliseconds);
                 _profileImage = value;
 
-                ProfileImageChanged?.Invoke(this, EventArgs.Empty);
+                ProfileImageChanged?.BeginInvoke(this, EventArgs.Empty, null, null);
             }
         }
 

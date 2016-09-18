@@ -60,7 +60,7 @@ namespace BitChatCore
         public event FileAddedNotification FileAdded;
         public event FileRemovedNotification FileRemoved;
         public event PeerNotification GroupImageChanged;
-        public event EventHandler Leave;
+        internal event EventHandler Leave;
 
         #endregion
 
@@ -129,9 +129,7 @@ namespace BitChatCore
             _network.VirtualPeerHasRevokedCertificate += network_VirtualPeerHasRevokedCertificate;
             _network.VirtualPeerSecureChannelException += network_VirtualPeerSecureChannelException;
             _network.VirtualPeerHasChangedCertificate += network_VirtualPeerHasChangedCertificate;
-
-            _network.ConnectionManager.Profile.ProxyUpdated += profile_ProxyUpdated;
-
+            
             _messageStoreID = messageStoreID;
             _messageStoreKey = messageStoreKey;
 
@@ -277,15 +275,27 @@ namespace BitChatCore
                     _outboundInvitationTrackerClient.Dispose();
 
                 //stop shared files
-                _sharedFilesLock.EnterReadLock();
+                _sharedFilesLock.EnterWriteLock();
                 try
                 {
                     foreach (KeyValuePair<BinaryID, SharedFile> sharedFile in _sharedFiles)
                         sharedFile.Value.RemoveChat(this);
+
+                    _sharedFiles.Clear();
                 }
                 finally
                 {
-                    _sharedFilesLock.ExitReadLock();
+                    _sharedFilesLock.ExitWriteLock();
+                }
+
+                _peersLock.EnterWriteLock();
+                try
+                {
+                    _peers.Clear();
+                }
+                finally
+                {
+                    _peersLock.ExitWriteLock();
                 }
 
                 //stop network
@@ -294,8 +304,8 @@ namespace BitChatCore
                 //close message store
                 _store.Dispose();
 
-                _peersLock.Dispose();
                 _sharedFilesLock.Dispose();
+                _peersLock.Dispose();
 
                 _disposed = true;
             }
@@ -784,9 +794,23 @@ namespace BitChatCore
                 RaiseEventPeerHasChangedCertificate(cert);
         }
 
-        private void profile_ProxyUpdated(object sender, EventArgs e)
+        internal void ClientProfileProxyUpdated()
         {
             _trackerManager.Proxy = _network.ConnectionManager.Profile.Proxy;
+        }
+
+        internal void ClientProfileImageChanged()
+        {
+            _peersLock.EnterReadLock();
+            try
+            {
+                foreach (Peer peer in _peers)
+                    peer.ClientProfileImageChanged();
+            }
+            finally
+            {
+                _peersLock.ExitReadLock();
+            }
         }
 
         #endregion
@@ -1328,8 +1352,6 @@ namespace BitChatCore
 
                 _virtualPeer.MessageReceived += virtualPeer_MessageReceived;
                 _virtualPeer.StateChanged += virtualPeer_StateChanged;
-
-                _bitChat._network.ConnectionManager.Profile.ProfileImageChanged += profile_ProfileImageChanged;
             }
 
             #endregion
@@ -1794,7 +1816,7 @@ namespace BitChatCore
                 }
             }
 
-            private void profile_ProfileImageChanged(object sender, EventArgs e)
+            internal void ClientProfileImageChanged()
             {
                 if (_isSelfPeer)
                     RaiseEventProfileImageChanged();
@@ -1816,13 +1838,21 @@ namespace BitChatCore
 
             private void DoSendSharedFileMetaData()
             {
-                foreach (KeyValuePair<BinaryID, SharedFile> sharedFile in _bitChat._sharedFiles)
+                _bitChat._sharedFilesLock.EnterReadLock();
+                try
                 {
-                    if (sharedFile.Value.State == SharedFileState.Sharing)
+                    foreach (KeyValuePair<BinaryID, SharedFile> sharedFile in _bitChat._sharedFiles)
                     {
-                        byte[] messageData = BitChatMessage.CreateFileAdvertisement(sharedFile.Value.MetaData);
-                        _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
+                        if (sharedFile.Value.State == SharedFileState.Sharing)
+                        {
+                            byte[] messageData = BitChatMessage.CreateFileAdvertisement(sharedFile.Value.MetaData);
+                            _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
+                        }
                     }
+                }
+                finally
+                {
+                    _bitChat._sharedFilesLock.ExitReadLock();
                 }
             }
 

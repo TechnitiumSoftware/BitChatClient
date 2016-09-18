@@ -31,8 +31,8 @@ using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore
 {
-    public delegate void InvalidCertificateDetected(BitChatClient sender, InvalidCertificateException e);
-    public delegate void BitChatInvitation(BitChatClient sender, BitChat chat);
+    public delegate void InvalidCertificateDetected(BitChatClient client, InvalidCertificateException e);
+    public delegate void BitChatInvitation(BitChatClient client, BitChat chat);
 
     public class BitChatClient : IDisposable
     {
@@ -69,6 +69,9 @@ namespace BitChatCore
             _profile = profile;
             _trustedRootCertificates = trustedRootCertificates;
             _supportedCryptoOptions = supportedCryptoOptions;
+
+            _profile.ProxyUpdated += profile_ProxyUpdated;
+            _profile.ProfileImageChanged += profile_ProfileImageChanged;
         }
 
         #endregion
@@ -126,6 +129,40 @@ namespace BitChatCore
 
         #region private
 
+        private void profile_ProxyUpdated(object sender, EventArgs e)
+        {
+            _internal.ConnectionManager.ClientProfileProxyUpdated();
+
+            lock (_bitChats)
+            {
+                foreach (BitChat chat in _bitChats)
+                {
+                    //try
+                    {
+                        chat.ClientProfileProxyUpdated();
+                    }
+                    //catch
+                    //{ }
+                }
+            }
+        }
+
+        private void profile_ProfileImageChanged(object sender, EventArgs e)
+        {
+            lock (_bitChats)
+            {
+                foreach (BitChat chat in _bitChats)
+                {
+                    //try
+                    {
+                        chat.ClientProfileImageChanged();
+                    }
+                    //catch
+                    //{ }
+                }
+            }
+        }
+
         private void CheckCertificateRevocationAsync(object state)
         {
             try
@@ -159,7 +196,7 @@ namespace BitChatCore
 
         private void CreateBitChat(BinaryID networkID, IPEndPoint peerEP, string message)
         {
-            BitChatNetwork network = new BitChatNetwork(_internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, null, null, networkID, new Certificate[] { }, BitChatNetworkStatus.Offline, peerEP.ToString(), message);
+            BitChatNetwork network = new BitChatNetwork(_internal.ConnectionManager, _trustedRootCertificates, _supportedCryptoOptions, null, "", networkID, new Certificate[] { }, BitChatNetworkStatus.Offline, peerEP.ToString(), message);
             BitChat bitChat = _internal.CreateBitChat(network, BinaryID.GenerateRandomID160().ToString(), BinaryID.GenerateRandomID256().ID, 0, null, new BitChatProfile.SharedFileInfo[] { }, null, true, false, false);
 
             lock (_bitChats)
