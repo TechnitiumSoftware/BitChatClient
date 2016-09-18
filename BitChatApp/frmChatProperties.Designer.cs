@@ -218,7 +218,6 @@
             this.txtSecret.Size = new System.Drawing.Size(180, 20);
             this.txtSecret.TabIndex = 1;
             this.txtSecret.Text = "########";
-            this.txtSecret.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.txtSecret_KeyPress);
             // 
             // label3
             // 

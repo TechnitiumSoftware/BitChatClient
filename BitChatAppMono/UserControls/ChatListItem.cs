@@ -322,11 +322,7 @@ namespace BitChatApp.UserControls
             SetLastMessageDate();
 
             string dateString = ((int)(DateTime.UtcNow - _messageDate).TotalSeconds).ToString().PadLeft(12, '0');
-
-            if (_isOffline)
-                return "1" + dateString + labTitle.Text;
-            else
-                return "0" + dateString + labTitle.Text;
+            return dateString + labTitle.Text;
         }
 
         #endregion

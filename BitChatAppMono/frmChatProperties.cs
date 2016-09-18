@@ -34,7 +34,6 @@ namespace BitChatApp
         BitChatProfile _profile;
 
         Timer _timer;
-        bool _changesMade = false;
 
         #endregion
 
@@ -351,14 +350,9 @@ namespace BitChatApp
             _chat.EnableTracking = !chkLANChat.Checked;
         }
 
-        private void txtSecret_KeyPress(object sender, KeyPressEventArgs e)
-        {
-            _changesMade = true;
-        }
-
         private void btnOK_Click(object sender, EventArgs e)
         {
-            if (_changesMade)
+            if (txtSecret.Text != _chat.SharedSecret)
                 DialogResult = DialogResult.OK;
             else
                 DialogResult = DialogResult.Cancel;

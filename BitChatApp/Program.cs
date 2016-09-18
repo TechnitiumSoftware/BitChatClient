@@ -199,6 +199,8 @@ NgEA
 
         #endregion
 
+        #region private
+
         private static bool WindowsFirewallEntryExists(string appPath)
         {
             switch (Environment.OSVersion.Platform)
@@ -286,5 +288,7 @@ NgEA
                     break;
             }
         }
+
+        #endregion
     }
 }

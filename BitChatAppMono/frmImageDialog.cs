@@ -41,13 +41,16 @@ namespace BitChatApp
         public frmImageDialog()
         {
             InitializeComponent();
-
-            btnBrowse_Click(null, null);
         }
 
         #endregion
 
         #region form code
+
+        private void frmImageDialog_Load(object sender, EventArgs e)
+        {
+            btnBrowse_Click(null, null);
+        }
 
         private static Image CropImage(PictureBox box, Rectangle cropRectangle)
         {
