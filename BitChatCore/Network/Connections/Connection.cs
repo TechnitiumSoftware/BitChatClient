@@ -143,15 +143,6 @@ namespace BitChatCore.Network.Connections
             {
                 if (!_disposed)
                 {
-                    //stop read thread
-                    try
-                    {
-                        if (_readThread != null)
-                            _readThread.Abort();
-                    }
-                    catch
-                    { }
-
                     //dispose all channels
                     List<ChannelStream> streamList = new List<ChannelStream>();
 
@@ -195,14 +186,16 @@ namespace BitChatCore.Network.Connections
                     }
 
                     //dispose base stream
-                    lock (_baseStream)
+                    Monitor.Enter(_baseStream);
+                    try
                     {
-                        try
-                        {
-                            _baseStream.Dispose();
-                        }
-                        catch
-                        { }
+                        _baseStream.Dispose();
+                    }
+                    catch
+                    { }
+                    finally
+                    {
+                        Monitor.Exit(_baseStream);
                     }
 
                     _disposed = true;
@@ -259,7 +252,7 @@ namespace BitChatCore.Network.Connections
             try
             {
                 //frame parameters
-                SignalType signalType;
+                int signalType;
                 BinaryID channelName = new BinaryID(new byte[20]);
                 int dataLength;
                 byte[] dataBuffer = new byte[BUFFER_SIZE];
@@ -269,7 +262,9 @@ namespace BitChatCore.Network.Connections
                     #region Read frame from base stream
 
                     //read frame signal
-                    signalType = (SignalType)_baseStream.ReadByte();
+                    signalType = _baseStream.ReadByte();
+                    if (signalType == -1)
+                        return; //End of stream
 
                     //read channel name
                     OffsetStream.StreamRead(_baseStream, channelName.ID, 0, 20);
@@ -284,7 +279,7 @@ namespace BitChatCore.Network.Connections
 
                     #endregion
 
-                    switch (signalType)
+                    switch ((SignalType)signalType)
                     {
                         case SignalType.NOOP:
                             break;

@@ -1007,8 +1007,6 @@ namespace BitChatCore.Network
                         {
                             _isDisposing = true;
 
-                            Disconnect();
-
                             //close all data streams
                             lock (_dataStreams)
                             {
@@ -1134,10 +1132,6 @@ namespace BitChatCore.Network
                     {
                         //gracefull secure channel disconnection done; do nothing
                     }
-                    catch (ThreadAbortException)
-                    {
-                        //thread abort via Dispose()
-                    }
                     catch
                     {
                         //try reconnection due to unexpected channel closure (mostly read timed out exception)
@@ -1201,7 +1195,7 @@ namespace BitChatCore.Network
                 {
                     try
                     {
-                        _readThread.Abort();
+                        _channel.Dispose();
                     }
                     catch
                     { }

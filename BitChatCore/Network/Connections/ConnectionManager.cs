@@ -167,7 +167,6 @@ namespace BitChatCore.Network.Connections
             }
 
             _profile = profile;
-            _profile.ProxyUpdated += profile_ProxyUpdated;
 
             _localPort = (_tcpListener.LocalEndPoint as IPEndPoint).Port;
             _localPeerID = BinaryID.GenerateRandomID160();
@@ -216,9 +215,6 @@ namespace BitChatCore.Network.Connections
                 //shutdown tcp
                 if (_tcpListener != null)
                     _tcpListener.Dispose();
-
-                if (_tcpListenerThread != null)
-                    _tcpListenerThread.Abort();
 
                 //stop dht seeding tracker
                 if (_dhtSeedingTracker != null)
@@ -646,7 +642,7 @@ namespace BitChatCore.Network.Connections
                 _dhtClient.AddNode(peerEPs);
         }
 
-        private void profile_ProxyUpdated(object sender, EventArgs e)
+        internal void ClientProfileProxyUpdated()
         {
             NetProxy proxy = _profile.Proxy;
 

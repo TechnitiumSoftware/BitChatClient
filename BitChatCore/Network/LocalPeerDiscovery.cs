@@ -552,9 +552,6 @@ namespace BitChatCore.Network
                     if (_udpListener != null)
                         _udpListener.Dispose();
 
-                    if (_udpListenerThread != null)
-                        _udpListenerThread.Abort();
-
                     _disposed = true;
                 }
             }
@@ -615,9 +612,9 @@ namespace BitChatCore.Network
                 else
                     remoteEP = new IPEndPoint(IPAddress.IPv6Any, 0);
 
-                while (true)
+                try
                 {
-                    try
+                    while (true)
                     {
                         //receive message from remote
                         bytesRecv = udpListener.ReceiveFrom(dataRecv.Buffer, ref remoteEP);
@@ -652,12 +649,10 @@ namespace BitChatCore.Network
                             ReceivedPacket(new DiscoveryPacket(dataRecv), peerIP);
                         }
                     }
-                    catch (ThreadAbortException)
-                    {
-                        break;
-                    }
-                    catch
-                    { }
+                }
+                catch (Exception ex)
+                {
+                    Debug.Write("LocalPeerDiscovery.Listner.RecvDataAsync", ex);
                 }
             }
 

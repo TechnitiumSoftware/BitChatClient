@@ -207,14 +207,8 @@ namespace BitChatCore.Network.KademliaDHT
                 if (_udpListener != null)
                     _udpListener.Dispose();
 
-                if (_udpListenerThread != null)
-                    _udpListenerThread.Abort();
-
                 if (_udpClient != null)
                     _udpClient.Dispose();
-
-                if (_udpClientThread != null)
-                    _udpClientThread.Abort();
 
                 if (_sendBufferStream != null)
                     _sendBufferStream.Dispose();
@@ -342,9 +336,9 @@ namespace BitChatCore.Network.KademliaDHT
                             #region PING
                             {
                                 response = DhtRpcPacket.CreatePingPacketResponse(packet.TransactionID, _currentNode);
-                                break;
                             }
-                        #endregion
+                            #endregion
+                            break;
 
                         case RpcQueryType.FIND_NODE:
                             #region FIND_NODE
@@ -352,9 +346,9 @@ namespace BitChatCore.Network.KademliaDHT
                                 NodeContact[] contacts = _routingTable.GetKClosestContacts(packet.NetworkID);
 
                                 response = DhtRpcPacket.CreateFindNodePacketResponse(packet.TransactionID, _currentNode, packet.NetworkID, contacts);
-                                break;
                             }
-                        #endregion
+                            #endregion
+                            break;
 
                         case RpcQueryType.FIND_PEERS:
                             #region GET_PEERS
@@ -368,9 +362,9 @@ namespace BitChatCore.Network.KademliaDHT
                                     contacts = new NodeContact[] { };
 
                                 response = DhtRpcPacket.CreateFindPeersPacketResponse(packet.TransactionID, _currentNode, packet.NetworkID, contacts, peers, GetToken(packet.SourceNode.NodeEP.Address));
-                                break;
                             }
-                        #endregion
+                            #endregion
+                            break;
 
                         case RpcQueryType.ANNOUNCE_PEER:
                             #region ANNOUNCE_PEER
@@ -381,9 +375,9 @@ namespace BitChatCore.Network.KademliaDHT
                                     _currentNode.StorePeer(packet.NetworkID, new PeerEndPoint(remoteNodeIP, packet.ServicePort));
 
                                 response = DhtRpcPacket.CreateAnnouncePeerPacketResponse(packet.TransactionID, _currentNode, packet.NetworkID);
-                                break;
                             }
                             #endregion
+                            break;
                     }
 
                     return response;
@@ -451,36 +445,43 @@ namespace BitChatCore.Network.KademliaDHT
                         if (NetUtilities.IsIPv4MappedIPv6Address(remoteNodeEP.Address))
                             remoteNodeEP = new IPEndPoint(NetUtilities.ConvertFromIPv4MappedIPv6Address(remoteNodeEP.Address), remoteNodeEP.Port);
 
-                        DhtRpcPacket request = new DhtRpcPacket(recvBufferStream, remoteNodeEP.Address);
-                        DhtRpcPacket response = ProcessPacket(request);
-
-                        //send response
-                        if (response != null)
+                        try
                         {
-                            sendBufferStream.Position = 0;
-                            response.WriteTo(sendBufferStream);
-                            udpListener.SendTo(sendBufferStream.Buffer, 0, (int)sendBufferStream.Position, SocketFlags.None, remoteEP);
-                        }
+                            DhtRpcPacket request = new DhtRpcPacket(recvBufferStream, remoteNodeEP.Address);
+                            DhtRpcPacket response = ProcessPacket(request);
 
-                        //if contact doesnt exists then add contact else update last seen time
-                        KBucket closestBucket = _routingTable.FindClosestBucket(request.SourceNode.NodeID);
-                        NodeContact contact = closestBucket.FindContactInCurrentBucket(request.SourceNode.NodeID);
+                            //send response
+                            if (response != null)
+                            {
+                                sendBufferStream.Position = 0;
+                                response.WriteTo(sendBufferStream);
+                                udpListener.SendTo(sendBufferStream.Buffer, 0, (int)sendBufferStream.Position, SocketFlags.None, remoteEP);
+                            }
 
-                        if (contact == null)
-                        {
-                            //check if the closest bucket can accomodate another contact
-                            if (!closestBucket.IsCurrentBucketFull(true))
-                                ThreadPool.QueueUserWorkItem(AddContactAfterPingAsync, request.SourceNode);
+                            //if contact doesnt exists then add contact else update last seen time
+                            KBucket closestBucket = _routingTable.FindClosestBucket(request.SourceNode.NodeID);
+                            NodeContact contact = closestBucket.FindContactInCurrentBucket(request.SourceNode.NodeID);
+
+                            if (contact == null)
+                            {
+                                //check if the closest bucket can accomodate another contact
+                                if (!closestBucket.IsCurrentBucketFull(true))
+                                    ThreadPool.QueueUserWorkItem(AddContactAfterPingAsync, request.SourceNode);
+                            }
+                            else
+                            {
+                                contact.UpdateLastSeenTime();
+                            }
                         }
-                        else
-                        {
-                            contact.UpdateLastSeenTime();
-                        }
+                        catch
+                        { }
                     }
                 }
             }
-            catch
-            { }
+            catch (Exception ex)
+            {
+                Debug.Write("DhtClient.ReadQueryPacketsAsync", ex);
+            }
         }
 
         private void ReadResponsePacketsAsync(object parameter)
@@ -497,43 +498,36 @@ namespace BitChatCore.Network.KademliaDHT
             else
                 remoteEP = new IPEndPoint(IPAddress.IPv6Any, 0);
 
-            while (true)
+            try
             {
-                try
+                while (true)
                 {
-                    while (true)
+                    bytesRecv = udpClient.ReceiveFrom(bufferRecv, ref remoteEP);
+
+                    if (bytesRecv > 0)
                     {
-                        bytesRecv = udpClient.ReceiveFrom(bufferRecv, ref remoteEP);
+                        recvStream.SetLength(bytesRecv);
+                        recvStream.Position = 0;
 
-                        if (bytesRecv > 0)
+                        IPEndPoint remoteNodeEP = remoteEP as IPEndPoint;
+
+                        if (NetUtilities.IsIPv4MappedIPv6Address(remoteNodeEP.Address))
+                            remoteNodeEP = new IPEndPoint(NetUtilities.ConvertFromIPv4MappedIPv6Address(remoteNodeEP.Address), remoteNodeEP.Port);
+
+                        try
                         {
-                            recvStream.SetLength(bytesRecv);
-                            recvStream.Position = 0;
+                            DhtRpcPacket response = new DhtRpcPacket(recvStream, remoteNodeEP.Address);
 
-                            IPEndPoint remoteNodeEP = remoteEP as IPEndPoint;
-
-                            if (NetUtilities.IsIPv4MappedIPv6Address(remoteNodeEP.Address))
-                                remoteNodeEP = new IPEndPoint(NetUtilities.ConvertFromIPv4MappedIPv6Address(remoteNodeEP.Address), remoteNodeEP.Port);
-
-                            try
-                            {
-                                DhtRpcPacket response = new DhtRpcPacket(recvStream, remoteNodeEP.Address);
-
-                                ProcessPacket(response);
-                            }
-                            catch
-                            { }
+                            ProcessPacket(response);
                         }
+                        catch
+                        { }
                     }
                 }
-                catch (ThreadAbortException)
-                {
-                    return;
-                }
-                catch
-                {
-                    Thread.Sleep(5000);
-                }
+            }
+            catch (Exception ex)
+            {
+                Debug.Write("DhtClient.ReadResponsePacketsAsync", ex);
             }
         }
 
