@@ -56,7 +56,7 @@ namespace BitChatCore.FileSharing
 
         const int BUFFER_SIZE = 63488; //62kb data transfer buffer size
         const int FILE_BLOCK_DOWNLOAD_THREADS = 3; //total downloading threads per file
-        const int FILE_BLOCK_MINIMUM_SIZE = 1048576; //1mb min block size
+        const int FILE_BLOCK_MINIMUM_SIZE = 524288; //512kb min block size
         const byte FILE_BLOCK_NOT_AVAILABLE = 0;
         const byte FILE_BLOCK_AVAILABLE = 1;
 
@@ -131,6 +131,9 @@ namespace BitChatCore.FileSharing
 
                 if (_fileStream != null)
                     _fileStream.Dispose();
+
+                _peersLock.Dispose();
+                _seedersLock.Dispose();
 
                 _disposed = true;
             }
@@ -713,8 +716,6 @@ namespace BitChatCore.FileSharing
                 Interlocked.Exchange(ref _bytesDownloadedLastSecond, 0);
                 Interlocked.Exchange(ref _bytesUploadedLastSecond, 0);
             }
-            catch (ThreadAbortException)
-            { }
             catch
             { }
         }
