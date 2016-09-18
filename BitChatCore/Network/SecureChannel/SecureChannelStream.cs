@@ -160,34 +160,41 @@ namespace BitChatCore.Network.SecureChannel
 
         #region IDisposable
 
+        bool _disposed = false;
+
         protected override void Dispose(bool disposing)
         {
-            try
+            if (!_disposed)
             {
-                _baseStream.Dispose();
-
-                _reNegotiationTimer.Dispose();
-
-                lock (_readLock)
+                try
                 {
-                    if (_reNegotiateReadBuffer != null)
+                    _baseStream.Dispose();
+
+                    _reNegotiationTimer.Dispose();
+
+                    lock (_readLock)
                     {
-                        _reNegotiateReadBuffer.Dispose();
-                        _reNegotiateReadBuffer = null;
+                        if (_reNegotiateReadBuffer != null)
+                        {
+                            _reNegotiateReadBuffer.Dispose();
+                            _reNegotiateReadBuffer = null;
+                        }
                     }
+
+                    _cryptoEncryptor.Dispose();
+                    _cryptoDecryptor.Dispose();
+
+                    _encryptionKey.Dispose();
+
+                    _authHMACEncrypt.Dispose();
+                    _authHMACDecrypt.Dispose();
+                }
+                finally
+                {
+                    base.Dispose(disposing);
                 }
 
-                _cryptoEncryptor.Dispose();
-                _cryptoDecryptor.Dispose();
-
-                _encryptionKey.Dispose();
-
-                _authHMACEncrypt.Dispose();
-                _authHMACDecrypt.Dispose();
-            }
-            finally
-            {
-                base.Dispose(disposing);
+                _disposed = true;
             }
         }
 
