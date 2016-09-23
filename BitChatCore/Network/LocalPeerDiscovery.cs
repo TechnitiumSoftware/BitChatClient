@@ -65,7 +65,7 @@ namespace BitChatCore.Network
         #region variables
 
         const int ANNOUNCEMENT_INTERVAL = 30000;
-        const int ANNOUNCEMENT_RETRY_INTERVAL = 5000;
+        const int ANNOUNCEMENT_RETRY_INTERVAL = 2000;
         const int ANNOUNCEMENT_RETRY_COUNT = 3;
         const int NETWORK_WATCHER_INTERVAL = 15000;
         const int BUFFER_MAX_SIZE = 128;
