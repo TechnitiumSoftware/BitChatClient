@@ -49,26 +49,23 @@ namespace BitChatCore.Network.Connections
         DataChannelBitChatNetwork = 2,
         DisconnectChannelBitChatNetwork = 3,
         ConnectChannelProxyTunnel = 4,
-        DataChannelProxyTunnel = 5,
-        DisconnectChannelProxyTunnel = 6,
-        ConnectChannelVirtualConnection = 7,
-        DataChannelVirtualConnection = 8,
-        DisconnectChannelVirtualConnection = 9,
-        PeerStatusQuery = 10,
-        PeerStatusAvailable = 11,
-        StartTcpRelay = 12,
-        StopTcpRelay = 13,
-        TcpRelayResponseSuccess = 14,
-        TcpRelayResponsePeerList = 15,
-        DhtPacketData = 16,
-        BitChatNetworkInvitation = 17
+        ConnectChannelProxyConnection = 5,
+        DataChannelProxy = 6,
+        DisconnectChannelProxy = 7,
+        PeerStatusQuery = 8,
+        PeerStatusAvailable = 9,
+        StartTcpRelay = 10,
+        StopTcpRelay = 11,
+        TcpRelayResponseSuccess = 12,
+        TcpRelayResponsePeerList = 13,
+        DhtPacketData = 14,
+        BitChatNetworkInvitation = 15
     }
 
     enum ChannelType : byte
     {
         BitChatNetwork = 1,
-        ProxyTunnel = 2,
-        VirtualConnection = 3
+        ProxyTunnel = 2
     }
 
     class Connection : IDisposable
@@ -93,8 +90,7 @@ namespace BitChatCore.Network.Connections
         ConnectionManager _connectionManager;
 
         Dictionary<BinaryID, ChannelStream> _bitChatNetworkChannels = new Dictionary<BinaryID, ChannelStream>();
-        Dictionary<BinaryID, ChannelStream> _proxyTunnelChannels = new Dictionary<BinaryID, ChannelStream>();
-        Dictionary<BinaryID, ChannelStream> _virtualConnectionChannels = new Dictionary<BinaryID, ChannelStream>();
+        Dictionary<BinaryID, ChannelStream> _proxyChannels = new Dictionary<BinaryID, ChannelStream>();
 
         Thread _readThread;
 
@@ -152,15 +148,9 @@ namespace BitChatCore.Network.Connections
                             streamList.Add(channel.Value);
                     }
 
-                    lock (_proxyTunnelChannels)
+                    lock (_proxyChannels)
                     {
-                        foreach (KeyValuePair<BinaryID, ChannelStream> channel in _proxyTunnelChannels)
-                            streamList.Add(channel.Value);
-                    }
-
-                    lock (_virtualConnectionChannels)
-                    {
-                        foreach (KeyValuePair<BinaryID, ChannelStream> channel in _virtualConnectionChannels)
+                        foreach (KeyValuePair<BinaryID, ChannelStream> channel in _proxyChannels)
                             streamList.Add(channel.Value);
                     }
 
@@ -295,10 +285,10 @@ namespace BitChatCore.Network.Connections
                                 }
                                 else
                                 {
-                                    ChannelStream channel = new ChannelStream(this, channelName, ChannelType.BitChatNetwork);
-                                    _bitChatNetworkChannels.Add(channelName, channel);
+                                    ChannelStream channel = new ChannelStream(this, channelName.Clone(), ChannelType.BitChatNetwork);
+                                    _bitChatNetworkChannels.Add(channel.ChannelName, channel);
 
-                                    BitChatNetworkChannelRequest.BeginInvoke(this, channelName.Clone(), channel, null, null);
+                                    BitChatNetworkChannelRequest.BeginInvoke(this, channel.ChannelName, channel, null, null);
                                 }
                             }
 
@@ -360,6 +350,7 @@ namespace BitChatCore.Network.Connections
                                 lock (_bitChatNetworkChannels)
                                 {
                                     channel = _bitChatNetworkChannels[channelName];
+                                    _bitChatNetworkChannels.Remove(channelName);
                                 }
 
                                 channel.SetDisconnected();
@@ -376,17 +367,17 @@ namespace BitChatCore.Network.Connections
                             {
                                 ChannelStream remoteChannel1 = null;
 
-                                lock (_proxyTunnelChannels)
+                                lock (_proxyChannels)
                                 {
-                                    if (_proxyTunnelChannels.ContainsKey(channelName))
+                                    if (_proxyChannels.ContainsKey(channelName))
                                     {
-                                        WriteFrame(SignalType.DisconnectChannelProxyTunnel, channelName, null, 0, 0);
+                                        WriteFrame(SignalType.DisconnectChannelProxy, channelName, null, 0, 0);
                                     }
                                     else
                                     {
                                         //add first stream into list
-                                        remoteChannel1 = new ChannelStream(this, channelName, ChannelType.ProxyTunnel);
-                                        _proxyTunnelChannels.Add(channelName, remoteChannel1);
+                                        remoteChannel1 = new ChannelStream(this, channelName.Clone(), ChannelType.ProxyTunnel);
+                                        _proxyChannels.Add(remoteChannel1.ChannelName, remoteChannel1);
                                     }
                                 }
 
@@ -403,8 +394,8 @@ namespace BitChatCore.Network.Connections
                                     {
                                         try
                                         {
-                                            //get remote stream for virtual connection
-                                            ChannelStream remoteChannel2 = remotePeerConnection.RequestVirtualConnectionChannel(_remotePeerEP);
+                                            //get remote proxy connection channel stream
+                                            ChannelStream remoteChannel2 = remotePeerConnection.RequestProxyConnection(_remotePeerEP);
 
                                             //join current and remote stream
                                             Joint joint = new Joint(remoteChannel1, remoteChannel2);
@@ -427,82 +418,39 @@ namespace BitChatCore.Network.Connections
                             #endregion
                             break;
 
-                        case SignalType.DataChannelProxyTunnel:
-                            #region DataChannelProxyTunnel
+                        case SignalType.ConnectChannelProxyConnection:
+                            #region ConnectChannelProxyConnection
 
-                            try
+                            lock (_proxyChannels)
                             {
-                                ChannelStream channel = null;
-
-                                lock (_proxyTunnelChannels)
+                                if (_proxyChannels.ContainsKey(channelName))
                                 {
-                                    channel = _proxyTunnelChannels[channelName];
-                                }
-
-                                channel.WriteBuffer(dataBuffer, 0, dataLength, _channelWriteTimeout);
-                            }
-                            catch
-                            { }
-
-                            #endregion
-                            break;
-
-                        case SignalType.DisconnectChannelProxyTunnel:
-                            #region DisconnectChannelProxyTunnel
-
-                            try
-                            {
-                                ChannelStream channel;
-
-                                lock (_proxyTunnelChannels)
-                                {
-                                    channel = _proxyTunnelChannels[channelName];
-                                }
-
-                                channel.SetDisconnected();
-                                channel.Dispose();
-                            }
-                            catch
-                            { }
-
-                            #endregion
-                            break;
-
-                        case SignalType.ConnectChannelVirtualConnection:
-                            #region ConnectChannelVirtualConnection
-
-                            lock (_virtualConnectionChannels)
-                            {
-                                if (_virtualConnectionChannels.ContainsKey(channelName))
-                                {
-                                    WriteFrame(SignalType.DisconnectChannelVirtualConnection, channelName, null, 0, 0);
+                                    WriteFrame(SignalType.DisconnectChannelProxy, channelName, null, 0, 0);
                                 }
                                 else
                                 {
-                                    //add virtual channel stream into list
-                                    ChannelStream channel = new ChannelStream(this, channelName, ChannelType.VirtualConnection);
-                                    _virtualConnectionChannels.Add(channelName, channel);
+                                    //add proxy channel stream into list
+                                    ChannelStream channel = new ChannelStream(this, channelName.Clone(), ChannelType.ProxyTunnel);
+                                    _proxyChannels.Add(channel.ChannelName, channel);
 
-                                    IPEndPoint virtualRemotePeerEP = ConvertChannelNameToEp(channelName);
-
-                                    //pass channel as virtual connection async
-                                    ThreadPool.QueueUserWorkItem(AcceptVirtualConnectionAsync, new object[] { channel, virtualRemotePeerEP });
+                                    //pass channel as connection async
+                                    ThreadPool.QueueUserWorkItem(AcceptProxyConnectionAsync, channel);
                                 }
                             }
 
                             #endregion
                             break;
 
-                        case SignalType.DataChannelVirtualConnection:
-                            #region DataChannelVirtualConnection
+                        case SignalType.DataChannelProxy:
+                            #region DataChannelProxy
 
                             try
                             {
                                 ChannelStream channel = null;
 
-                                lock (_virtualConnectionChannels)
+                                lock (_proxyChannels)
                                 {
-                                    channel = _virtualConnectionChannels[channelName];
+                                    channel = _proxyChannels[channelName];
                                 }
 
                                 channel.WriteBuffer(dataBuffer, 0, dataLength, _channelWriteTimeout);
@@ -513,16 +461,17 @@ namespace BitChatCore.Network.Connections
                             #endregion
                             break;
 
-                        case SignalType.DisconnectChannelVirtualConnection:
-                            #region DisconnectChannelVirtualConnection
+                        case SignalType.DisconnectChannelProxy:
+                            #region DisconnectChannelProxy
 
                             try
                             {
                                 ChannelStream channel;
 
-                                lock (_virtualConnectionChannels)
+                                lock (_proxyChannels)
                                 {
-                                    channel = _virtualConnectionChannels[channelName];
+                                    channel = _proxyChannels[channelName];
+                                    _proxyChannels.Remove(channelName);
                                 }
 
                                 channel.SetDisconnected();
@@ -711,7 +660,10 @@ namespace BitChatCore.Network.Connections
                         case SignalType.DhtPacketData:
                             #region DhtPacketData
 
-                            _connectionManager.DhtClient.ProcessPacket(dataBuffer, 0, dataLength, _remotePeerEP.Address);
+                            byte[] response = _connectionManager.DhtClient.ProcessPacket(dataBuffer, 0, dataLength, _remotePeerEP.Address);
+
+                            if (response != null)
+                                WriteFrame(SignalType.DhtPacketData, BinaryID.GenerateRandomID160(), response, 0, response.Length);
 
                             #endregion
                             break;
@@ -738,16 +690,13 @@ namespace BitChatCore.Network.Connections
             }
         }
 
-        private void AcceptVirtualConnectionAsync(object state)
+        private void AcceptProxyConnectionAsync(object state)
         {
-            object[] parameters = state as object[];
-
-            ChannelStream channel = parameters[0] as ChannelStream;
-            IPEndPoint virtualRemotePeerEP = parameters[1] as IPEndPoint;
+            ChannelStream channel = state as ChannelStream;
 
             try
             {
-                Connection connection = _connectionManager.AcceptConnectionInitiateProtocol(channel, virtualRemotePeerEP);
+                Connection connection = _connectionManager.AcceptConnectionInitiateProtocol(channel, ConvertChannelNameToEp(channel.ChannelName));
             }
             catch
             {
@@ -823,22 +772,22 @@ namespace BitChatCore.Network.Connections
             return new IPEndPoint(new IPAddress(address), BitConverter.ToUInt16(port, 0));
         }
 
-        private ChannelStream RequestVirtualConnectionChannel(IPEndPoint forPeerEP)
+        private ChannelStream RequestProxyConnection(IPEndPoint forPeerEP)
         {
             BinaryID channelName = ConvertEpToChannelName(forPeerEP);
             ChannelStream channel;
 
-            lock (_virtualConnectionChannels)
+            lock (_proxyChannels)
             {
-                if (_virtualConnectionChannels.ContainsKey(channelName))
+                if (_proxyChannels.ContainsKey(channelName))
                     throw new ArgumentException("Channel already exists.");
 
-                channel = new ChannelStream(this, channelName, ChannelType.VirtualConnection);
-                _virtualConnectionChannels.Add(channelName, channel);
+                channel = new ChannelStream(this, channelName, ChannelType.ProxyTunnel);
+                _proxyChannels.Add(channelName, channel);
             }
 
             //send signal
-            WriteFrame(SignalType.ConnectChannelVirtualConnection, channelName, null, 0, 0);
+            WriteFrame(SignalType.ConnectChannelProxyConnection, channelName, null, 0, 0);
 
             return channel;
         }
@@ -858,7 +807,7 @@ namespace BitChatCore.Network.Connections
             }
         }
 
-        public static bool IsVirtualConnection(Stream stream)
+        public static bool IsStreamProxyTunnelConnection(Stream stream)
         {
             return (stream.GetType() == typeof(ChannelStream));
         }
@@ -886,8 +835,8 @@ namespace BitChatCore.Network.Connections
                 if (_bitChatNetworkChannels.ContainsKey(channelName))
                     throw new ArgumentException("Channel already exists.");
 
-                channel = new ChannelStream(this, channelName, ChannelType.BitChatNetwork);
-                _bitChatNetworkChannels.Add(channelName, channel);
+                channel = new ChannelStream(this, channelName.Clone(), ChannelType.BitChatNetwork);
+                _bitChatNetworkChannels.Add(channel.ChannelName, channel);
             }
 
             //send connect signal
@@ -932,18 +881,18 @@ namespace BitChatCore.Network.Connections
             }
         }
 
-        public Stream RequestProxyTunnelChannel(IPEndPoint remotePeerEP)
+        public Stream RequestProxyTunnel(IPEndPoint remotePeerEP)
         {
             BinaryID channelName = ConvertEpToChannelName(remotePeerEP);
             ChannelStream channel;
 
-            lock (_proxyTunnelChannels)
+            lock (_proxyChannels)
             {
-                if (_proxyTunnelChannels.ContainsKey(channelName))
+                if (_proxyChannels.ContainsKey(channelName))
                     throw new ArgumentException("Channel already exists.");
 
                 channel = new ChannelStream(this, channelName, ChannelType.ProxyTunnel);
-                _proxyTunnelChannels.Add(channelName, channel);
+                _proxyChannels.Add(channelName, channel);
             }
 
             //send signal
@@ -952,7 +901,7 @@ namespace BitChatCore.Network.Connections
             return channel;
         }
 
-        public bool RequestStartTcpRelay(BinaryID[] networkIDs, Uri[] trackerURIs)
+        public bool RequestStartTcpRelay(BinaryID[] networkIDs, Uri[] trackerURIs, int timeout)
         {
             BinaryID channelName = BinaryID.GenerateRandomID160();
             object lockObject = new object();
@@ -1001,7 +950,7 @@ namespace BitChatCore.Network.Connections
                         WriteFrame(SignalType.StartTcpRelay, channelName, data, 0, data.Length);
                     }
 
-                    return Monitor.Wait(lockObject, 120000);
+                    return Monitor.Wait(lockObject, timeout);
                 }
             }
             finally
@@ -1013,7 +962,7 @@ namespace BitChatCore.Network.Connections
             }
         }
 
-        public bool RequestStopTcpRelay(BinaryID[] networkIDs)
+        public bool RequestStopTcpRelay(BinaryID[] networkIDs, int timeout)
         {
             BinaryID channelName = BinaryID.GenerateRandomID160();
             object lockObject = new object();
@@ -1052,7 +1001,7 @@ namespace BitChatCore.Network.Connections
                         WriteFrame(SignalType.StopTcpRelay, channelName, data, 0, data.Length);
                     }
 
-                    return Monitor.Wait(lockObject, 10000);
+                    return Monitor.Wait(lockObject, timeout);
                 }
             }
             finally
@@ -1101,7 +1050,7 @@ namespace BitChatCore.Network.Connections
             set { _channelWriteTimeout = value; }
         }
 
-        public bool IsVirtual
+        public bool IsProxyTunnelConnection
         { get { return (_baseStream.GetType() == typeof(ChannelStream)); } }
 
         #endregion
@@ -1110,7 +1059,7 @@ namespace BitChatCore.Network.Connections
         {
             #region variables
 
-            const int CHANNEL_READ_TIMEOUT = 30000; //channel timeout 30 sec; application must NOOP
+            const int CHANNEL_READ_TIMEOUT = 60000; //channel read timeout; application must NOOP
             const int CHANNEL_WRITE_TIMEOUT = 30000; //dummy timeout for write since base channel write timeout will be used
 
             Connection _connection;
@@ -1133,7 +1082,7 @@ namespace BitChatCore.Network.Connections
             public ChannelStream(Connection connection, BinaryID channelName, ChannelType channelType)
             {
                 _connection = connection;
-                _channelName = channelName.Clone();
+                _channelName = channelName;
                 _channelType = channelType;
             }
 
@@ -1154,16 +1103,16 @@ namespace BitChatCore.Network.Connections
                 {
                     if (!_disposed)
                     {
-                        switch (_channelType)
+                        if (!_disconnected)
                         {
-                            case ChannelType.BitChatNetwork:
-                                lock (_connection._bitChatNetworkChannels)
-                                {
-                                    _connection._bitChatNetworkChannels.Remove(_channelName);
-                                }
+                            switch (_channelType)
+                            {
+                                case ChannelType.BitChatNetwork:
+                                    lock (_connection._bitChatNetworkChannels)
+                                    {
+                                        _connection._bitChatNetworkChannels.Remove(_channelName);
+                                    }
 
-                                if (!_disconnected)
-                                {
                                     try
                                     {
                                         //send disconnect signal
@@ -1171,49 +1120,28 @@ namespace BitChatCore.Network.Connections
                                     }
                                     catch
                                     { }
-                                }
-                                break;
+                                    break;
 
-                            case ChannelType.ProxyTunnel:
-                                lock (_connection._proxyTunnelChannels)
-                                {
-                                    _connection._proxyTunnelChannels.Remove(_channelName);
-                                }
+                                case ChannelType.ProxyTunnel:
+                                    lock (_connection._proxyChannels)
+                                    {
+                                        _connection._proxyChannels.Remove(_channelName);
+                                    }
 
-                                if (!_disconnected)
-                                {
                                     try
                                     {
                                         //send disconnect signal
-                                        _connection.WriteFrame(SignalType.DisconnectChannelProxyTunnel, _channelName, null, 0, 0);
+                                        _connection.WriteFrame(SignalType.DisconnectChannelProxy, _channelName, null, 0, 0);
                                     }
                                     catch
                                     { }
-                                }
-                                break;
 
-                            case ChannelType.VirtualConnection:
-                                lock (_connection._virtualConnectionChannels)
-                                {
-                                    _connection._virtualConnectionChannels.Remove(_channelName);
-                                }
-
-                                if (!_disconnected)
-                                {
-                                    try
-                                    {
-                                        //send disconnect signal
-                                        _connection.WriteFrame(SignalType.DisconnectChannelVirtualConnection, _channelName, null, 0, 0);
-                                    }
-                                    catch
-                                    { }
-                                }
-                                break;
+                                    break;
+                            }
                         }
 
-                        Monitor.PulseAll(this);
-
                         _disposed = true;
+                        Monitor.PulseAll(this);
                     }
                 }
             }
@@ -1334,11 +1262,7 @@ namespace BitChatCore.Network.Connections
                         break;
 
                     case ChannelType.ProxyTunnel:
-                        _connection.WriteFrame(SignalType.DataChannelProxyTunnel, _channelName, buffer, offset, count);
-                        break;
-
-                    case ChannelType.VirtualConnection:
-                        _connection.WriteFrame(SignalType.DataChannelVirtualConnection, _channelName, buffer, offset, count);
+                        _connection.WriteFrame(SignalType.DataChannelProxy, _channelName, buffer, offset, count);
                         break;
                 }
             }
@@ -1378,6 +1302,13 @@ namespace BitChatCore.Network.Connections
             {
                 _disconnected = true;
             }
+
+            #endregion
+
+            #region properties
+
+            public BinaryID ChannelName
+            { get { return _channelName; } }
 
             #endregion
         }
