@@ -31,7 +31,7 @@ using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.Network
 {
-    delegate void NetworkChanged(BitChatNetwork network, BinaryID oldNetworkID);
+    delegate void NetworkChanged(BitChatNetwork network, BinaryID newNetworkID);
     delegate void VirtualPeerAdded(BitChatNetwork network, BitChatNetwork.VirtualPeer virtualPeer);
     delegate void VirtualPeerHasRevokedCertificate(BitChatNetwork network, InvalidCertificateException ex);
     delegate void VirtualPeerMessageReceived(BitChatNetwork.VirtualPeer.VirtualSession peerSession, Stream messageDataStream);
@@ -60,7 +60,6 @@ namespace BitChatCore.Network
         public event VirtualPeerHasRevokedCertificate VirtualPeerHasRevokedCertificate;
         public event VirtualPeerSecureChannelException VirtualPeerSecureChannelException;
         public event VirtualPeerHasChangedCertificate VirtualPeerHasChangedCertificate;
-        public event EventHandler Disposed;
 
         #endregion
 
@@ -189,8 +188,6 @@ namespace BitChatCore.Network
                     _virtualPeersLock.Dispose();
 
                     _disposed = true;
-
-                    Disposed?.Invoke(this, EventArgs.Empty);
                 }
             }
         }
@@ -699,7 +696,7 @@ namespace BitChatCore.Network
             get { return _sharedSecret; }
             set
             {
-                BinaryID oldNetworkID = _networkID;
+                BinaryID newNetworkID;
 
                 switch (_type)
                 {
@@ -707,16 +704,24 @@ namespace BitChatCore.Network
                         if (_peerEmailAddress == null)
                             throw new BitChatException("Cannot change shared secret for current Bit Chat network.");
 
-                        _networkID = GetNetworkID(_connectionManager.Profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress, _peerEmailAddress, value);
+                        newNetworkID = GetNetworkID(_connectionManager.Profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress, _peerEmailAddress, value);
                         break;
 
                     default:
-                        _networkID = GetNetworkID(_networkName, value);
+                        newNetworkID = GetNetworkID(_networkName, value);
                         break;
                 }
 
-                _sharedSecret = value;
-                NetworkChanged(this, oldNetworkID);
+                try
+                {
+                    NetworkChanged(this, newNetworkID);
+                    _sharedSecret = value;
+                    _networkID = newNetworkID;
+                }
+                catch (ArgumentException)
+                {
+                    throw new BitChatException("Unable to change shared secret/password. Bit Chat network with same Id already exists.");
+                }
             }
         }
 
@@ -1220,7 +1225,7 @@ namespace BitChatCore.Network
                 {
                     #region variables
 
-                    const int DATA_READ_TIMEOUT = 30000;
+                    const int DATA_READ_TIMEOUT = 60000;
                     const int DATA_WRITE_TIMEOUT = 30000; //dummy
 
                     readonly VirtualSession _session;
