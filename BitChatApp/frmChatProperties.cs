@@ -49,6 +49,8 @@ namespace BitChatApp
             this.Text = _chat.NetworkDisplayName + " - Properties";
 
             chkLANChat.Checked = !_chat.EnableTracking;
+            chkLANChat.CheckedChanged += chkLANChat_CheckedChanged;
+
             txtNetwork.Text = chat.NetworkName;
 
             if (chat.NetworkName == null)
@@ -128,7 +130,7 @@ namespace BitChatApp
                             strUpdateIn += updateIn.Seconds + "s";
                         }
 
-                        item.SubItems[1].Text = lastException == null ? "working" : lastException.Message;
+                        item.SubItems[1].Text = lastException == null ? "working" : "[" + tracker.RetriesDone + "] " + lastException.Message;
                         item.SubItems[2].Text = strUpdateIn;
                         item.SubItems[3].Text = peerCount.ToString();
                     }

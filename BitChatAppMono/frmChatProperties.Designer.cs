@@ -252,7 +252,6 @@
             this.chkLANChat.TabIndex = 4;
             this.chkLANChat.Text = "Enable only local network (LAN or WiFi) chat";
             this.chkLANChat.UseVisualStyleBackColor = true;
-            this.chkLANChat.CheckedChanged += new System.EventHandler(this.chkLANChat_CheckedChanged);
             // 
             // btnOK
             // 

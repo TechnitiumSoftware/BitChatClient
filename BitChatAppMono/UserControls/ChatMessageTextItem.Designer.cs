@@ -40,6 +40,7 @@
             this.picPointLeft = new System.Windows.Forms.PictureBox();
             this.picPointRight = new System.Windows.Forms.PictureBox();
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
+            this.timer1 = new System.Windows.Forms.Timer(this.components);
             this.contextMenuStrip1.SuspendLayout();
             this.pnlBubble.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.picDeliveryStatus)).BeginInit();
@@ -168,6 +169,11 @@
             this.picPointRight.TabStop = false;
             this.picPointRight.Visible = false;
             // 
+            // timer1
+            // 
+            this.timer1.Interval = 10000;
+            this.timer1.Tick += new System.EventHandler(this.timer1_Tick);
+            // 
             // ChatMessageTextItem
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
@@ -202,5 +208,6 @@
         private System.Windows.Forms.PictureBox picPointLeft;
         private System.Windows.Forms.ToolStripMenuItem mnuMessageInfo;
         private System.Windows.Forms.ToolTip toolTip1;
+        private System.Windows.Forms.Timer timer1;
     }
 }

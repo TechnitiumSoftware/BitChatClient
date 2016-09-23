@@ -79,9 +79,21 @@ namespace BitChatApp.UserControls
                     {
                         case MessageDeliveryStatus.Undelivered:
                             if (_senderPeer.BitChat.NetworkType == BitChatCore.Network.BitChatNetworkType.PrivateChat)
+                            {
                                 picDeliveryStatus.Image = Properties.Resources.waiting;
+                            }
                             else
-                                picDeliveryStatus.Image = Properties.Resources.message_failed;
+                            {
+                                if ((_message.Recipients.Length > 0) && ((DateTime.UtcNow - _message.MessageDate).TotalSeconds < 10))
+                                {
+                                    picDeliveryStatus.Image = Properties.Resources.waiting;
+                                    timer1.Start();
+                                }
+                                else
+                                {
+                                    picDeliveryStatus.Image = Properties.Resources.message_failed;
+                                }
+                            }
 
                             break;
 
@@ -90,15 +102,11 @@ namespace BitChatApp.UserControls
                             break;
 
                         case MessageDeliveryStatus.Delivered:
-                            if (_senderPeer.BitChat.GetPeerCount() > 1)
-                                picDeliveryStatus.Image = Properties.Resources.double_ticks;
-                            else
-                                picDeliveryStatus.Image = Properties.Resources.message_failed;
-
+                            picDeliveryStatus.Image = Properties.Resources.double_ticks;
                             break;
 
                         default:
-                            picDeliveryStatus.Image = null;
+                            picDeliveryStatus.Image = Properties.Resources.message_failed;
                             break;
                     }
 
@@ -218,9 +226,6 @@ namespace BitChatApp.UserControls
 
             switch (_message.GetDeliveryStatus())
             {
-                case MessageDeliveryStatus.Undelivered:
-                    break;
-
                 case MessageDeliveryStatus.PartiallyDelivered:
                     picDeliveryStatus.Image = Properties.Resources.single_tick;
                     break;
@@ -230,9 +235,18 @@ namespace BitChatApp.UserControls
                     break;
 
                 default:
-                    picDeliveryStatus.Image = null;
+                    picDeliveryStatus.Image = Properties.Resources.message_failed;
                     break;
             }
+
+            if (_senderPeer.BitChat.NetworkType == BitChatCore.Network.BitChatNetworkType.GroupChat)
+                timer1.Stop();
+        }
+
+        private void timer1_Tick(object sender, EventArgs e)
+        {
+            picDeliveryStatus.Image = Properties.Resources.message_failed;
+            timer1.Stop();
         }
 
         #endregion

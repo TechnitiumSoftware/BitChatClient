@@ -181,13 +181,16 @@ namespace BitChatApp
 
         private void frmMain_FormClosing(object sender, FormClosingEventArgs e)
         {
-            switch (this.DialogResult)
+            if (e.CloseReason == CloseReason.UserClosing)
             {
-                case DialogResult.Cancel:
-                case DialogResult.None:
-                    e.Cancel = true;
-                    this.WindowState = FormWindowState.Minimized;
-                    break;
+                switch (this.DialogResult)
+                {
+                    case DialogResult.Cancel:
+                    case DialogResult.None:
+                        e.Cancel = true;
+                        this.WindowState = FormWindowState.Minimized;
+                        break;
+                }
             }
         }
 
@@ -340,9 +343,9 @@ namespace BitChatApp
             }
         }
 
-        private void chatPanel_MessageNotification(BitChat sender, BitChat.Peer messageSender, string message)
+        private void chatPanel_MessageNotification(BitChat chat, BitChat.Peer messageSender, string message)
         {
-            if (!sender.Mute)
+            if (!chat.Mute)
             {
                 _sndMessageNotification.Play();
             }
@@ -390,7 +393,7 @@ namespace BitChatApp
                 {
                     try
                     {
-                        BitChat chat = _client.CreateBitChat(new System.Net.Mail.MailAddress(frm.NetworkNameOrPeerEmailAddress.ToLower()), frm.SharedSecret, !frm.OnlyLanChat, frm.InvitationMessage);
+                        BitChat chat = _client.CreatePrivateChat(new System.Net.Mail.MailAddress(frm.NetworkNameOrPeerEmailAddress.ToLower()), frm.SharedSecret, !frm.OnlyLanChat, frm.InvitationMessage);
 
                         lstChats.SelectItem(AddChatView(chat));
                         ShowSelectedChatView();
@@ -418,7 +421,7 @@ namespace BitChatApp
                 {
                     try
                     {
-                        BitChat chat = _client.CreateBitChat(frm.NetworkNameOrPeerEmailAddress, frm.SharedSecret, !frm.OnlyLanChat);
+                        BitChat chat = _client.CreateGroupChat(frm.NetworkNameOrPeerEmailAddress, frm.SharedSecret, !frm.OnlyLanChat);
 
                         lstChats.SelectItem(AddChatView(chat));
                         ShowSelectedChatView();
@@ -472,10 +475,10 @@ namespace BitChatApp
 
         private void mnuSwitchProfile_Click(object sender, EventArgs e)
         {
-            if (MessageBox.Show("Your current profile will be logged off. Are you sure to proceed to change profile?", "Change Profile?", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == System.Windows.Forms.DialogResult.Yes)
+            if (MessageBox.Show("Your current profile will be logged off. Are you sure to proceed with switching to another profile?", "Switch Profile?", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
                 this.Hide();
-                this.DialogResult = System.Windows.Forms.DialogResult.Ignore;
+                this.DialogResult = DialogResult.Ignore;
                 this.Close();
             }
         }
@@ -581,7 +584,16 @@ namespace BitChatApp
                 using (frmChatProperties frm = new frmChatProperties(itm.BitChat, _profile))
                 {
                     if (frm.ShowDialog(this) == DialogResult.OK)
-                        itm.BitChat.SharedSecret = frm.SharedSecret;
+                    {
+                        try
+                        {
+                            itm.BitChat.SharedSecret = frm.SharedSecret;
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show(ex.Message, "Error!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
                 }
             }
         }
@@ -592,7 +604,7 @@ namespace BitChatApp
 
         #region private
 
-        private void Client_InvalidCertificateDetected(BitChatClient sender, InvalidCertificateException e)
+        private void Client_InvalidCertificateDetected(BitChatClient client, InvalidCertificateException e)
         {
             MessageBox.Show(e.Message + "\r\n\r\nClick OK to logout from this Bit Chat profile.", "Invalid Certificate Detected", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
@@ -601,9 +613,15 @@ namespace BitChatApp
             this.Close();
         }
 
-        private void Client_BitChatInvitationReceived(BitChatClient sender, BitChat chat)
+        private void Client_BitChatInvitationReceived(BitChatClient client, BitChat chat)
         {
             AddChatView(chat);
+
+            if (lstChats.Controls.Count == 1)
+            {
+                lstChats.SelectItem(lstChats.GetFirstItem());
+                ShowSelectedChatView();
+            }
         }
 
         private ChatListItem AddChatView(BitChat chat)

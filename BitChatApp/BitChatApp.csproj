@@ -84,6 +84,9 @@
   <PropertyGroup />
   <PropertyGroup />
   <PropertyGroup />
+  <PropertyGroup>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Data" />
@@ -434,6 +437,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="logo2.ico" />
+    <None Include="app.manifest" />
     <None Include="Resources\message-failed.png" />
     <None Include="Resources\change-photo.png" />
     <None Include="Resources\waiting.png" />
