@@ -637,60 +637,69 @@ namespace BitChatCore.Network.KademliaDHT
                 }
 
                 //got reply!
-                if (responsePacket.Contacts.Length > 0)
+                switch (queryType)
                 {
-                    lock (receivedContacts)
-                    {
-                        lock (respondedContacts)
+                    case RpcQueryType.FIND_NODE:
+                        lock (receivedContacts)
                         {
-                            //add contact to responded contacts list
-                            if (!respondedContacts.Contains(contact))
-                                respondedContacts.Add(contact);
-
-                            lock (failedContacts)
+                            lock (respondedContacts)
                             {
-                                //add received contacts to received contacts list
-                                foreach (NodeContact receivedContact in responsePacket.Contacts)
+                                //add contact to responded contacts list
+                                if (!respondedContacts.Contains(contact))
+                                    respondedContacts.Add(contact);
+
+                                lock (failedContacts)
                                 {
-                                    if (!respondedContacts.Contains(receivedContact) && !failedContacts.Contains(receivedContact))
-                                        receivedContacts.Add(receivedContact);
+                                    //add received contacts to received contacts list
+                                    foreach (NodeContact receivedContact in responsePacket.Contacts)
+                                    {
+                                        if (!respondedContacts.Contains(receivedContact) && !failedContacts.Contains(receivedContact))
+                                            receivedContacts.Add(receivedContact);
+                                    }
+                                }
+                            }
+
+                            //add received contacts to available contacts list
+                            lock (availableContacts)
+                            {
+                                foreach (NodeContact receivedContact in receivedContacts)
+                                {
+                                    if (!availableContacts.Contains(receivedContact))
+                                        availableContacts.Add(receivedContact);
                                 }
                             }
                         }
 
-                        //add received contacts to available contacts list
-                        lock (availableContacts)
+                        if (responsePacket.Contacts.Length > 0)
                         {
-                            foreach (NodeContact receivedContact in receivedContacts)
+                            //pulse only if the contact has sent next level contacts list
+                            lock (lockObj)
                             {
-                                if (!availableContacts.Contains(receivedContact))
-                                    availableContacts.Add(receivedContact);
+                                Monitor.Pulse(lockObj);
                             }
                         }
-                    }
+                        break;
 
-                    lock (lockObj)
-                    {
-                        Monitor.Pulse(lockObj);
-                    }
-                }
-                else if ((queryType == RpcQueryType.FIND_PEERS) && (responsePacket.Peers.Length > 0))
-                {
-                    List<PeerEndPoint> receivedPeers = parameters[8] as List<PeerEndPoint>;
-
-                    lock (receivedPeers)
-                    {
-                        foreach (PeerEndPoint peer in responsePacket.Peers)
+                    case RpcQueryType.FIND_PEERS:
+                        if (responsePacket.Peers.Length > 0)
                         {
-                            if (!receivedPeers.Contains(peer))
-                                receivedPeers.Add(peer);
-                        }
-                    }
+                            List<PeerEndPoint> receivedPeers = parameters[8] as List<PeerEndPoint>;
 
-                    lock (lockObj)
-                    {
-                        Monitor.Pulse(lockObj);
-                    }
+                            lock (receivedPeers)
+                            {
+                                foreach (PeerEndPoint peer in responsePacket.Peers)
+                                {
+                                    if (!receivedPeers.Contains(peer))
+                                        receivedPeers.Add(peer);
+                                }
+                            }
+
+                            lock (lockObj)
+                            {
+                                Monitor.Pulse(lockObj);
+                            }
+                        }
+                        break;
                 }
             }
             catch
