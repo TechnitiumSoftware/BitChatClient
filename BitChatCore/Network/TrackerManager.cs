@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2016  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -39,7 +39,11 @@ namespace BitChatCore.Network
 
         #region variables
 
-        const int DHT_UPDATE_INTERVAL_SECONDS = 2 * 60; //2 mins
+        const int DHT_DEFAULT_UPDATE_INTERVAL_SECONDS = 5 * 60; //5 mins
+        const int TRACKER_TIMER_CHECK_INTERVAL = 10000;
+        const int TRACKER_MAX_RETRIES = 3;
+        const int TRACKER_RETRY_UPDATE_INTERVAL_SECONDS = 30; //30 sec
+        const int TRACKER_FAILED_UPDATE_INTERVAL_SECONDS = 30 * 60; //30 mins
 
         BinaryID _networkID;
         int _servicePort;
@@ -53,7 +57,6 @@ namespace BitChatCore.Network
         DateTime _dhtLastUpdated;
         Exception _dhtLastException;
 
-        const int _TRACKER_TIMER_CHECK_INTERVAL = 10000;
         List<TrackerClient> _trackers = new List<TrackerClient>();
         Timer _trackerUpdateTimer;
 
@@ -101,6 +104,14 @@ namespace BitChatCore.Network
 
         #region private
 
+        private int GetDhtUpdateInterval()
+        {
+            if (_customUpdateInterval > 0)
+                return _customUpdateInterval;
+
+            return DHT_DEFAULT_UPDATE_INTERVAL_SECONDS;
+        }
+
         private void TrackerUpdateTimerCallBack(object state)
         {
             try
@@ -132,7 +143,7 @@ namespace BitChatCore.Network
                 //update dht
                 if (_dhtClient != null)
                 {
-                    if (forceUpdate || (DateTime.UtcNow - _dhtLastUpdated).TotalSeconds > DHT_UPDATE_INTERVAL_SECONDS)
+                    if (forceUpdate || (DateTime.UtcNow - _dhtLastUpdated).TotalSeconds > GetDhtUpdateInterval())
                         ThreadPool.QueueUserWorkItem(UpdateDhtAsync, localEP);
                 }
             }
@@ -141,7 +152,7 @@ namespace BitChatCore.Network
             finally
             {
                 if (_trackerUpdateTimer != null)
-                    _trackerUpdateTimer.Change(_TRACKER_TIMER_CHECK_INTERVAL, Timeout.Infinite);
+                    _trackerUpdateTimer.Change(TRACKER_TIMER_CHECK_INTERVAL, Timeout.Infinite);
             }
         }
 
@@ -167,8 +178,7 @@ namespace BitChatCore.Network
 
                         if (tracker.Peers.Count > 0)
                         {
-                            if (DiscoveredPeers != null)
-                                DiscoveredPeers(this, tracker.Peers);
+                            DiscoveredPeers?.Invoke(this, tracker.Peers);
 
                             if (_dhtClient != null)
                                 _dhtClient.AddNode(tracker.Peers);
@@ -176,9 +186,16 @@ namespace BitChatCore.Network
 
                         break;
                 }
+
+                tracker.CustomUpdateInterval = _customUpdateInterval;
             }
             catch
-            { }
+            {
+                if (tracker.RetriesDone < TRACKER_MAX_RETRIES)
+                    tracker.CustomUpdateInterval = TRACKER_RETRY_UPDATE_INTERVAL_SECONDS;
+                else
+                    tracker.CustomUpdateInterval = TRACKER_FAILED_UPDATE_INTERVAL_SECONDS;
+            }
         }
 
         private void UpdateDhtAsync(object state)
@@ -208,8 +225,7 @@ namespace BitChatCore.Network
                         }
                     }
 
-                    if (DiscoveredPeers != null)
-                        DiscoveredPeers(this, peers);
+                    DiscoveredPeers?.Invoke(this, peers);
                 }
             }
             catch (Exception ex)
@@ -267,9 +283,18 @@ namespace BitChatCore.Network
             }
         }
 
-        public void ForceUpdate()
+        public void ScheduleUpdateNow()
         {
-            TrackerUpdateTimerCallBack(null);
+            DhtUpdate();
+
+            lock (_trackers)
+            {
+                foreach (TrackerClient tracker in _trackers)
+                {
+                    if (tracker.RetriesDone == 0)
+                        tracker.ScheduleUpdateNow();
+                }
+            }
         }
 
         public TrackerClient[] GetTrackers()
@@ -280,7 +305,7 @@ namespace BitChatCore.Network
             }
         }
 
-        public Uri[] GetTracketURIs()
+        public Uri[] GetTrackerURIs()
         {
             Uri[] trackerURIs;
 
@@ -369,13 +394,12 @@ namespace BitChatCore.Network
 
         public void DhtUpdate()
         {
-            ThreadPool.QueueUserWorkItem(UpdateDhtAsync, new IPEndPoint(IPAddress.Any, _servicePort));
-            _dhtLastUpdated = DateTime.UtcNow.AddSeconds(DHT_UPDATE_INTERVAL_SECONDS * -1);
+            _dhtLastUpdated = DateTime.UtcNow.AddSeconds(GetDhtUpdateInterval() * -1);
         }
 
         public TimeSpan DhtNextUpdateIn()
         {
-            return _dhtLastUpdated.AddSeconds(DHT_UPDATE_INTERVAL_SECONDS) - DateTime.UtcNow;
+            return _dhtLastUpdated.AddSeconds(GetDhtUpdateInterval()) - DateTime.UtcNow;
         }
 
         public Exception DhtLastException()
@@ -394,7 +418,22 @@ namespace BitChatCore.Network
         { get { return (_trackerUpdateTimer != null); } }
 
         public int CustomUpdateInterval
-        { get { return _customUpdateInterval; } }
+        {
+            get { return _customUpdateInterval; }
+            set
+            {
+                _customUpdateInterval = value;
+
+                lock (_trackers)
+                {
+                    foreach (TrackerClient tracker in _trackers)
+                    {
+                        if (tracker.RetriesDone == 0)
+                            tracker.CustomUpdateInterval = _customUpdateInterval;
+                    }
+                }
+            }
+        }
 
         public bool LookupOnly
         {
