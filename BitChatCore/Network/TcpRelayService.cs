@@ -31,10 +31,9 @@ namespace BitChatCore.Network
         #region variables
 
         const int BIT_CHAT_TRACKER_UPDATE_INTERVAL = 120;
+        const int TCP_RELAY_KEEP_ALIVE_INTERVAL = 30000; //30 sec
 
         static Dictionary<BinaryID, TcpRelayService> _relays = new Dictionary<BinaryID, TcpRelayService>(2);
-
-        const int TCP_RELAY_KEEP_ALIVE_INTERVAL = 30000; //30 sec
 
         TrackerManager _trackerManager;
         Dictionary<BinaryID, Connection> _relayConnections = new Dictionary<BinaryID, Connection>(2);

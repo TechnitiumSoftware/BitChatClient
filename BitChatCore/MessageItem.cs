@@ -237,7 +237,7 @@ namespace BitChatCore
             else if (containsUndelivered)
                 return MessageDeliveryStatus.Undelivered;
             else
-                return MessageDeliveryStatus.Delivered;
+                return MessageDeliveryStatus.None;
         }
 
         public void WriteTo(MessageStore store)
