@@ -60,6 +60,8 @@ namespace BitChatCore
         public event FileAddedNotification FileAdded;
         public event FileRemovedNotification FileRemoved;
         public event PeerNotification GroupImageChanged;
+        internal event EventHandler SetupTcpRelay;
+        internal event EventHandler RemoveTcpRelay;
         internal event EventHandler Leave;
 
         #endregion
@@ -68,7 +70,7 @@ namespace BitChatCore
 
         static readonly DateTime _epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
 
-        const int BIT_CHAT_TRACKER_UPDATE_INTERVAL = 120;
+        const int BIT_CHAT_TRACKER_UPDATE_INTERVAL_SECONDS = 120;
 
         readonly SynchronizationContext _syncCxt;
         readonly LocalPeerDiscovery _localPeerDiscovery;
@@ -93,7 +95,7 @@ namespace BitChatCore
         bool _enableTracking;
 
         //outbound invitation
-        readonly TrackerManager _outboundInvitationTrackerClient;
+        readonly TrackerManager _outboundInvitationDhtOnlyTrackerClient;
         bool _sendInvitation;
 
         //noop timer
@@ -129,7 +131,7 @@ namespace BitChatCore
             _network.VirtualPeerHasRevokedCertificate += network_VirtualPeerHasRevokedCertificate;
             _network.VirtualPeerSecureChannelException += network_VirtualPeerSecureChannelException;
             _network.VirtualPeerHasChangedCertificate += network_VirtualPeerHasChangedCertificate;
-            
+
             _messageStoreID = messageStoreID;
             _messageStoreKey = messageStoreKey;
 
@@ -168,7 +170,7 @@ namespace BitChatCore
             }
 
             //init tracking
-            _trackerManager = new TrackerManager(_network.NetworkID, _network.ConnectionManager.LocalPort, _network.ConnectionManager.DhtClient, BIT_CHAT_TRACKER_UPDATE_INTERVAL);
+            _trackerManager = new TrackerManager(_network.NetworkID, _network.ConnectionManager.LocalPort, _network.ConnectionManager.DhtClient, BIT_CHAT_TRACKER_UPDATE_INTERVAL_SECONDS);
             _trackerManager.Proxy = _network.ConnectionManager.Profile.Proxy;
             _trackerManager.DiscoveredPeers += TrackerManager_DiscoveredPeers;
             _enableTracking = enableTracking;
@@ -209,10 +211,14 @@ namespace BitChatCore
                 if (_sendInvitation)
                 {
                     //init outbound invitation tracker
-                    _outboundInvitationTrackerClient = new TrackerManager(_network.MaskedPeerEmailAddress, _network.ConnectionManager.LocalPort, _network.ConnectionManager.DhtClient, 30, true);
-                    _outboundInvitationTrackerClient.DiscoveredPeers += InvitationTrackerManager_DiscoveredPeers;
+                    _outboundInvitationDhtOnlyTrackerClient = new TrackerManager(_network.MaskedPeerEmailAddress, _network.ConnectionManager.LocalPort, _network.ConnectionManager.DhtClient, 30, true);
+                    _outboundInvitationDhtOnlyTrackerClient.DiscoveredPeers += OutboundInvitationDhtOnlyTrackerManager_DiscoveredPeers;
 
-                    StartOutboundInvitationClient();
+                    if (_network.Status == BitChatNetworkStatus.Online)
+                    {
+                        _outboundInvitationDhtOnlyTrackerClient.StartTracking();
+                        _localPeerDiscovery.StartAnnouncement(_network.MaskedPeerEmailAddress);
+                    }
                 }
             }
 
@@ -271,8 +277,8 @@ namespace BitChatCore
                 if (_trackerManager != null)
                     _trackerManager.Dispose();
 
-                if (_outboundInvitationTrackerClient != null)
-                    _outboundInvitationTrackerClient.Dispose();
+                if (_outboundInvitationDhtOnlyTrackerClient != null)
+                    _outboundInvitationDhtOnlyTrackerClient.Dispose();
 
                 //stop shared files
                 _sharedFilesLock.EnterWriteLock();
@@ -298,14 +304,15 @@ namespace BitChatCore
                     _peersLock.ExitWriteLock();
                 }
 
-                //stop network
-                _network.Dispose();
-
                 //close message store
-                _store.Dispose();
+                if (_store != null)
+                    _store.Dispose();
 
                 _sharedFilesLock.Dispose();
                 _peersLock.Dispose();
+
+                //stop network
+                _network.Dispose();
 
                 _disposed = true;
             }
@@ -474,19 +481,6 @@ namespace BitChatCore
         #endregion
 
         #region public
-
-        public int GetPeerCount()
-        {
-            _peersLock.EnterReadLock();
-            try
-            {
-                return _peers.Count;
-            }
-            finally
-            {
-                _peersLock.ExitReadLock();
-            }
-        }
 
         public Peer[] GetPeerList()
         {
@@ -657,6 +651,18 @@ namespace BitChatCore
             _network.GoOffline();
             _localPeerDiscovery.StopTracking(_network.NetworkID);
 
+            if (_network.Type == BitChatNetworkType.PrivateChat)
+            {
+                if (_sendInvitation)
+                {
+                    _outboundInvitationDhtOnlyTrackerClient.StopTracking();
+                    _localPeerDiscovery.StopAnnouncement(_network.MaskedPeerEmailAddress);
+                }
+            }
+
+            if (_enableTracking)
+                RemoveTcpRelay(this, EventArgs.Empty);
+
             TriggerUpdateNetworkStatus();
         }
 
@@ -664,6 +670,18 @@ namespace BitChatCore
         {
             _network.GoOnline();
             _localPeerDiscovery.StartTracking(_network.NetworkID);
+
+            if (_network.Type == BitChatNetworkType.PrivateChat)
+            {
+                if (_sendInvitation)
+                {
+                    _outboundInvitationDhtOnlyTrackerClient.StartTracking();
+                    _localPeerDiscovery.StartAnnouncement(_network.MaskedPeerEmailAddress);
+                }
+            }
+
+            if (_enableTracking)
+                SetupTcpRelay(this, EventArgs.Empty);
 
             TriggerUpdateNetworkStatus();
         }
@@ -737,9 +755,9 @@ namespace BitChatCore
             }
 
             if (_network.Type == BitChatNetworkType.PrivateChat)
-                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, _messageStoreID, _messageStoreKey, 0, null, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _enableTracking, _sendInvitation, _network.InvitationSender, _network.InvitationMessage, _network.Status, _mute);
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, _messageStoreID, _messageStoreKey, 0, null, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTrackerURIs(), _enableTracking, _sendInvitation, _network.InvitationSender, _network.InvitationMessage, _network.Status, _mute);
             else
-                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, _messageStoreID, _messageStoreKey, _groupImageDateModified, _groupImage, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTracketURIs(), _enableTracking, false, null, null, _network.Status, _mute);
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, _messageStoreID, _messageStoreKey, _groupImageDateModified, _groupImage, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTrackerURIs(), _enableTracking, false, null, null, _network.Status, _mute);
         }
 
         internal void WriteMessageBroadcast(byte[] data, int offset, int count)
@@ -768,7 +786,8 @@ namespace BitChatCore
             {
                 if (_sendInvitation)
                 {
-                    StopOutboundInvitationClient();
+                    _outboundInvitationDhtOnlyTrackerClient.StopTracking();
+                    _localPeerDiscovery.StopAnnouncement(_network.MaskedPeerEmailAddress);
 
                     //disable send invitation in future
                     _sendInvitation = false;
@@ -794,9 +813,17 @@ namespace BitChatCore
                 RaiseEventPeerHasChangedCertificate(cert);
         }
 
+        private void OutboundInvitationDhtOnlyTrackerManager_DiscoveredPeers(TrackerManager sender, IEnumerable<IPEndPoint> peerEPs)
+        {
+            _network.SendInvitation(peerEPs);
+        }
+
         internal void ClientProfileProxyUpdated()
         {
             _trackerManager.Proxy = _network.ConnectionManager.Profile.Proxy;
+
+            GoOffline();
+            GoOnline();
         }
 
         internal void ClientProfileImageChanged()
@@ -1029,8 +1056,8 @@ namespace BitChatCore
 
                             if (_enableTracking)
                             {
+                                _trackerManager.ScheduleUpdateNow();
                                 _trackerManager.StartTracking();
-                                _trackerManager.ForceUpdate();
                             }
                         }
                     }
@@ -1044,8 +1071,14 @@ namespace BitChatCore
                             {
                                 if (disconnectedPeerList.Count > 0)
                                 {
+                                    _trackerManager.CustomUpdateInterval = BIT_CHAT_TRACKER_UPDATE_INTERVAL_SECONDS; //set custom update interval for quick retries to tracker/DHT
+                                    _trackerManager.ScheduleUpdateNow();
                                     _trackerManager.StartTracking();
-                                    _trackerManager.ForceUpdate();
+                                }
+                                else
+                                {
+                                    _trackerManager.CustomUpdateInterval = 0; //set to default values to avoid frequent calls to tracker/DHT
+                                    _trackerManager.StartTracking();
                                 }
                             }
                         }
@@ -1055,8 +1088,9 @@ namespace BitChatCore
 
                             if (_enableTracking)
                             {
+                                _trackerManager.CustomUpdateInterval = BIT_CHAT_TRACKER_UPDATE_INTERVAL_SECONDS; //set custom update interval for quick retries to tracker/DHT
+                                _trackerManager.ScheduleUpdateNow();
                                 _trackerManager.StartTracking();
-                                _trackerManager.ForceUpdate();
                             }
                         }
                     }
@@ -1136,30 +1170,6 @@ namespace BitChatCore
 
         #endregion
 
-        #region Invitation
-
-        private void StartOutboundInvitationClient()
-        {
-            if (_network.Status == BitChatNetworkStatus.Online)
-            {
-                _outboundInvitationTrackerClient.StartTracking();
-                _localPeerDiscovery.StartAnnouncement(_network.MaskedPeerEmailAddress);
-            }
-        }
-
-        private void StopOutboundInvitationClient()
-        {
-            _outboundInvitationTrackerClient.StopTracking();
-            _localPeerDiscovery.StopAnnouncement(_network.MaskedPeerEmailAddress);
-        }
-
-        private void InvitationTrackerManager_DiscoveredPeers(TrackerManager sender, IEnumerable<IPEndPoint> peerEPs)
-        {
-            _network.SendInvitation(peerEPs);
-        }
-
-        #endregion
-
         #region TrackerManager
 
         private void TrackerManager_DiscoveredPeers(TrackerManager sender, IEnumerable<IPEndPoint> peerEPs)
@@ -1170,6 +1180,11 @@ namespace BitChatCore
         public TrackerClient[] GetTrackers()
         {
             return _trackerManager.GetTrackers();
+        }
+
+        public Uri[] GetTrackerURIs()
+        {
+            return _trackerManager.GetTrackerURIs();
         }
 
         public int DhtGetTotalPeers()
@@ -1220,7 +1235,7 @@ namespace BitChatCore
             {
                 _enableTracking = value;
 
-                if (_network.Status != BitChatNetworkStatus.Offline)
+                if (_network.Status == BitChatNetworkStatus.Online)
                 {
                     if (_enableTracking)
                     {
@@ -1234,12 +1249,20 @@ namespace BitChatCore
                         _trackerManager.StopTracking();
                     }
                 }
+
+                if (_enableTracking && (_network.Status == BitChatNetworkStatus.Online))
+                    SetupTcpRelay(this, EventArgs.Empty);
+                else
+                    RemoveTcpRelay(this, EventArgs.Empty);
             }
         }
 
         #endregion
 
         #region properties
+
+        internal BitChatNetwork Network
+        { get { return _network; } }
 
         public BitChatProfile Profile
         { get { return _network.ConnectionManager.Profile; } }
