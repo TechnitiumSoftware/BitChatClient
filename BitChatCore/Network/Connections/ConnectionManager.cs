@@ -66,7 +66,7 @@ namespace BitChatCore.Network.Connections
         #region variables
 
         const int SOCKET_SEND_TIMEOUT = 30000; //30 sec socket timeout; application protocol NOOPs at 15 sec
-        const int SOCKET_RECV_TIMEOUT = 90000; //keep socket open for long time to allow tunnelling requests between time
+        const int SOCKET_RECV_TIMEOUT = 120000; //keep socket open for long time to allow tunnelling requests between time
 
         const int DHT_SEED_TRACKER_UPDATE_INTERVAL = 300;
 
@@ -307,8 +307,8 @@ namespace BitChatCore.Network.Connections
                     Connection existingConnection = _connectionListByConnectionID[remotePeerEP];
 
                     //check for virtual vs real connection
-                    bool currentIsVirtual = Connection.IsVirtualConnection(networkStream);
-                    bool existingIsVirtual = existingConnection.IsVirtual;
+                    bool currentIsVirtual = Connection.IsStreamProxyTunnelConnection(networkStream);
+                    bool existingIsVirtual = existingConnection.IsProxyTunnelConnection;
 
                     if (existingIsVirtual && !currentIsVirtual)
                     {
@@ -326,8 +326,8 @@ namespace BitChatCore.Network.Connections
                     Connection existingConnection = _connectionListByPeerID[remotePeerID];
 
                     //check for virtual vs real connection
-                    bool currentIsVirtual = Connection.IsVirtualConnection(networkStream);
-                    bool existingIsVirtual = existingConnection.IsVirtual;
+                    bool currentIsVirtual = Connection.IsStreamProxyTunnelConnection(networkStream);
+                    bool existingIsVirtual = existingConnection.IsProxyTunnelConnection;
 
                     if (existingIsVirtual && !currentIsVirtual)
                     {
@@ -493,13 +493,13 @@ namespace BitChatCore.Network.Connections
                         ThreadPool.QueueUserWorkItem(RequestPeerStatusAsync, new object[] { connection, remotePeerEP, lockObject, placeholder });
                 }
 
-                if (!Monitor.Wait(lockObject, 20000))
+                if (!Monitor.Wait(lockObject, 10000))
                     throw new Exception("Timed out while waiting for available peers for virtual connection.");
 
                 Connection proxyPeerConnection = placeholder[0];
 
                 //create tunnel via proxy peer
-                Stream proxyNetworkStream = proxyPeerConnection.RequestProxyTunnelChannel(remotePeerEP);
+                Stream proxyNetworkStream = proxyPeerConnection.RequestProxyTunnel(remotePeerEP);
 
                 //make new connection protocol begins
                 return MakeConnectionInitiateProtocol(proxyNetworkStream, remotePeerEP);
@@ -866,9 +866,14 @@ namespace BitChatCore.Network.Connections
                             //if no incoming connection possible
 
                             if (_dhtClient.GetTotalNodes() < DhtClient.KADEMLIA_K)
+                            {
                                 _dhtSeedingTracker.LookupOnly = true;
+                                _dhtSeedingTracker.ScheduleUpdateNow(); //start finding dht nodes immediately
+                            }
                             else
+                            {
                                 _dhtSeedingTracker.StopTracking(); //we have enough dht nodes and can stop seeding tracker
+                            }
                         }
                         else
                         {
@@ -1074,7 +1079,7 @@ namespace BitChatCore.Network.Connections
                     return existingConnection;
 
                 //create tunnel via proxy peer
-                Stream proxyNetworkStream = viaConnection.RequestProxyTunnelChannel(remotePeerEP);
+                Stream proxyNetworkStream = viaConnection.RequestProxyTunnel(remotePeerEP);
 
                 //make new connection protocol begins
                 return MakeConnectionInitiateProtocol(proxyNetworkStream, remotePeerEP);
@@ -1091,7 +1096,9 @@ namespace BitChatCore.Network.Connections
         public void SendDhtPacket(IPEndPoint remoteNodeEP, byte[] buffer, int offset, int size)
         {
             Connection connection = MakeConnection(remoteNodeEP);
-            connection.SendDhtPacket(buffer, offset, size);
+
+            if (!connection.IsProxyTunnelConnection)
+                connection.SendDhtPacket(buffer, offset, size);
         }
 
         #endregion
