@@ -49,30 +49,18 @@ namespace BitChatCore
             {
                 new Uri("udp://tracker.publicbt.com:80"),
                 new Uri("udp://tracker.openbittorrent.com:80"),
-                new Uri("udp://tracker.istole.it:80"),
                 new Uri("udp://open.demonii.com:1337/announce"),
                 new Uri("udp://tracker.coppersurfer.tk:80"),
                 new Uri("udp://coppersurfer.tk:6969/announce"),
                 new Uri("udp://tracker.leechers-paradise.org:6969"),
-                new Uri("udp://exodus.desync.com:6969"),
-                new Uri("udp://tracker.btzoo.eu:80/announce"),
-                new Uri("udp://tracker.ilibr.org:80/announce"),
                 new Uri("udp://9.rarbg.com:2710/announce"),
-                new Uri("udp://9.rarbg.me:2710/announce"),
                 new Uri("udp://tracker4.piratux.com:6969/announce"),
-                new Uri("udp://tracker.blackunicorn.xyz:6969/announce"),
-                new Uri("udp://tracker.pomf.se/announce"),
                 new Uri("udp://open.demonii.com:1337"),
-                new Uri("udp://torrent.gresille.org:80/announce"),
-                new Uri("udp://glotorrents.pw:6969/announce"),
                 new Uri("udp://eddie4.nl:6969/announce"),
-                new Uri("udp://9.rarbg.to:2710/announce"),
                 new Uri("http://9.rarbg.com:2710/announce"),
                 new Uri("http://opensharing.org:2710/announce"),
                 new Uri("http://bt.careland.com.cn:6969/announce"),
-                new Uri("http://i.bandito.org/announce"),
                 new Uri("http://tracker.ex.ua/announce"),
-                new Uri("http://tracker.ilibr.org:6969/announce")
             };
 
         static readonly DateTime _epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
@@ -541,9 +529,11 @@ namespace BitChatCore
 
         public void DisableProxy()
         {
-            _proxy = null;
-
-            ProxyUpdated?.BeginInvoke(this, EventArgs.Empty, null, null);
+            if (_proxy != null)
+            {
+                _proxy = null;
+                ProxyUpdated?.BeginInvoke(this, EventArgs.Empty, null, null);
+            }
         }
 
         internal bool SetProfileImage(long dateModified, byte[] image)
