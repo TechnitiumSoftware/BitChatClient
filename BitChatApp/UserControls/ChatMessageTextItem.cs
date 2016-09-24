@@ -106,7 +106,7 @@ namespace BitChatApp.UserControls
                             break;
 
                         default:
-                            picDeliveryStatus.Image = Properties.Resources.message_failed;
+                            picDeliveryStatus.Image = null;
                             break;
                     }
 
