@@ -47,16 +47,10 @@ namespace BitChatCore
         public readonly static Uri[] DefaultTrackerURIs
             = new Uri[]
             {
-                new Uri("udp://tracker.publicbt.com:80"),
-                new Uri("udp://tracker.openbittorrent.com:80"),
-                new Uri("udp://open.demonii.com:1337/announce"),
-                new Uri("udp://tracker.coppersurfer.tk:80"),
-                new Uri("udp://coppersurfer.tk:6969/announce"),
-                new Uri("udp://tracker.leechers-paradise.org:6969"),
-                new Uri("udp://9.rarbg.com:2710/announce"),
-                new Uri("udp://tracker4.piratux.com:6969/announce"),
-                new Uri("udp://open.demonii.com:1337"),
-                new Uri("udp://eddie4.nl:6969/announce"),
+                new Uri("udp://tracker1.bitchat.im:6969"),
+                new Uri("udp://tracker2.bitchat.im:6969"),
+                new Uri("udp://tracker3.bitchat.im:6969"),
+                new Uri("udp://tracker4.bitchat.im:1337"),
                 new Uri("http://9.rarbg.com:2710/announce"),
                 new Uri("http://opensharing.org:2710/announce"),
                 new Uri("http://bt.careland.com.cn:6969/announce"),
