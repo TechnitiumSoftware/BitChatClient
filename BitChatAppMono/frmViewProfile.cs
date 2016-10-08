@@ -48,7 +48,7 @@ namespace BitChatApp
             _peer = peer;
 
             CertificateProfile certProfile;
-            byte[] profileImage;
+            byte[] profileImage = null;
 
             if (_peer == null)
             {
@@ -66,7 +66,9 @@ namespace BitChatApp
                 }
 
                 certProfile = _peer.PeerCertificate.IssuedTo;
-                profileImage = _peer.ProfileImage;
+
+                if (_peer.IsOnline)
+                    profileImage = _peer.ProfileImage;
             }
 
             //name
@@ -94,7 +96,11 @@ namespace BitChatApp
                     labIcon.Text = "";
                 }
 
-                labIcon.BackColor = Color.FromArgb(102, 153, 255);
+                if ((_peer == null) || _peer.IsOnline)
+                    labIcon.BackColor = Color.FromArgb(102, 153, 255);
+                else
+                    labIcon.BackColor = Color.Gray;
+
                 labName.Text = name;
             }
             else

@@ -67,7 +67,11 @@ namespace BitChatApp
                 labIcon.Text = "";
             }
 
-            labIcon.BackColor = Color.FromArgb(102, 153, 255);
+            if (_chat.NetworkStatus == BitChatCore.Network.BitChatNetworkStatus.Online)
+                labIcon.BackColor = Color.FromArgb(102, 153, 255);
+            else
+                labIcon.BackColor = Color.Gray;
+
             labName.Text = name;
 
             //image icon
