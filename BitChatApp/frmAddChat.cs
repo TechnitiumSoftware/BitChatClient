@@ -60,7 +60,7 @@ namespace BitChatApp
                 label6.Visible = false;
                 label7.Visible = false;
 
-                this.Height = 200;
+                this.Height = 220;
             }
         }
 
@@ -80,6 +80,11 @@ namespace BitChatApp
                 chkSendInvitation.Enabled = false;
                 txtInvitationMessage.Enabled = false;
             }
+        }
+
+        private void chkLANChat_CheckedChanged(object sender, EventArgs e)
+        {
+            chkDhtOnlyTracking.Enabled = !chkLANChat.Checked;
         }
 
         private void chkSendInvitation_CheckedChanged(object sender, EventArgs e)
@@ -110,7 +115,12 @@ namespace BitChatApp
                 catch
                 {
                     MessageBox.Show("Please enter a valid email address of your peer to chat with.", "Invalid Email Address", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
 
+                if (chkSendInvitation.Enabled && chkSendInvitation.Checked && string.IsNullOrEmpty(txtInvitationMessage.Text))
+                {
+                    MessageBox.Show("Please enter an invitation message for the new private chat.", "Missing Invitation Message", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
             }
@@ -136,6 +146,9 @@ namespace BitChatApp
 
         public bool OnlyLanChat
         { get { return chkLANChat.Checked; } }
+
+        public bool DhtOnlyTracking
+        { get { return chkDhtOnlyTracking.Enabled && chkDhtOnlyTracking.Checked; } }
 
         public string InvitationMessage
         {

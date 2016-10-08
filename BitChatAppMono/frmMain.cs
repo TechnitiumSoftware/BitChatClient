@@ -393,7 +393,7 @@ namespace BitChatApp
                 {
                     try
                     {
-                        BitChat chat = _client.CreatePrivateChat(new System.Net.Mail.MailAddress(frm.NetworkNameOrPeerEmailAddress.ToLower()), frm.SharedSecret, !frm.OnlyLanChat, frm.InvitationMessage);
+                        BitChat chat = _client.CreatePrivateChat(new System.Net.Mail.MailAddress(frm.NetworkNameOrPeerEmailAddress.ToLower()), frm.SharedSecret, !frm.OnlyLanChat, frm.DhtOnlyTracking, frm.InvitationMessage);
 
                         lstChats.SelectItem(AddChatView(chat));
                         ShowSelectedChatView();
@@ -421,7 +421,7 @@ namespace BitChatApp
                 {
                     try
                     {
-                        BitChat chat = _client.CreateGroupChat(frm.NetworkNameOrPeerEmailAddress, frm.SharedSecret, !frm.OnlyLanChat);
+                        BitChat chat = _client.CreateGroupChat(frm.NetworkNameOrPeerEmailAddress, frm.SharedSecret, !frm.OnlyLanChat, frm.DhtOnlyTracking);
 
                         lstChats.SelectItem(AddChatView(chat));
                         ShowSelectedChatView();
