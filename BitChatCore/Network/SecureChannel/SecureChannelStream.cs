@@ -21,7 +21,6 @@ using System;
 using System.IO;
 using System.Net;
 using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Security.Cryptography;
@@ -613,17 +612,17 @@ namespace BitChatCore.Network.SecureChannel
             return _reNegotiating;
         }
 
-        protected byte[] GenerateMasterKey(SecureChannelPacket.Hello clientHello, SecureChannelPacket.Hello serverHello, string preSharedKey, KeyAgreement keyAgreement, byte[] otherPartyPublicKey)
+        protected byte[] GenerateMasterKey(SecureChannelPacket.Hello clientHello, SecureChannelPacket.Hello serverHello, byte[] preSharedKey, KeyAgreement keyAgreement, byte[] otherPartyPublicKey)
         {
             using (MemoryStream mS = new MemoryStream(128))
             {
                 clientHello.WriteTo(mS);
                 serverHello.WriteTo(mS);
 
-                if (string.IsNullOrEmpty(preSharedKey))
+                if (preSharedKey == null)
                     keyAgreement.HmacMessage = mS.ToArray();
                 else
-                    keyAgreement.HmacMessage = (new HMACSHA256(Encoding.UTF8.GetBytes(preSharedKey))).ComputeHash(mS.ToArray());
+                    keyAgreement.HmacMessage = (new HMACSHA256(preSharedKey)).ComputeHash(mS.ToArray());
             }
 
             return keyAgreement.DeriveKeyMaterial(otherPartyPublicKey);

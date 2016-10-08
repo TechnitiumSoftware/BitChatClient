@@ -35,13 +35,13 @@ namespace BitChatCore.Network.SecureChannel
         Certificate[] _trustedRootCertificates;
         ISecureChannelSecurityManager _manager;
         SecureChannelCryptoOptionFlags _supportedOptions;
-        string _preSharedKey;
+        byte[] _preSharedKey;
 
         #endregion
 
         #region constructor
 
-        public SecureChannelClientStream(Stream stream, IPEndPoint remotePeerEP, CertificateStore clientCredentials, Certificate[] trustedRootCertificates, ISecureChannelSecurityManager manager, SecureChannelCryptoOptionFlags supportedOptions, int reNegotiateOnBytesSent, int reNegotiateAfterSeconds, string preSharedKey = null)
+        public SecureChannelClientStream(Stream stream, IPEndPoint remotePeerEP, CertificateStore clientCredentials, Certificate[] trustedRootCertificates, ISecureChannelSecurityManager manager, SecureChannelCryptoOptionFlags supportedOptions, int reNegotiateOnBytesSent, int reNegotiateAfterSeconds, byte[] preSharedKey)
             : base(remotePeerEP, reNegotiateOnBytesSent, reNegotiateAfterSeconds)
         {
             _clientCredentials = clientCredentials;
@@ -61,7 +61,7 @@ namespace BitChatCore.Network.SecureChannel
                         //send supported client version
                         stream.WriteByte(4);
 
-                        ProtocolV4(stream, clientCredentials, trustedRootCertificates, manager, preSharedKey, supportedOptions);
+                        ProtocolV4(stream);
                         break;
 
                     case -1:
@@ -112,19 +112,19 @@ namespace BitChatCore.Network.SecureChannel
 
         #region private
 
-        private void ProtocolV4(Stream stream, CertificateStore clientCredentials, Certificate[] trustedRootCertificates, ISecureChannelSecurityManager manager, string preSharedKey, SecureChannelCryptoOptionFlags supportedOptions)
+        private void ProtocolV4(Stream stream)
         {
             #region 1. hello handshake
 
             //send client hello
-            SecureChannelPacket.Hello clientHello = new SecureChannelPacket.Hello(BinaryID.GenerateRandomID256(), supportedOptions);
+            SecureChannelPacket.Hello clientHello = new SecureChannelPacket.Hello(BinaryID.GenerateRandomID256(), _supportedOptions);
             SecureChannelPacket.WritePacket(stream, clientHello);
 
             //read server hello
             SecureChannelPacket.Hello serverHello = (new SecureChannelPacket(stream)).GetHello();
 
             //read selected crypto option
-            _selectedCryptoOption = supportedOptions & serverHello.CryptoOptions;
+            _selectedCryptoOption = _supportedOptions & serverHello.CryptoOptions;
 
             if (_selectedCryptoOption == SecureChannelCryptoOptionFlags.None)
                 throw new SecureChannelException(SecureChannelCode.NoMatchingCryptoAvailable, _remotePeerEP, _remotePeerCert);
@@ -159,7 +159,7 @@ namespace BitChatCore.Network.SecureChannel
             }
 
             //send client key exchange data
-            SecureChannelPacket.KeyExchange clientKeyExchange = new SecureChannelPacket.KeyExchange(keyAgreement.GetPublicKey(), clientCredentials.PrivateKey, hashAlgo);
+            SecureChannelPacket.KeyExchange clientKeyExchange = new SecureChannelPacket.KeyExchange(keyAgreement.GetPublicKey(), _clientCredentials.PrivateKey, hashAlgo);
             SecureChannelPacket.WritePacket(stream, clientKeyExchange);
 
             //generate master key
@@ -205,7 +205,7 @@ namespace BitChatCore.Network.SecureChannel
             if (!IsReNegotiating())
             {
                 //send client certificate
-                SecureChannelPacket.WritePacket(this, clientCredentials.Certificate);
+                SecureChannelPacket.WritePacket(this, _clientCredentials.Certificate);
 
                 //read server certificate
                 _remotePeerCert = (new SecureChannelPacket(this)).GetCertificate();
@@ -213,7 +213,7 @@ namespace BitChatCore.Network.SecureChannel
                 //verify server certificate
                 try
                 {
-                    _remotePeerCert.Verify(trustedRootCertificates);
+                    _remotePeerCert.Verify(_trustedRootCertificates);
                 }
                 catch (Exception ex)
                 {
@@ -238,7 +238,7 @@ namespace BitChatCore.Network.SecureChannel
                     throw new SecureChannelException(SecureChannelCode.NoMatchingCryptoAvailable, _remotePeerEP, _remotePeerCert);
             }
 
-            if ((manager != null) && !manager.ProceedConnection(_remotePeerCert))
+            if ((_manager != null) && !_manager.ProceedConnection(_remotePeerCert))
                 throw new SecureChannelException(SecureChannelCode.SecurityManagerDeclinedAccess, _remotePeerEP, _remotePeerCert, "Security manager declined access.");
 
             #endregion
@@ -255,7 +255,7 @@ namespace BitChatCore.Network.SecureChannel
                 switch (_version)
                 {
                     case 4:
-                        ProtocolV4(_baseStream, _clientCredentials, _trustedRootCertificates, _manager, _preSharedKey, _supportedOptions);
+                        ProtocolV4(_baseStream);
                         break;
 
                     default:
