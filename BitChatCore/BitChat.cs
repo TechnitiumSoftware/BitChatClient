@@ -755,9 +755,9 @@ namespace BitChatCore
             }
 
             if (_network.Type == BitChatNetworkType.PrivateChat)
-                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.NetworkName, _network.SharedSecret, _network.HashedPeerEmailAddress, _network.NetworkID, _messageStoreID, _messageStoreKey, 0, null, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTrackerURIs(), _enableTracking, _sendInvitation, _network.InvitationSender, _network.InvitationMessage, _network.Status, _mute);
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.NetworkName, _network.SharedSecret, _network.HashedPeerEmailAddress, _network.NetworkID, _network.NetworkSecret, _messageStoreID, _messageStoreKey, 0, null, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTrackerURIs(), _enableTracking, _sendInvitation, _network.InvitationSender, _network.InvitationMessage, _network.Status, _mute);
             else
-                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, null, _network.NetworkID, _messageStoreID, _messageStoreKey, _groupImageDateModified, _groupImage, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTrackerURIs(), _enableTracking, false, null, null, _network.Status, _mute);
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, null, _network.NetworkID, _network.NetworkSecret, _messageStoreID, _messageStoreKey, _groupImageDateModified, _groupImage, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTrackerURIs(), _enableTracking, false, null, null, _network.Status, _mute);
         }
 
         internal void WriteMessageBroadcast(byte[] data, int offset, int count)

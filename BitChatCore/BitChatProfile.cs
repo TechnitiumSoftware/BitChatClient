@@ -658,6 +658,7 @@ namespace BitChatCore
             readonly string _sharedSecret;
             readonly BinaryID _hashedPeerEmailAddress;
             readonly BinaryID _networkID;
+            readonly BinaryID _networkSecret;
             readonly string _messageStoreID;
             readonly byte[] _messageStoreKey;
             readonly long _groupImageDateModified = -1;
@@ -676,13 +677,14 @@ namespace BitChatCore
 
             #region constructor
 
-            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID hashedPeerEmailAddress, BinaryID networkID, string messageStoreID, byte[] messageStoreKey, long groupImageDateModified, byte[] groupImage, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, bool sendInvitation, string invitationSender, string invitationMessage, BitChatNetworkStatus networkStatus, bool mute)
+            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID hashedPeerEmailAddress, BinaryID networkID, BinaryID networkSecret, string messageStoreID, byte[] messageStoreKey, long groupImageDateModified, byte[] groupImage, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, bool sendInvitation, string invitationSender, string invitationMessage, BitChatNetworkStatus networkStatus, bool mute)
             {
                 _type = type;
                 _networkNameOrPeerEmailAddress = networkNameOrPeerEmailAddress;
                 _sharedSecret = sharedSecret;
                 _hashedPeerEmailAddress = hashedPeerEmailAddress;
                 _networkID = networkID;
+                _networkSecret = networkSecret;
                 _messageStoreID = messageStoreID;
                 _messageStoreKey = messageStoreKey;
                 _groupImageDateModified = groupImageDateModified;
@@ -751,6 +753,10 @@ namespace BitChatCore
 
                         case "network_id":
                             _networkID = new BinaryID(pair.Value.Value);
+                            break;
+
+                        case "network_secret":
+                            _networkSecret = new BinaryID(pair.Value.Value);
                             break;
 
                         case "message_store_id":
@@ -845,6 +851,9 @@ namespace BitChatCore
                 if (_networkID != null)
                     encoder.Encode("network_id", _networkID.ID);
 
+                if (_networkSecret != null)
+                    encoder.Encode("network_secret", _networkSecret.ID);
+
                 encoder.Encode("message_store_id", _messageStoreID);
                 encoder.Encode("message_store_key", _messageStoreKey);
 
@@ -916,6 +925,9 @@ namespace BitChatCore
 
             public BinaryID NetworkID
             { get { return _networkID; } }
+
+            public BinaryID NetworkSecret
+            { get { return _networkSecret; } }
 
             public string MessageStoreID
             { get { return _messageStoreID; } }
