@@ -170,28 +170,21 @@ namespace BitChatCore
 
             //check if email address domain exists
             {
-                DnsClient dns = new DnsClient(IPAddress.Parse("8.8.8.8"));
+                DnsClient dns = new DnsClient("8.8.8.8");
 
                 try
                 {
                     dns.ResolveMX(_localCertStore.Certificate.IssuedTo.EmailAddress);
                 }
-                catch (NameErrorDnsClientException ex)
+                catch (NameErrorDnsClientException)
                 {
-                    throw new NameErrorDnsClientException("Error encountered while resolving domain '" + _localCertStore.Certificate.IssuedTo.EmailAddress.Host + "'. Please check if you have entered correct email address.", ex);
+                    throw new NameErrorDnsClientException("The domain of your email address '" + _localCertStore.Certificate.IssuedTo.EmailAddress.Host + "' does not exists. Please check if you have entered correct email address.");
                 }
                 catch
                 {
-                    try
-                    {
-                        DnsDatagram response = DnsClient.ResolveViaRootNameServers(_localCertStore.Certificate.IssuedTo.EmailAddress.Host, DnsRecordType.MX);
-                    }
-                    catch (NameErrorDnsClientException ex)
-                    {
-                        throw new NameErrorDnsClientException("Error encountered while resolving domain '" + _localCertStore.Certificate.IssuedTo.EmailAddress.Host + "'. Please check if you have entered correct email address.", ex);
-                    }
-                    catch
-                    { }
+                    DnsDatagram response = DnsClient.ResolveViaRootNameServers(_localCertStore.Certificate.IssuedTo.EmailAddress.Host, DnsRecordType.MX);
+                    if (response.Header.RCODE == DnsResponseCode.NameError)
+                        throw new NameErrorDnsClientException("The domain of your email address '" + _localCertStore.Certificate.IssuedTo.EmailAddress.Host + "' does not exists. Please check if you have entered correct email address.");
                 }
             }
 
@@ -663,6 +656,7 @@ namespace BitChatCore
             readonly BitChatNetworkType _type = BitChatNetworkType.GroupChat;
             readonly string _networkNameOrPeerEmailAddress;
             readonly string _sharedSecret;
+            readonly BinaryID _hashedPeerEmailAddress;
             readonly BinaryID _networkID;
             readonly string _messageStoreID;
             readonly byte[] _messageStoreKey;
@@ -682,11 +676,12 @@ namespace BitChatCore
 
             #region constructor
 
-            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID networkID, string messageStoreID, byte[] messageStoreKey, long groupImageDateModified, byte[] groupImage, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, bool sendInvitation, string invitationSender, string invitationMessage, BitChatNetworkStatus networkStatus, bool mute)
+            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID hashedPeerEmailAddress, BinaryID networkID, string messageStoreID, byte[] messageStoreKey, long groupImageDateModified, byte[] groupImage, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, bool sendInvitation, string invitationSender, string invitationMessage, BitChatNetworkStatus networkStatus, bool mute)
             {
                 _type = type;
                 _networkNameOrPeerEmailAddress = networkNameOrPeerEmailAddress;
                 _sharedSecret = sharedSecret;
+                _hashedPeerEmailAddress = hashedPeerEmailAddress;
                 _networkID = networkID;
                 _messageStoreID = messageStoreID;
                 _messageStoreKey = messageStoreKey;
@@ -748,6 +743,10 @@ namespace BitChatCore
 
                         case "network_status":
                             _networkStatus = (BitChatNetworkStatus)pair.Value.GetByteValue();
+                            break;
+
+                        case "hashed_peer_email_address":
+                            _hashedPeerEmailAddress = new BinaryID(pair.Value.Value);
                             break;
 
                         case "network_id":
@@ -840,6 +839,9 @@ namespace BitChatCore
 
                 encoder.Encode("network_status", (byte)_networkStatus);
 
+                if (_hashedPeerEmailAddress != null)
+                    encoder.Encode("hashed_peer_email_address", _hashedPeerEmailAddress.ID);
+
                 if (_networkID != null)
                     encoder.Encode("network_id", _networkID.ID);
 
@@ -908,6 +910,9 @@ namespace BitChatCore
 
             public string SharedSecret
             { get { return _sharedSecret; } }
+
+            public BinaryID HashedPeerEmailAddress
+            { get { return _hashedPeerEmailAddress; } }
 
             public BinaryID NetworkID
             { get { return _networkID; } }

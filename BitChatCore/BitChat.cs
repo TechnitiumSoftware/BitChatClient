@@ -755,9 +755,9 @@ namespace BitChatCore
             }
 
             if (_network.Type == BitChatNetworkType.PrivateChat)
-                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, _messageStoreID, _messageStoreKey, 0, null, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTrackerURIs(), _enableTracking, _sendInvitation, _network.InvitationSender, _network.InvitationMessage, _network.Status, _mute);
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.PrivateChat, _network.NetworkName, _network.SharedSecret, _network.HashedPeerEmailAddress, _network.NetworkID, _messageStoreID, _messageStoreKey, 0, null, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTrackerURIs(), _enableTracking, _sendInvitation, _network.InvitationSender, _network.InvitationMessage, _network.Status, _mute);
             else
-                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, _network.NetworkID, _messageStoreID, _messageStoreKey, _groupImageDateModified, _groupImage, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTrackerURIs(), _enableTracking, false, null, null, _network.Status, _mute);
+                return new BitChatProfile.BitChatInfo(BitChatNetworkType.GroupChat, _network.NetworkName, _network.SharedSecret, null, _network.NetworkID, _messageStoreID, _messageStoreKey, _groupImageDateModified, _groupImage, peerCerts.ToArray(), sharedFileInfo.ToArray(), _trackerManager.GetTrackerURIs(), _enableTracking, false, null, null, _network.Status, _mute);
         }
 
         internal void WriteMessageBroadcast(byte[] data, int offset, int count)
@@ -1427,24 +1427,24 @@ namespace BitChatCore
 
             #region private
 
-            private void virtualPeer_StateChanged(BitChatNetwork.VirtualPeer virtualPeer, BitChatNetwork.VirtualPeer.VirtualSession peerSession)
+            private void virtualPeer_StateChanged(BitChatNetwork.VirtualPeer.VirtualSession peerSession)
             {
                 //trigger peer exchange for entire network
                 _bitChat.DoPeerExchange();
 
                 if (_virtualPeer.IsOnline)
                 {
-                    DoSendProfileImage();
-                    DoSendSharedFileMetaData();
+                    DoSendProfileImage(peerSession);
+                    DoSendSharedFileMetaData(peerSession);
 
                     switch (_bitChat._network.Type)
                     {
                         case BitChatNetworkType.PrivateChat:
-                            ReSendUndeliveredMessages(); //feature only for private chat. since, group chat can have multiple offline users, sending undelivered messages will create partial & confusing conversation for the one who comes online later.
+                            ReSendUndeliveredMessages(peerSession); //feature only for private chat. since, group chat can have multiple offline users, sending undelivered messages will create partial & confusing conversation for the one who comes online later.
                             break;
 
                         case BitChatNetworkType.GroupChat:
-                            DoSendGroupImage(); //group image feature
+                            DoSendGroupImage(peerSession); //group image feature
                             break;
                     }
                 }
@@ -1844,22 +1844,26 @@ namespace BitChatCore
                 if (_isSelfPeer)
                     RaiseEventProfileImageChanged();
 
-                DoSendProfileImage();
+                DoSendProfileImage(null);
             }
 
-            private void DoSendProfileImage()
+            private void DoSendProfileImage(BitChatNetwork.VirtualPeer.VirtualSession peerSession)
             {
                 byte[] messageData = BitChatMessage.CreateProfileImage(_bitChat._network.ConnectionManager.Profile.ProfileImage, _bitChat._network.ConnectionManager.Profile.ProfileImageDateModified);
-                _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
+
+                if (peerSession == null)
+                    _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
+                else
+                    peerSession.WriteMessage(messageData, 0, messageData.Length);
             }
 
-            private void DoSendGroupImage()
+            private void DoSendGroupImage(BitChatNetwork.VirtualPeer.VirtualSession peerSession)
             {
                 byte[] messageData = BitChatMessage.CreateGroupImage(_bitChat._groupImage, _bitChat._groupImageDateModified);
-                _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
+                peerSession.WriteMessage(messageData, 0, messageData.Length);
             }
 
-            private void DoSendSharedFileMetaData()
+            private void DoSendSharedFileMetaData(BitChatNetwork.VirtualPeer.VirtualSession peerSession)
             {
                 _bitChat._sharedFilesLock.EnterReadLock();
                 try
@@ -1869,7 +1873,7 @@ namespace BitChatCore
                         if (sharedFile.Value.State == SharedFileState.Sharing)
                         {
                             byte[] messageData = BitChatMessage.CreateFileAdvertisement(sharedFile.Value.MetaData);
-                            _virtualPeer.WriteMessage(messageData, 0, messageData.Length);
+                            peerSession.WriteMessage(messageData, 0, messageData.Length);
                         }
                     }
                 }
@@ -1879,7 +1883,7 @@ namespace BitChatCore
                 }
             }
 
-            private void ReSendUndeliveredMessages()
+            private void ReSendUndeliveredMessages(BitChatNetwork.VirtualPeer.VirtualSession peerSession)
             {
                 List<MessageItem> undeliveredMessages = new List<MessageItem>(10);
                 string selfEmailId = _bitChat._selfPeer.PeerCertificate.IssuedTo.EmailAddress.Address;
@@ -1900,7 +1904,7 @@ namespace BitChatCore
                 for (int i = undeliveredMessages.Count - 1; i > -1; i--)
                 {
                     byte[] messageData = BitChatMessage.CreateTextMessage(undeliveredMessages[i]);
-                    _bitChat._network.WriteMessageBroadcast(messageData, 0, messageData.Length);
+                    peerSession.WriteMessage(messageData, 0, messageData.Length);
                 }
             }
 

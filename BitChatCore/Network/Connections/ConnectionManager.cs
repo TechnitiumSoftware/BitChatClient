@@ -373,7 +373,7 @@ namespace BitChatCore.Network.Connections
             }
         }
 
-        private void Connection_BitChatNetworkInvitation(BinaryID networkID, IPEndPoint peerEP, string message)
+        private void Connection_BitChatNetworkInvitation(BinaryID hashedEmailAddress, IPEndPoint peerEP, string message)
         {
             //this method is called async by the event
             //this mechanism prevents multiple invitations events from same peerEP
@@ -400,7 +400,7 @@ namespace BitChatCore.Network.Connections
                     }
                 }
 
-                BitChatNetworkChannelInvitation?.Invoke(networkID, peerEP, message);
+                BitChatNetworkChannelInvitation?.Invoke(hashedEmailAddress, peerEP, message);
             }
             catch
             { }

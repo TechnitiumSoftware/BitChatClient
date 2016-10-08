@@ -37,7 +37,7 @@ using TechnitiumLibrary.IO;
 
 namespace BitChatCore.Network.Connections
 {
-    delegate void BitChatNetworkInvitation(BinaryID networkID, IPEndPoint peerEP, string message);
+    delegate void BitChatNetworkInvitation(BinaryID hashedPeerEmailAddress, IPEndPoint peerEP, string message);
     delegate void BitChatNetworkChannelRequest(Connection connection, BinaryID channelName, Stream channel);
     delegate void TcpRelayPeersAvailable(Connection viaConnection, BinaryID channelName, List<IPEndPoint> peerEPs);
     delegate void DhtPacketData(Connection viaConnection, byte[] dhtPacketData);
@@ -1023,12 +1023,13 @@ namespace BitChatCore.Network.Connections
             WriteFrame(SignalType.DhtPacketData, BinaryID.GenerateRandomID160(), buffer, offset, count);
         }
 
-        public void SendBitChatNetworkInvitation(BinaryID networkID, string message)
+        public void SendBitChatNetworkInvitation(string message)
         {
+            BinaryID hashedEmailAddress = BitChatNetwork.GetHashedEmailAddress(_connectionManager.Profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress);
             byte[] buffer = Encoding.UTF8.GetBytes(message);
 
             //send invitation signal with message
-            WriteFrame(SignalType.BitChatNetworkInvitation, networkID, buffer, 0, buffer.Length);
+            WriteFrame(SignalType.BitChatNetworkInvitation, hashedEmailAddress, buffer, 0, buffer.Length);
         }
 
         #endregion
