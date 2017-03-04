@@ -92,6 +92,10 @@ namespace BitChatCore.Network.SecureChannel
                     throw;
                 }
             }
+            catch (IOException)
+            {
+                throw;
+            }
             catch
             {
                 try
