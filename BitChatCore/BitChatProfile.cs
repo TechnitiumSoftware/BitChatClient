@@ -170,7 +170,7 @@ namespace BitChatCore
 
             //check if email address domain exists
             {
-                DnsClient dns = new DnsClient("8.8.8.8");
+                DnsClient dns = new DnsClient(IPAddress.Parse("8.8.8.8"));
 
                 try
                 {
@@ -182,7 +182,7 @@ namespace BitChatCore
                 }
                 catch
                 {
-                    DnsDatagram response = DnsClient.ResolveViaRootNameServers(_localCertStore.Certificate.IssuedTo.EmailAddress.Host, DnsRecordType.MX);
+                    DnsDatagram response = DnsClient.ResolveViaRootNameServers(_localCertStore.Certificate.IssuedTo.EmailAddress.Host, DnsResourceRecordType.MX);
                     if (response.Header.RCODE == DnsResponseCode.NameError)
                         throw new NameErrorDnsClientException("The domain of your email address '" + _localCertStore.Certificate.IssuedTo.EmailAddress.Host + "' does not exists. Please check if you have entered correct email address.");
                 }
