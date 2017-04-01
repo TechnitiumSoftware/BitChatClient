@@ -55,6 +55,8 @@ namespace BitChatCore
                 new Uri("http://opensharing.org:2710/announce"),
                 new Uri("http://bt.careland.com.cn:6969/announce"),
                 new Uri("http://tracker.ex.ua/announce"),
+                new Uri("udp://ipv6.tracker.harry.lu:80/announce"),
+                new Uri("http://ipv6.tracker.harry.lu:80/announce")
             };
 
         static readonly DateTime _epoch = new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc);
