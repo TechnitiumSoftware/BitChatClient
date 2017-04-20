@@ -102,6 +102,9 @@ namespace BitChatApp.UserControls
             item.ShareFile += view_ShareFile;
 
             lstFiles.AddItem(item);
+
+            if (!peer.IsSelf)
+                MessageNotification(_chat, null, peer.PeerCertificate.IssuedTo.Name + " shared a file");
         }
 
         private void chat_MessageReceived(BitChat.Peer peer, MessageItem message)

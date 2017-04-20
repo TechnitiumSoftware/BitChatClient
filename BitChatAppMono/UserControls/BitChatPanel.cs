@@ -72,7 +72,7 @@ namespace BitChatApp.UserControls
             foreach (BitChat.Peer peer in _chat.GetPeerList())
             {
                 lstUsers.AddItem(new UserListItem(peer));
-                
+
                 peer.StateChanged += peer_StateChanged;
             }
 
@@ -102,6 +102,9 @@ namespace BitChatApp.UserControls
             item.ShareFile += view_ShareFile;
 
             lstFiles.AddItem(item);
+
+            if (!peer.IsSelf)
+                MessageNotification(_chat, null, peer.PeerCertificate.IssuedTo.Name + " shared a file");
         }
 
         private void chat_MessageReceived(BitChat.Peer peer, MessageItem message)
@@ -181,7 +184,7 @@ namespace BitChatApp.UserControls
                 }
             }
         }
-        
+
         private void SplitContainer_SplitterMoved(object sender, SplitterEventArgs e)
         {
             if ((SettingsModified != null) && !_skipSettingsModifiedEvent)
