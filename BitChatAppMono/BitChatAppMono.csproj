@@ -367,7 +367,7 @@
     <EmbeddedResource Include="UserControls\UserListItem.resx">
       <DependentUpon>UserListItem.cs</DependentUpon>
     </EmbeddedResource>
-    <None Include="install.sh">
+    <None Include="install-mono.sh">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Include="Properties\Settings.settings">

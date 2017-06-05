@@ -1,6 +1,4 @@
 #!/bin/sh
 
-apt-get install mono-complete
+apt-get -y install mono-complete
 mozroots --import --ask-remove
-
-./start.sh
