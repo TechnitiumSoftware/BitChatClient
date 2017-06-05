@@ -696,7 +696,7 @@ namespace BitChatCore.Network.Connections
 
             try
             {
-                Connection connection = _connectionManager.AcceptConnectionInitiateProtocol(channel, ConvertChannelNameToEp(channel.ChannelName));
+                _connectionManager.AcceptConnectionInitiateProtocol(channel, ConvertChannelNameToEp(channel.ChannelName));
             }
             catch
             {

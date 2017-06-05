@@ -297,7 +297,12 @@ namespace BitChatCore.Network.Connections
             Stream networkStream = parameters[0] as Stream;
             IPEndPoint remotePeerEP = parameters[1] as IPEndPoint;
 
-            AcceptConnectionInitiateProtocol(networkStream, remotePeerEP);
+            try
+            {
+                AcceptConnectionInitiateProtocol(networkStream, remotePeerEP);
+            }
+            catch
+            { }
         }
 
         private Connection AddConnection(Stream networkStream, BinaryID remotePeerID, IPEndPoint remotePeerEP)
@@ -540,7 +545,7 @@ namespace BitChatCore.Network.Connections
             { }
         }
 
-        internal Connection AcceptConnectionInitiateProtocol(Stream networkStream, IPEndPoint remotePeerEP)
+        internal void AcceptConnectionInitiateProtocol(Stream networkStream, IPEndPoint remotePeerEP)
         {
             //read version
             int version = networkStream.ReadByte();
@@ -577,7 +582,7 @@ namespace BitChatCore.Network.Connections
                         networkStream.Close();
                     }
 
-                    return connection;
+                    return;
 
                 default:
                     networkStream.Close();
