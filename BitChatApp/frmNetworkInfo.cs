@@ -38,7 +38,6 @@ namespace BitChatApp
             listView1.Items.Add("Local Peer ID").SubItems.Add("Loading...");
             listView1.Items.Add("Local Port").SubItems.Add("Loading...");
             listView1.Items.Add("DHT Node ID").SubItems.Add("Loading...");
-            listView1.Items.Add("DHT Port").SubItems.Add("Loading...");
             listView1.Items.Add("DHT Nodes").SubItems.Add("Loading...");
             listView1.Items.Add("Internet Status").SubItems.Add("Loading...");
             listView1.Items.Add("UPnP Status").SubItems.Add("Loading...");
@@ -61,42 +60,41 @@ namespace BitChatApp
             listView1.Items[0].SubItems[1].Text = _service.LocalPeerID.ToString();
             listView1.Items[1].SubItems[1].Text = _service.LocalPort.ToString();
             listView1.Items[2].SubItems[1].Text = _service.DhtNodeID.ToString();
-            listView1.Items[3].SubItems[1].Text = _service.DhtLocalPort.ToString();
-            listView1.Items[4].SubItems[1].Text = _service.DhtTotalNodes.ToString();
-            listView1.Items[5].SubItems[1].Text = _service.InternetStatus.ToString();
-            listView1.Items[6].SubItems[1].Text = _service.UPnPStatus.ToString();
+            listView1.Items[3].SubItems[1].Text = _service.DhtTotalNodes.ToString();
+            listView1.Items[4].SubItems[1].Text = _service.InternetStatus.ToString();
+            listView1.Items[5].SubItems[1].Text = _service.UPnPStatus.ToString();
+
+            if (_service.UPnPExternalIP == null)
+                listView1.Items[6].SubItems[1].Text = "";
+            else
+                listView1.Items[6].SubItems[1].Text = _service.UPnPDeviceIP.ToString();
 
             if (_service.UPnPExternalIP == null)
                 listView1.Items[7].SubItems[1].Text = "";
             else
-                listView1.Items[7].SubItems[1].Text = _service.UPnPDeviceIP.ToString();
-
-            if (_service.UPnPExternalIP == null)
-                listView1.Items[8].SubItems[1].Text = "";
-            else
-                listView1.Items[8].SubItems[1].Text = _service.UPnPExternalIP.ToString();
+                listView1.Items[7].SubItems[1].Text = _service.UPnPExternalIP.ToString();
 
             switch (_service.InternetStatus)
             {
                 case BitChatCore.Network.Connections.InternetConnectivityStatus.HttpProxyInternetConnection:
                 case BitChatCore.Network.Connections.InternetConnectivityStatus.Socks5ProxyInternetConnection:
-                    listView1.Items[9].SubItems[1].Text = _service.Profile.ProxyAddress + ":" + _service.Profile.ProxyPort;
-                    listView1.Items[10].SubItems[1].Text = "Incoming connections blocked by proxy";
+                    listView1.Items[8].SubItems[1].Text = _service.Profile.ProxyAddress + ":" + _service.Profile.ProxyPort;
+                    listView1.Items[9].SubItems[1].Text = "Incoming connections blocked by proxy";
                     break;
 
                 case BitChatCore.Network.Connections.InternetConnectivityStatus.Identifying:
                 case BitChatCore.Network.Connections.InternetConnectivityStatus.NoInternetConnection:
+                    listView1.Items[8].SubItems[1].Text = "";
                     listView1.Items[9].SubItems[1].Text = "";
-                    listView1.Items[10].SubItems[1].Text = "";
                     break;
 
                 default:
-                    listView1.Items[9].SubItems[1].Text = "";
+                    listView1.Items[8].SubItems[1].Text = "";
 
                     if (_service.ExternalEndPoint == null)
-                        listView1.Items[10].SubItems[1].Text = "Incoming connections blocked by NAT/Firewall";
+                        listView1.Items[9].SubItems[1].Text = "Incoming connections blocked by NAT/Firewall";
                     else
-                        listView1.Items[10].SubItems[1].Text = _service.ExternalEndPoint.ToString();
+                        listView1.Items[9].SubItems[1].Text = _service.ExternalEndPoint.ToString();
                     break;
             }
 
@@ -107,11 +105,11 @@ namespace BitChatApp
                 foreach (IPEndPoint proxyNodeEP in _service.TcpRelayNodes)
                     tmp += ", " + proxyNodeEP.ToString();
 
-                listView1.Items[11].SubItems[1].Text = tmp.Substring(2);
+                listView1.Items[10].SubItems[1].Text = tmp.Substring(2);
             }
             else
             {
-                listView1.Items[11].SubItems[1].Text = "";
+                listView1.Items[10].SubItems[1].Text = "";
             }
         }
 
