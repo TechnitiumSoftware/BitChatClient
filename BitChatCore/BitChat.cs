@@ -478,6 +478,12 @@ namespace BitChatCore
             catch { }
         }
 
+        private void WriteMessageBroadcastAsync(object state)
+        {
+            byte[] buffer = state as byte[];
+            _network.WriteMessageBroadcast(buffer, 0, buffer.Length);
+        }
+
         #endregion
 
         #region public
@@ -513,7 +519,7 @@ namespace BitChatCore
         public void SendTypingNotification()
         {
             byte[] messageData = BitChatMessage.CreateTypingNotification();
-            _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
+            ThreadPool.QueueUserWorkItem(WriteMessageBroadcastAsync, messageData);
         }
 
         public void SendTextMessage(string message)
@@ -558,7 +564,7 @@ namespace BitChatCore
             msg.WriteTo(_store);
 
             byte[] messageData = BitChatMessage.CreateTextMessage(msg);
-            _network.WriteMessageBroadcast(messageData, 0, messageData.Length);
+            ThreadPool.QueueUserWorkItem(WriteMessageBroadcastAsync, messageData);
 
             if (MessageReceived != null)
                 RaiseEventMessageReceived(_selfPeer, msg);
