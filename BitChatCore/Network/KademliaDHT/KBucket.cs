@@ -129,7 +129,9 @@ namespace BitChatCore.Network.KademliaDHT
                 {
                     try
                     {
-                        _lock.TryEnterWriteLock(LOCK_TIMEOUT);
+                        if (!_lock.TryEnterWriteLock(LOCK_TIMEOUT))
+                            throw new Exception("Could not enter write lock.");
+
                         try
                         {
                             if (_leftBucket != null)
@@ -398,7 +400,9 @@ namespace BitChatCore.Network.KademliaDHT
 
         public bool AddContactInCurrentBucket(NodeContact contact)
         {
-            _lock.TryEnterWriteLock(LOCK_TIMEOUT);
+            if (!_lock.TryEnterWriteLock(LOCK_TIMEOUT))
+                throw new Exception("Could not enter write lock.");
+
             try
             {
                 if (_contacts == null)
@@ -499,7 +503,9 @@ namespace BitChatCore.Network.KademliaDHT
 
         public bool RemoveContactFromCurrentBucket(NodeContact contact)
         {
-            _lock.TryEnterWriteLock(LOCK_TIMEOUT);
+            if (!_lock.TryEnterWriteLock(LOCK_TIMEOUT))
+                throw new Exception("Could not enter write lock.");
+
             try
             {
                 if (_contacts == null)
@@ -553,7 +559,9 @@ namespace BitChatCore.Network.KademliaDHT
                     {
                         currentLock = parentBucket._lock;
 
-                        currentLock.TryEnterWriteLock(LOCK_TIMEOUT);
+                        if (!currentLock.TryEnterWriteLock(LOCK_TIMEOUT))
+                            throw new Exception("Could not enter write lock.");
+
                         try
                         {
                             JoinBucket(parentBucket);
@@ -594,7 +602,9 @@ namespace BitChatCore.Network.KademliaDHT
 
             while (true)
             {
-                currentLock.TryEnterReadLock(LOCK_TIMEOUT);
+                if (!currentLock.TryEnterReadLock(LOCK_TIMEOUT))
+                    throw new Exception("Could not enter read lock.");
+
                 try
                 {
                     if (currentBucket._contacts != null)
@@ -661,7 +671,9 @@ namespace BitChatCore.Network.KademliaDHT
 
         public NodeContact[] GetAllContacts(bool includeReplacementCache)
         {
-            _lock.TryEnterReadLock(LOCK_TIMEOUT);
+            if (!_lock.TryEnterReadLock(LOCK_TIMEOUT))
+                throw new Exception("Could not enter read lock.");
+
             try
             {
                 NodeContact[] contacts;
@@ -729,7 +741,9 @@ namespace BitChatCore.Network.KademliaDHT
 
         public NodeContact FindContactInCurrentBucket(BinaryID nodeID)
         {
-            _lock.TryEnterReadLock(LOCK_TIMEOUT);
+            if (!_lock.TryEnterReadLock(LOCK_TIMEOUT))
+                throw new Exception("Could not enter read lock.");
+
             try
             {
                 if (_contacts == null)
@@ -751,7 +765,9 @@ namespace BitChatCore.Network.KademliaDHT
 
         public bool ContactExists(IPEndPoint contactEP)
         {
-            _lock.TryEnterReadLock(LOCK_TIMEOUT);
+            if (!_lock.TryEnterReadLock(LOCK_TIMEOUT))
+                throw new Exception("Could not enter read lock.");
+
             try
             {
                 if (_contacts == null)
@@ -786,7 +802,9 @@ namespace BitChatCore.Network.KademliaDHT
 
         public void CheckContactHealth(DhtClient dhtClient)
         {
-            _lock.TryEnterReadLock(LOCK_TIMEOUT);
+            if (!_lock.TryEnterReadLock(LOCK_TIMEOUT))
+                throw new Exception("Could not enter read lock.");
+
             try
             {
                 if (_contacts == null)
@@ -811,7 +829,9 @@ namespace BitChatCore.Network.KademliaDHT
 
         public void RefreshBucket(DhtClient dhtClient)
         {
-            _lock.TryEnterReadLock(LOCK_TIMEOUT);
+            if (!_lock.TryEnterReadLock(LOCK_TIMEOUT))
+                throw new Exception("Could not enter read lock.");
+
             try
             {
                 if (_contacts == null)
