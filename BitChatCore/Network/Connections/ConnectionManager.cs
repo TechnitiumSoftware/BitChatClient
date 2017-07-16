@@ -299,6 +299,7 @@ namespace BitChatCore.Network.Connections
 
             try
             {
+                AcceptDecoyHttpConnection(networkStream);
                 AcceptConnectionInitiateProtocol(networkStream, remotePeerEP);
             }
             catch
@@ -543,6 +544,78 @@ namespace BitChatCore.Network.Connections
             }
             catch
             { }
+        }
+
+        private void AcceptDecoyHttpConnection(Stream networkStream)
+        {
+            //read http request
+            int byteRead;
+
+            while (true)
+            {
+                byteRead = networkStream.ReadByte();
+                if (byteRead == '\r')
+                {
+                    byteRead = networkStream.ReadByte();
+                    if (byteRead == '\n')
+                    {
+                        byteRead = networkStream.ReadByte();
+                        if (byteRead == '\r')
+                        {
+                            byteRead = networkStream.ReadByte();
+                            if (byteRead == '\n')
+                            {
+                                //http request completed
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            //write http response
+            string httpHeaders = "HTTP/1.1 200 OK\r\nDate: $DATE GMT\r\nServer: Apache\r\nKeep-Alive: timeout=15, max=100\r\nConnection: Keep-Alive\r\nContent-Type: application/octet-stream\r\n\r\n";
+
+            httpHeaders = httpHeaders.Replace("$DATE", DateTime.UtcNow.ToString("ddd, dd MMM yyyy HH:mm:ss"));
+            byte[] buffer = System.Text.Encoding.UTF8.GetBytes(httpHeaders);
+
+            networkStream.Write(buffer, 0, buffer.Length);
+        }
+
+        private void MakeDecoyHttpConnection(Stream networkStream, IPEndPoint remotePeerEP)
+        {
+            //write http request
+            string httpHeaders = "GET / HTTP/1.1\r\nHost: $HOST\r\nConnection: keep-alive\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: en-GB,en-US;q=0.8,en;q=0.6\r\n\r\n";
+
+            httpHeaders = httpHeaders.Replace("$HOST", remotePeerEP.ToString());
+            byte[] buffer = System.Text.Encoding.UTF8.GetBytes(httpHeaders);
+
+            networkStream.Write(buffer, 0, buffer.Length);
+
+            //read http response
+            int byteRead;
+
+            while (true)
+            {
+                byteRead = networkStream.ReadByte();
+                if (byteRead == '\r')
+                {
+                    byteRead = networkStream.ReadByte();
+                    if (byteRead == '\n')
+                    {
+                        byteRead = networkStream.ReadByte();
+                        if (byteRead == '\r')
+                        {
+                            byteRead = networkStream.ReadByte();
+                            if (byteRead == '\n')
+                            {
+                                //http response completed
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         internal void AcceptConnectionInitiateProtocol(Stream networkStream, IPEndPoint remotePeerEP)
@@ -1051,7 +1124,11 @@ namespace BitChatCore.Network.Connections
                     client.SendTimeout = SOCKET_SEND_TIMEOUT;
                     client.ReceiveTimeout = SOCKET_RECV_TIMEOUT;
 
-                    return MakeConnectionInitiateProtocol(new NetworkStream(client, true), remotePeerEP);
+                    NetworkStream networkStream = new NetworkStream(client, true);
+
+                    MakeDecoyHttpConnection(networkStream, remotePeerEP);
+
+                    return MakeConnectionInitiateProtocol(networkStream, remotePeerEP);
                 }
                 catch (SocketException)
                 {
