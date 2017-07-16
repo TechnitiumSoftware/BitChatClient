@@ -40,7 +40,6 @@ namespace BitChatCore.Network.Connections
     delegate void BitChatNetworkInvitation(BinaryID hashedPeerEmailAddress, IPEndPoint peerEP, string message);
     delegate void BitChatNetworkChannelRequest(Connection connection, BinaryID channelName, Stream channel);
     delegate void TcpRelayPeersAvailable(Connection viaConnection, BinaryID channelName, List<IPEndPoint> peerEPs);
-    delegate void DhtPacketData(Connection viaConnection, byte[] dhtPacketData);
 
     enum SignalType : byte
     {
@@ -58,7 +57,6 @@ namespace BitChatCore.Network.Connections
         StopTcpRelay = 11,
         TcpRelayResponseSuccess = 12,
         TcpRelayResponsePeerList = 13,
-        DhtPacketData = 14,
         BitChatNetworkInvitation = 15
     }
 
@@ -657,17 +655,6 @@ namespace BitChatCore.Network.Connections
                             #endregion
                             break;
 
-                        case SignalType.DhtPacketData:
-                            #region DhtPacketData
-
-                            byte[] response = _connectionManager.DhtClient.ProcessPacket(dataBuffer, 0, dataLength, _remotePeerEP.Address);
-
-                            if (response != null)
-                                WriteFrame(SignalType.DhtPacketData, BinaryID.GenerateRandomID160(), response, 0, response.Length);
-
-                            #endregion
-                            break;
-
                         case SignalType.BitChatNetworkInvitation:
                             #region ChannelInvitationBitChatNetwork
 
@@ -1016,11 +1003,6 @@ namespace BitChatCore.Network.Connections
         public void SendNOOP()
         {
             WriteFrame(SignalType.NOOP, BinaryID.GenerateRandomID160(), null, 0, 0);
-        }
-
-        public void SendDhtPacket(byte[] buffer, int offset, int count)
-        {
-            WriteFrame(SignalType.DhtPacketData, BinaryID.GenerateRandomID160(), buffer, offset, count);
         }
 
         public void SendBitChatNetworkInvitation(string message)
