@@ -84,10 +84,10 @@ namespace BitChatCore.Network.KademliaDHT
             _nodeEP = nodeEP;
         }
 
-        protected NodeContact(int udpDhtPort)
+        protected NodeContact(int localDhtPort)
         {
             _nodeID = BinaryID.GenerateRandomID160();
-            _nodeEP = new IPEndPoint(IPAddress.Loopback, udpDhtPort);
+            _nodeEP = new IPEndPoint(IPAddress.Loopback, localDhtPort);
             _currentNode = true;
         }
 

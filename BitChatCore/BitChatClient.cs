@@ -609,10 +609,7 @@ namespace BitChatCore
 
         public BinaryID DhtNodeID
         { get { return _connectionManager.DhtClient.LocalNodeID; } }
-
-        public int DhtLocalPort
-        { get { return _connectionManager.DhtClient.LocalPort; } }
-
+        
         public int DhtTotalNodes
         { get { return _connectionManager.DhtClient.GetTotalNodes(); } }
 

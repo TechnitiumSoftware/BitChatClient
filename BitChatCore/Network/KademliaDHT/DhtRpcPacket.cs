@@ -53,7 +53,6 @@ namespace BitChatCore.Network.KademliaDHT
         BinaryID _networkID;
         NodeContact[] _contacts;
         PeerEndPoint[] _peers;
-        BinaryID _token;
         ushort _servicePort;
 
         #endregion
@@ -120,9 +119,6 @@ namespace BitChatCore.Network.KademliaDHT
                                 {
                                     _peers[i] = new PeerEndPoint(s);
                                 }
-
-                                OffsetStream.StreamRead(s, buffer, 0, 20);
-                                _token = new BinaryID(buffer);
                             }
                             break;
 
@@ -134,9 +130,6 @@ namespace BitChatCore.Network.KademliaDHT
                             {
                                 OffsetStream.StreamRead(s, buffer, 0, 2);
                                 _servicePort = BitConverter.ToUInt16(buffer, 0);
-
-                                OffsetStream.StreamRead(s, buffer, 0, 20);
-                                _token = new BinaryID(buffer);
                             }
                             break;
                     }
@@ -206,23 +199,21 @@ namespace BitChatCore.Network.KademliaDHT
             return packet;
         }
 
-        public static DhtRpcPacket CreateFindPeersPacketResponse(int transactionID, NodeContact sourceNode, BinaryID networkID, NodeContact[] contacts, PeerEndPoint[] peers, BinaryID token)
+        public static DhtRpcPacket CreateFindPeersPacketResponse(int transactionID, NodeContact sourceNode, BinaryID networkID, NodeContact[] contacts, PeerEndPoint[] peers)
         {
             DhtRpcPacket packet = new DhtRpcPacket(transactionID, sourceNode, RpcPacketType.Response, RpcQueryType.FIND_PEERS);
             packet._networkID = networkID;
             packet._contacts = contacts;
             packet._peers = peers;
-            packet._token = token;
 
             return packet;
         }
 
-        public static DhtRpcPacket CreateAnnouncePeerPacketQuery(NodeContact sourceNode, BinaryID networkID, ushort servicePort, BinaryID token)
+        public static DhtRpcPacket CreateAnnouncePeerPacketQuery(NodeContact sourceNode, BinaryID networkID, ushort servicePort)
         {
             DhtRpcPacket packet = new DhtRpcPacket(GetRandomTransactionID(), sourceNode, RpcPacketType.Query, RpcQueryType.ANNOUNCE_PEER);
             packet._networkID = networkID;
             packet._servicePort = servicePort;
-            packet._token = token;
 
             return packet;
         }
@@ -283,8 +274,6 @@ namespace BitChatCore.Network.KademliaDHT
                         {
                             peer.WriteTo(s);
                         }
-
-                        s.Write(_token.ID, 0, 20);
                     }
 
                     break;
@@ -295,7 +284,6 @@ namespace BitChatCore.Network.KademliaDHT
                     if (_type == RpcPacketType.Query)
                     {
                         s.Write(BitConverter.GetBytes(_servicePort), 0, 2);
-                        s.Write(_token.ID, 0, 20);
                     }
                     break;
             }
@@ -342,9 +330,6 @@ namespace BitChatCore.Network.KademliaDHT
 
         public PeerEndPoint[] Peers
         { get { return _peers; } }
-
-        public BinaryID Token
-        { get { return _token; } }
 
         public ushort ServicePort
         { get { return _servicePort; } }
