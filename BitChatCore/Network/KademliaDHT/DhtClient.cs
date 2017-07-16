@@ -453,9 +453,9 @@ namespace BitChatCore.Network.KademliaDHT
                             //send response
                             if (response != null)
                             {
-                                sendBufferStream.Position = 0;
+                                sendBufferStream.SetLength(0);
                                 response.WriteTo(sendBufferStream);
-                                udpListener.SendTo(sendBufferStream.Buffer, 0, (int)sendBufferStream.Position, SocketFlags.None, remoteEP);
+                                udpListener.SendTo(sendBufferStream.Buffer, 0, (int)sendBufferStream.Length, SocketFlags.None, remoteEP);
                             }
 
                             //if contact doesnt exists then add contact else update last seen time
@@ -546,13 +546,13 @@ namespace BitChatCore.Network.KademliaDHT
                 {
                     lock (_sendBufferStream)
                     {
-                        _sendBufferStream.Position = 0;
+                        _sendBufferStream.SetLength(0);
                         packet.WriteTo(_sendBufferStream);
 
                         if (_proxyEnabled)
-                            _manager.SendDhtPacket(contact.NodeEP, _sendBufferStream.Buffer, 0, (int)_sendBufferStream.Position);
+                            ThreadPool.QueueUserWorkItem(SendDhtPacketViaManagerAsync, new object[] { contact.NodeEP, _sendBufferStream.ToArray() }); //via TCP async
                         else
-                            _udpClient.SendTo(_sendBufferStream.Buffer, 0, (int)_sendBufferStream.Position, SocketFlags.None, contact.NodeEP);
+                            _udpClient.SendTo(_sendBufferStream.Buffer, 0, (int)_sendBufferStream.Length, SocketFlags.None, contact.NodeEP);
                     }
 
                     if (!Monitor.Wait(transaction, QUERY_TIMEOUT))
@@ -583,6 +583,21 @@ namespace BitChatCore.Network.KademliaDHT
                     _transactions.Remove(packet.TransactionID);
                 }
             }
+        }
+
+        private void SendDhtPacketViaManagerAsync(object state)
+        {
+            object[] parameters = state as object[];
+
+            IPEndPoint remoteNodeEP = parameters[0] as IPEndPoint;
+            byte[] buffer = parameters[1] as byte[];
+
+            try
+            {
+                _manager.SendDhtPacket(remoteNodeEP, buffer, 0, buffer.Length);
+            }
+            catch
+            { }
         }
 
         private NodeContact[] PickClosestContacts(List<NodeContact> availableContacts, int count)
