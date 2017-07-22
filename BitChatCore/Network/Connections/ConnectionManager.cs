@@ -22,6 +22,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
 using TechnitiumLibrary.Net;
@@ -92,7 +93,7 @@ namespace BitChatCore.Network.Connections
         //internet connectivity
         const int CONNECTIVITY_CHECK_TIMER_INTERVAL = 60 * 1000;
 
-        Uri CONNECTIVITY_CHECK_WEB_SERVICE = new Uri("https://bitchat.im/connectivity/check.aspx");
+        Uri CONNECTIVITY_CHECK_WEB_SERVICE = new Uri("https://bitchat.im/connectivity/check2.aspx");
         Timer _connectivityCheckTimer;
         InternetConnectivityStatus _internetStatus = InternetConnectivityStatus.Identifying;
         InternetGatewayDevice _upnpDevice;
@@ -823,8 +824,6 @@ namespace BitChatCore.Network.Connections
                     return;
                 }
 
-                //check for upnp device
-
                 if (defaultNetworkInfo.LocalIP.AddressFamily == AddressFamily.InterNetworkV6)
                 {
                     newInternetStatus = InternetConnectivityStatus.NatOrFirewalledInternetConnection;
@@ -832,47 +831,66 @@ namespace BitChatCore.Network.Connections
                     return;
                 }
 
-                try
+                //check for upnp device
+                if ((_upnpDevice == null) || !_upnpDevice.LocalIP.Equals(defaultNetworkInfo.LocalIP))
                 {
-                    if ((_upnpDevice == null) || (!_upnpDevice.NetworkBroadcastAddress.Equals(defaultNetworkInfo.BroadcastIP)))
-                        _upnpDevice = InternetGatewayDevice.Discover(defaultNetworkInfo.BroadcastIP, 2000);
+                    foreach (GatewayIPAddressInformation gateway in defaultNetworkInfo.Interface.GetIPProperties().GatewayAddresses)
+                    {
+                        if (gateway.Address.AddressFamily == AddressFamily.InterNetwork)
+                        {
+                            try
+                            {
+                                InternetGatewayDevice[] upnpDevices = InternetGatewayDevice.Discover(defaultNetworkInfo.LocalIP, gateway.Address);
+                                if (upnpDevices.Length > 0)
+                                    _upnpDevice = upnpDevices[0];
+                            }
+                            catch
+                            {
+                                //ignore errors
+                            }
 
-                    newInternetStatus = InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter;
+                            break;
+                        }
+                    }
                 }
-                catch
+
+                if (_upnpDevice == null)
                 {
                     newInternetStatus = InternetConnectivityStatus.NatOrFirewalledInternetConnection;
                     newUPnPStatus = UPnPDeviceStatus.DeviceNotFound;
-                    throw;
                 }
-
-                //find external ip from router
-                try
-                {
-                    _upnpExternalIP = _upnpDevice.GetExternalIPAddress();
-
-                    if (_upnpExternalIP.ToString() == "0.0.0.0")
-                    {
-                        newInternetStatus = InternetConnectivityStatus.NoInternetConnection;
-                        newUPnPStatus = UPnPDeviceStatus.Disabled;
-                        return; //external ip not available so no internet connection available
-                    }
-                    else if (NetUtilities.IsPrivateIP(_upnpExternalIP))
-                    {
-                        newUPnPStatus = UPnPDeviceStatus.ExternalIpPrivate;
-                        return; //no use of doing port forwarding for private upnp ip address
-                    }
-                }
-                catch
-                {
-                    _upnpExternalIP = null;
-                }
-
-                //do upnp port forwarding for Bit Chat
-                if (_upnpDevice.ForwardPort(ProtocolType.Tcp, _localPort, new IPEndPoint(defaultNetworkInfo.LocalIP, _localPort), "Bit Chat", true))
-                    newUPnPStatus = UPnPDeviceStatus.PortForwarded;
                 else
-                    newUPnPStatus = UPnPDeviceStatus.PortForwardingFailed;
+                {
+                    newInternetStatus = InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter;
+
+                    //find external ip from router
+                    try
+                    {
+                        _upnpExternalIP = _upnpDevice.GetExternalIPAddress();
+
+                        if (_upnpExternalIP.ToString() == "0.0.0.0")
+                        {
+                            newInternetStatus = InternetConnectivityStatus.NoInternetConnection;
+                            newUPnPStatus = UPnPDeviceStatus.Disabled;
+                            return; //external ip not available so no internet connection available
+                        }
+                        else if (NetUtilities.IsPrivateIP(_upnpExternalIP))
+                        {
+                            newUPnPStatus = UPnPDeviceStatus.ExternalIpPrivate;
+                            return; //no use of doing port forwarding for private upnp ip address
+                        }
+                    }
+                    catch
+                    {
+                        _upnpExternalIP = null;
+                    }
+
+                    //do upnp port forwarding for Bit Chat
+                    if (_upnpDevice.ForwardPort(ProtocolType.Tcp, _localPort, new IPEndPoint(defaultNetworkInfo.LocalIP, _localPort), "Bit Chat", true))
+                        newUPnPStatus = UPnPDeviceStatus.PortForwarded;
+                    else
+                        newUPnPStatus = UPnPDeviceStatus.PortForwardingFailed;
+                }
             }
             catch (Exception ex)
             {
@@ -1237,6 +1255,10 @@ namespace BitChatCore.Network.Connections
                     if (!result.AsyncWaitHandle.WaitOne(DhtClient.QUERY_TIMEOUT))
                         throw new SocketException((int)SocketError.TimedOut);
                 }
+
+                client.NoDelay = true;
+                client.SendTimeout = DhtClient.QUERY_TIMEOUT;
+                client.ReceiveTimeout = DhtClient.QUERY_TIMEOUT;
 
                 NetworkStream networkStream = new NetworkStream(client);
 
