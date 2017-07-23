@@ -34,8 +34,8 @@ namespace BitChatApp
         #region variables
 
         public const string MUTEX_NAME = "BitChatApp";
-        public readonly static Uri SIGNUP_URI = new Uri("https://technitium.com/bitchat/api/signup.aspx");
-        public readonly static Uri UPDATE_URI = new Uri("http://go.technitium.com/?id=12");
+        public readonly static Uri SIGNUP_URI = new Uri("https://bitchat.im/api/signup.aspx");
+        public readonly static Uri UPDATE_URI = new Uri("https://bitchat.im/download/windows/update.bin");
         public const int UPDATE_CHECK_INTERVAL_DAYS = 1;
 
         static string _rootCert = @"
