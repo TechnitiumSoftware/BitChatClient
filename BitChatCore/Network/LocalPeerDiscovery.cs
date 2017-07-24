@@ -819,8 +819,8 @@ namespace BitChatCore.Network
                             byte[] bufferChallenge = new byte[32];
                             byte[] bufferHmac = new byte[32];
 
-                            s.Read(bufferChallenge, 0, 32);
-                            s.Read(bufferHmac, 0, 32);
+                            OffsetStream.StreamRead(s, bufferChallenge, 0, 32);
+                            OffsetStream.StreamRead(s, bufferHmac, 0, 32);
 
                             _isResponse = false;
                             _challenge = new BinaryID(bufferChallenge);
@@ -834,9 +834,9 @@ namespace BitChatCore.Network
                             byte[] bufferChallenge = new byte[32];
                             byte[] bufferHmac = new byte[32];
 
-                            s.Read(bufferServicePort, 0, 2);
-                            s.Read(bufferChallenge, 0, 32);
-                            s.Read(bufferHmac, 0, 32);
+                            OffsetStream.StreamRead(s, bufferServicePort, 0, 2);
+                            OffsetStream.StreamRead(s, bufferChallenge, 0, 32);
+                            OffsetStream.StreamRead(s, bufferHmac, 0, 32);
 
                             _isResponse = true;
                             _servicePort = BitConverter.ToUInt16(bufferServicePort, 0);
@@ -844,6 +844,9 @@ namespace BitChatCore.Network
                             _hmac = new BinaryID(bufferHmac);
                         }
                         break;
+
+                    case -1:
+                        throw new EndOfStreamException();
 
                     default:
                         throw new IOException("Invalid local discovery packet.");

@@ -55,6 +55,9 @@ namespace BitChatCore.Network.KademliaDHT
 
             switch (s.ReadByte())
             {
+                case -1:
+                    throw new EndOfStreamException();
+
                 case 0:
                     address = new byte[4];
                     port = new byte[2];

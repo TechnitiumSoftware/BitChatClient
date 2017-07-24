@@ -65,6 +65,9 @@ namespace BitChatCore.Network.KademliaDHT
 
             switch (version)
             {
+                case -1:
+                    throw new EndOfStreamException();
+
                 case 1:
                     byte[] buffer = new byte[20];
 

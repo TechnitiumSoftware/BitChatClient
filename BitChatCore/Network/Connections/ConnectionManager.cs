@@ -25,6 +25,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Threading;
+using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Net;
 using TechnitiumLibrary.Net.Proxy;
 using TechnitiumLibrary.Net.UPnP.Networking;
@@ -627,6 +628,9 @@ namespace BitChatCore.Network.Connections
 
             switch (version)
             {
+                case -1:
+                    throw new EndOfStreamException();
+
                 case 0: //DHT TCP support switch
                     try
                     {
@@ -644,12 +648,12 @@ namespace BitChatCore.Network.Connections
                 case 1:
                     //read peer id
                     byte[] peerID = new byte[20];
-                    networkStream.Read(peerID, 0, 20);
+                    OffsetStream.StreamRead(networkStream, peerID, 0, 20);
                     BinaryID remotePeerID = new BinaryID(peerID);
 
                     //read service port
                     byte[] remoteServicePort = new byte[2];
-                    networkStream.Read(remoteServicePort, 0, 2);
+                    OffsetStream.StreamRead(networkStream, remoteServicePort, 0, 2);
                     remotePeerEP = new IPEndPoint(remotePeerEP.Address, BitConverter.ToUInt16(remoteServicePort, 0));
 
                     //add
@@ -696,41 +700,46 @@ namespace BitChatCore.Network.Connections
 
                 //read response
                 int response = networkStream.ReadByte();
-                if (response == 0)
+                switch (response)
                 {
-                    byte[] buffer = new byte[20];
-                    networkStream.Read(buffer, 0, 20);
-                    BinaryID remotePeerID = new BinaryID(buffer);
+                    case -1:
+                        throw new EndOfStreamException();
 
-                    Connection connection = AddConnection(networkStream, remotePeerID, remotePeerEP);
-                    if (connection == null)
-                    {
-                        //check for existing connection again!
-                        Connection existingConnection = GetExistingConnection(remotePeerEP);
-                        if (existingConnection != null)
+                    case 0:
+                        byte[] buffer = new byte[20];
+                        OffsetStream.StreamRead(networkStream, buffer, 0, 20);
+                        BinaryID remotePeerID = new BinaryID(buffer);
+
+                        Connection connection = AddConnection(networkStream, remotePeerID, remotePeerEP);
+                        if (connection == null)
                         {
-                            networkStream.Dispose();
-                            return existingConnection;
+                            //check for existing connection again!
+                            Connection existingConnection = GetExistingConnection(remotePeerEP);
+                            if (existingConnection != null)
+                            {
+                                networkStream.Dispose();
+                                return existingConnection;
+                            }
+
+                            throw new IOException("Cannot connect to remote peer: connection already exists.");
                         }
 
-                        throw new IOException("Cannot connect to remote peer: connection already exists.");
-                    }
+                        return connection;
 
-                    return connection;
-                }
-                else
-                {
-                    Thread.Sleep(500); //wait so that other thread gets time to add his connection in list so that this thread can pick same connection to proceed
+                    default:
+                        Thread.Sleep(500); //wait so that other thread gets time to add his connection in list so that this thread can pick same connection to proceed
 
-                    //check for existing connection again!
-                    Connection existingConnection = GetExistingConnection(remotePeerEP);
-                    if (existingConnection != null)
-                    {
-                        networkStream.Dispose();
-                        return existingConnection;
-                    }
+                        //check for existing connection again!
+                        {
+                            Connection existingConnection = GetExistingConnection(remotePeerEP);
+                            if (existingConnection != null)
+                            {
+                                networkStream.Dispose();
+                                return existingConnection;
+                            }
+                        }
 
-                    throw new IOException("Cannot connect to remote peer: request rejected.");
+                        throw new IOException("Cannot connect to remote peer: request rejected.");
                 }
             }
             catch
@@ -1037,6 +1046,9 @@ namespace BitChatCore.Network.Connections
 
                         switch (mS.ReadByte())
                         {
+                            case -1:
+                                throw new EndOfStreamException();
+
                             case 1: //ipv4
                                 {
                                     byte[] ipv4 = new byte[4];

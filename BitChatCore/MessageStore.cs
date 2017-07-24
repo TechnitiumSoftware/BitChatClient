@@ -153,7 +153,7 @@ namespace BitChatCore
 
                 //read message offset
                 byte[] buffer = new byte[4];
-                _index.Read(buffer, 0, 4);
+                OffsetStream.StreamRead(_index, buffer, 0, 4);
                 uint messageOffset = BitConverter.ToUInt32(buffer, 0);
 
                 //seek to message offset
@@ -247,7 +247,7 @@ namespace BitChatCore
 
                 //read message offset
                 byte[] buffer = new byte[4];
-                _index.Read(buffer, 0, 4);
+                OffsetStream.StreamRead(_index, buffer, 0, 4);
                 uint messageOffset = BitConverter.ToUInt32(buffer, 0);
 
                 //seek to message offset

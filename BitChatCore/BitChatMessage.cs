@@ -23,6 +23,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using TechnitiumLibrary.IO;
 
 namespace BitChatCore
 {
@@ -204,11 +205,11 @@ namespace BitChatCore
         #endregion
 
         #region static read
-        
+
         public static int ReadInt32(Stream s)
         {
             byte[] buffer = new byte[4];
-            s.Read(buffer, 0, 4);
+            OffsetStream.StreamRead(s, buffer, 0, 4);
 
             return BitConverter.ToInt32(buffer, 0);
         }
@@ -216,7 +217,7 @@ namespace BitChatCore
         public static long ReadInt64(Stream s)
         {
             byte[] buffer = new byte[8];
-            s.Read(buffer, 0, 8);
+            OffsetStream.StreamRead(s, buffer, 0, 8);
 
             return BitConverter.ToInt64(buffer, 0);
         }
@@ -224,7 +225,7 @@ namespace BitChatCore
         public static ushort ReadUInt16(Stream s)
         {
             byte[] buffer = new byte[2];
-            s.Read(buffer, 0, 2);
+            OffsetStream.StreamRead(s, buffer, 0, 2);
 
             return BitConverter.ToUInt16(buffer, 0);
         }
@@ -232,7 +233,7 @@ namespace BitChatCore
         public static DateTime ReadDateTime(Stream s)
         {
             byte[] buffer = new byte[8];
-            s.Read(buffer, 0, 8);
+            OffsetStream.StreamRead(s, buffer, 0, 8);
 
             return _epoch.AddMilliseconds(BitConverter.ToInt64(buffer, 0));
         }
@@ -244,7 +245,7 @@ namespace BitChatCore
             if (dataLen > 0)
             {
                 byte[] buffer = new byte[dataLen];
-                s.Read(buffer, 0, dataLen);
+                OffsetStream.StreamRead(s, buffer, 0, dataLen);
 
                 return buffer;
             }
