@@ -550,27 +550,28 @@ namespace BitChatCore.Network.Connections
         {
             //read http request
             int byteRead;
+            int crlfCount = 0;
 
             while (true)
             {
                 byteRead = networkStream.ReadByte();
-                if (byteRead == '\r')
+                switch (byteRead)
                 {
-                    byteRead = networkStream.ReadByte();
-                    if (byteRead == '\n')
-                    {
-                        byteRead = networkStream.ReadByte();
-                        if (byteRead == '\r')
-                        {
-                            byteRead = networkStream.ReadByte();
-                            if (byteRead == '\n')
-                            {
-                                //http request completed
-                                break;
-                            }
-                        }
-                    }
+                    case '\r':
+                    case '\n':
+                        crlfCount++;
+                        break;
+
+                    case -1:
+                        throw new EndOfStreamException();
+
+                    default:
+                        crlfCount = 0;
+                        break;
                 }
+
+                if (crlfCount == 4)
+                    break; //http request completed
             }
 
             //write http response
@@ -594,27 +595,28 @@ namespace BitChatCore.Network.Connections
 
             //read http response
             int byteRead;
+            int crlfCount = 0;
 
             while (true)
             {
                 byteRead = networkStream.ReadByte();
-                if (byteRead == '\r')
+                switch (byteRead)
                 {
-                    byteRead = networkStream.ReadByte();
-                    if (byteRead == '\n')
-                    {
-                        byteRead = networkStream.ReadByte();
-                        if (byteRead == '\r')
-                        {
-                            byteRead = networkStream.ReadByte();
-                            if (byteRead == '\n')
-                            {
-                                //http response completed
-                                break;
-                            }
-                        }
-                    }
+                    case '\r':
+                    case '\n':
+                        crlfCount++;
+                        break;
+
+                    case -1:
+                        throw new EndOfStreamException();
+
+                    default:
+                        crlfCount = 0;
+                        break;
                 }
+
+                if (crlfCount == 4)
+                    break; //http request completed
             }
         }
 
