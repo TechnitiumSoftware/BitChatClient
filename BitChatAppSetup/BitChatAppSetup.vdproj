@@ -15,32 +15,32 @@
     {
         "Entry"
         {
-        "MsmKey" = "8:_3F2DD96DC21558FEC3632D8A9672AB78"
-        "OwnerKey" = "8:_AE26030528F542E1A80AF55644C3D765"
+        "MsmKey" = "8:_2437879CF28C0FFB8FD106660D129CF7"
+        "OwnerKey" = "8:_FE3AFF982D7A1720D1A3F54DD3BAD2D2"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
-        "MsmKey" = "8:_4027DB0FC6B8A7C1FC835860ED476A4B"
-        "OwnerKey" = "8:_AE26030528F542E1A80AF55644C3D765"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
-        "MsmKey" = "8:_61B552BB8F66C70D024FB6F86BFDB085"
-        "OwnerKey" = "8:_4027DB0FC6B8A7C1FC835860ED476A4B"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
-        "MsmKey" = "8:_61B552BB8F66C70D024FB6F86BFDB085"
+        "MsmKey" = "8:_2437879CF28C0FFB8FD106660D129CF7"
         "OwnerKey" = "8:_AE26030528F542E1A80AF55644C3D765"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
         "MsmKey" = "8:_61B552BB8F66C70D024FB6F86BFDB085"
-        "OwnerKey" = "8:_3F2DD96DC21558FEC3632D8A9672AB78"
+        "OwnerKey" = "8:_FFE4D037490A5E02B3BCFDECB82C02BA"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_61B552BB8F66C70D024FB6F86BFDB085"
+        "OwnerKey" = "8:_AE26030528F542E1A80AF55644C3D765"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_61B552BB8F66C70D024FB6F86BFDB085"
+        "OwnerKey" = "8:_FE3AFF982D7A1720D1A3F54DD3BAD2D2"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -52,7 +52,7 @@
         "Entry"
         {
         "MsmKey" = "8:_71A2FA4E56E656B31021A279A9E06E96"
-        "OwnerKey" = "8:_4027DB0FC6B8A7C1FC835860ED476A4B"
+        "OwnerKey" = "8:_FFE4D037490A5E02B3BCFDECB82C02BA"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -64,19 +64,7 @@
         "Entry"
         {
         "MsmKey" = "8:_71A2FA4E56E656B31021A279A9E06E96"
-        "OwnerKey" = "8:_3F2DD96DC21558FEC3632D8A9672AB78"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
-        "MsmKey" = "8:_9D1E9F450CE66F4BCB210272D2BB96EF"
-        "OwnerKey" = "8:_3F2DD96DC21558FEC3632D8A9672AB78"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
-        "MsmKey" = "8:_9D1E9F450CE66F4BCB210272D2BB96EF"
-        "OwnerKey" = "8:_AE26030528F542E1A80AF55644C3D765"
+        "OwnerKey" = "8:_FE3AFF982D7A1720D1A3F54DD3BAD2D2"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -88,7 +76,7 @@
         "Entry"
         {
         "MsmKey" = "8:_BE5E39CBA395526998DAD534F145E4A0"
-        "OwnerKey" = "8:_3F2DD96DC21558FEC3632D8A9672AB78"
+        "OwnerKey" = "8:_FE3AFF982D7A1720D1A3F54DD3BAD2D2"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -106,7 +94,7 @@
         "Entry"
         {
         "MsmKey" = "8:_E267A127C25F74A0D703EAC6E34D6E54"
-        "OwnerKey" = "8:_4027DB0FC6B8A7C1FC835860ED476A4B"
+        "OwnerKey" = "8:_FFE4D037490A5E02B3BCFDECB82C02BA"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -124,7 +112,7 @@
         "Entry"
         {
         "MsmKey" = "8:_E267A127C25F74A0D703EAC6E34D6E54"
-        "OwnerKey" = "8:_3F2DD96DC21558FEC3632D8A9672AB78"
+        "OwnerKey" = "8:_FE3AFF982D7A1720D1A3F54DD3BAD2D2"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -137,6 +125,18 @@
         {
         "MsmKey" = "8:_E267A127C25F74A0D703EAC6E34D6E54"
         "OwnerKey" = "8:_61B552BB8F66C70D024FB6F86BFDB085"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_FE3AFF982D7A1720D1A3F54DD3BAD2D2"
+        "OwnerKey" = "8:_AE26030528F542E1A80AF55644C3D765"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_FFE4D037490A5E02B3BCFDECB82C02BA"
+        "OwnerKey" = "8:_AE26030528F542E1A80AF55644C3D765"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -154,13 +154,13 @@
         "Entry"
         {
         "MsmKey" = "8:_UNDEFINED"
-        "OwnerKey" = "8:_9D1E9F450CE66F4BCB210272D2BB96EF"
+        "OwnerKey" = "8:_2437879CF28C0FFB8FD106660D129CF7"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
         "MsmKey" = "8:_UNDEFINED"
-        "OwnerKey" = "8:_3F2DD96DC21558FEC3632D8A9672AB78"
+        "OwnerKey" = "8:_FE3AFF982D7A1720D1A3F54DD3BAD2D2"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -184,7 +184,7 @@
         "Entry"
         {
         "MsmKey" = "8:_UNDEFINED"
-        "OwnerKey" = "8:_4027DB0FC6B8A7C1FC835860ED476A4B"
+        "OwnerKey" = "8:_FFE4D037490A5E02B3BCFDECB82C02BA"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -298,51 +298,20 @@
         }
         "File"
         {
-            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_3F2DD96DC21558FEC3632D8A9672AB78"
+            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_2437879CF28C0FFB8FD106660D129CF7"
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:BitChatCore, Version=4.6.0.0, Culture=neutral, processorArchitecture=MSIL"
+            "AssemblyAsmDisplayName" = "8:TechnitiumLibrary.Net.UPnP, Version=1.2.0.0, Culture=neutral, processorArchitecture=MSIL"
                 "ScatterAssemblies"
                 {
-                    "_3F2DD96DC21558FEC3632D8A9672AB78"
+                    "_2437879CF28C0FFB8FD106660D129CF7"
                     {
-                    "Name" = "8:BitChatCore.dll"
+                    "Name" = "8:TechnitiumLibrary.Net.UPnP.dll"
                     "Attributes" = "3:512"
                     }
                 }
-            "SourcePath" = "8:BitChatCore.dll"
-            "TargetName" = "8:"
-            "Tag" = "8:"
-            "Folder" = "8:_A1271D310C704C49ACC861FDDAC9A162"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:FALSE"
-            "IsDependency" = "11:TRUE"
-            "IsolateTo" = "8:"
-            }
-            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_4027DB0FC6B8A7C1FC835860ED476A4B"
-            {
-            "AssemblyRegister" = "3:1"
-            "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:AutomaticUpdate.Client, Version=1.2.1.0, Culture=neutral, processorArchitecture=MSIL"
-                "ScatterAssemblies"
-                {
-                    "_4027DB0FC6B8A7C1FC835860ED476A4B"
-                    {
-                    "Name" = "8:AutomaticUpdate.Client.dll"
-                    "Attributes" = "3:512"
-                    }
-                }
-            "SourcePath" = "8:AutomaticUpdate.Client.dll"
+            "SourcePath" = "8:TechnitiumLibrary.Net.UPnP.dll"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_A1271D310C704C49ACC861FDDAC9A162"
@@ -405,37 +374,6 @@
                     }
                 }
             "SourcePath" = "8:TechnitiumLibrary.Security.Cryptography.dll"
-            "TargetName" = "8:"
-            "Tag" = "8:"
-            "Folder" = "8:_A1271D310C704C49ACC861FDDAC9A162"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:FALSE"
-            "IsDependency" = "11:TRUE"
-            "IsolateTo" = "8:"
-            }
-            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_9D1E9F450CE66F4BCB210272D2BB96EF"
-            {
-            "AssemblyRegister" = "3:1"
-            "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:TechnitiumLibrary.Net.UPnP, Version=1.2.0.0, Culture=neutral, processorArchitecture=MSIL"
-                "ScatterAssemblies"
-                {
-                    "_9D1E9F450CE66F4BCB210272D2BB96EF"
-                    {
-                    "Name" = "8:TechnitiumLibrary.Net.UPnP.dll"
-                    "Attributes" = "3:512"
-                    }
-                }
-            "SourcePath" = "8:TechnitiumLibrary.Net.UPnP.dll"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_A1271D310C704C49ACC861FDDAC9A162"
@@ -546,6 +484,68 @@
             "IsDependency" = "11:TRUE"
             "IsolateTo" = "8:"
             }
+            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_FE3AFF982D7A1720D1A3F54DD3BAD2D2"
+            {
+            "AssemblyRegister" = "3:1"
+            "AssemblyIsInGAC" = "11:FALSE"
+            "AssemblyAsmDisplayName" = "8:BitChatCore, Version=4.6.0.0, Culture=neutral, processorArchitecture=MSIL"
+                "ScatterAssemblies"
+                {
+                    "_FE3AFF982D7A1720D1A3F54DD3BAD2D2"
+                    {
+                    "Name" = "8:BitChatCore.dll"
+                    "Attributes" = "3:512"
+                    }
+                }
+            "SourcePath" = "8:BitChatCore.dll"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_A1271D310C704C49ACC861FDDAC9A162"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:TRUE"
+            "IsolateTo" = "8:"
+            }
+            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_FFE4D037490A5E02B3BCFDECB82C02BA"
+            {
+            "AssemblyRegister" = "3:1"
+            "AssemblyIsInGAC" = "11:FALSE"
+            "AssemblyAsmDisplayName" = "8:AutomaticUpdate.Client, Version=1.2.1.0, Culture=neutral, processorArchitecture=MSIL"
+                "ScatterAssemblies"
+                {
+                    "_FFE4D037490A5E02B3BCFDECB82C02BA"
+                    {
+                    "Name" = "8:AutomaticUpdate.Client.dll"
+                    "Attributes" = "3:512"
+                    }
+                }
+            "SourcePath" = "8:AutomaticUpdate.Client.dll"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_A1271D310C704C49ACC861FDDAC9A162"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:TRUE"
+            "IsolateTo" = "8:"
+            }
         }
         "FileType"
         {
@@ -602,8 +602,8 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Bit Chat"
-        "ProductCode" = "8:{471315FB-147B-4732-86EB-28A573846980}"
-        "PackageCode" = "8:{9CF6DFDA-5F1B-4D76-A2DC-894B2471F534}"
+        "ProductCode" = "8:{8D60715E-1107-448B-AB5D-61670F230082}"
+        "PackageCode" = "8:{83D580BF-0B68-4B25-B73C-E64B3BD12163}"
         "UpgradeCode" = "8:{63632829-B42E-4B1A-AA64-86107DE7E582}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
