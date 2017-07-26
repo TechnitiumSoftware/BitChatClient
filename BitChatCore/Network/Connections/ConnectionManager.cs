@@ -269,21 +269,16 @@ namespace BitChatCore.Network.Connections
                 {
                     Socket socket = tcpListener.Accept();
 
-                    try
-                    {
-                        socket.NoDelay = true;
-                        socket.SendTimeout = SOCKET_SEND_TIMEOUT;
-                        socket.ReceiveTimeout = SOCKET_RECV_TIMEOUT;
+                    socket.NoDelay = true;
+                    socket.SendTimeout = SOCKET_SEND_TIMEOUT;
+                    socket.ReceiveTimeout = SOCKET_RECV_TIMEOUT;
 
-                        IPEndPoint remotePeerEP = socket.RemoteEndPoint as IPEndPoint;
+                    IPEndPoint remotePeerEP = socket.RemoteEndPoint as IPEndPoint;
 
-                        if (NetUtilities.IsIPv4MappedIPv6Address(remotePeerEP.Address))
-                            remotePeerEP = new IPEndPoint(NetUtilities.ConvertFromIPv4MappedIPv6Address(remotePeerEP.Address), remotePeerEP.Port);
+                    if (NetUtilities.IsIPv4MappedIPv6Address(remotePeerEP.Address))
+                        remotePeerEP = new IPEndPoint(NetUtilities.ConvertFromIPv4MappedIPv6Address(remotePeerEP.Address), remotePeerEP.Port);
 
-                        ThreadPool.QueueUserWorkItem(AcceptConnectionInitiateProtocolAsync, new object[] { new NetworkStream(socket, true), remotePeerEP });
-                    }
-                    catch
-                    { }
+                    ThreadPool.QueueUserWorkItem(AcceptConnectionInitiateProtocolAsync, new object[] { new NetworkStream(socket, true), remotePeerEP });
                 }
                 while (true);
             }
@@ -1279,7 +1274,7 @@ namespace BitChatCore.Network.Connections
                 MakeDecoyHttpConnection(networkStream, remoteNodeEP);
 
                 //send request
-                networkStream.Write(buffer, offset, buffer.Length);
+                networkStream.Write(buffer, offset, size);
 
                 //read and process response
                 _dhtClient.ProcessResponsePacket(networkStream, remoteNodeEP.Address);
