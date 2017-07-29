@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2017  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -17,12 +17,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+using System.IO;
 using System.Net;
 
 namespace BitChatCore.Network.KademliaDHT
 {
     interface IDhtClientManager
     {
-        void SendDhtPacket(IPEndPoint remoteNodeEP, byte[] buffer, int offset, int size);
+        Stream CreateConnection(IPEndPoint remoteNodeEP);
     }
 }

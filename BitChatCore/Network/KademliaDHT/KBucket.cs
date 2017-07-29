@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2017  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -28,7 +28,6 @@ namespace BitChatCore.Network.KademliaDHT
     {
         #region variables
 
-        const int HEALTH_PING_MAX_RETRIES = 2;
         const int BUCKET_STALE_TIMEOUT_SECONDS = 900; //15mins timeout before declaring node stale
 
         BinaryID _bucketID;
@@ -350,21 +349,9 @@ namespace BitChatCore.Network.KademliaDHT
 
             DhtClient dhtClient = param[0] as DhtClient;
             NodeContact contact = param[1] as NodeContact;
-            int retries = 0;
 
-            do
-            {
-                try
-                {
-                    if (dhtClient.Ping(contact))
-                        return; //contact replied; do nothing.
-                }
-                catch
-                { }
-
-                retries++;
-            }
-            while (retries < HEALTH_PING_MAX_RETRIES);
+            if (dhtClient.Ping(contact))
+                return; //contact replied; do nothing.
 
             try
             {
@@ -377,21 +364,16 @@ namespace BitChatCore.Network.KademliaDHT
 
         private void RefreshBucketAsync(object state)
         {
-            try
-            {
-                DhtClient dhtClient = state as DhtClient;
+            DhtClient dhtClient = state as DhtClient;
 
-                //get random node ID in the bucket range
-                BinaryID randomNodeID = (BinaryID.GenerateRandomID160() << _bucketDepth) | _bucketID;
+            //get random node ID in the bucket range
+            BinaryID randomNodeID = (BinaryID.GenerateRandomID160() << _bucketDepth) | _bucketID;
 
-                //find closest contacts for current node id
-                NodeContact[] initialContacts = GetKClosestContacts(randomNodeID);
+            //find closest contacts for current node id
+            NodeContact[] initialContacts = GetKClosestContacts(randomNodeID);
 
-                if (initialContacts.Length > 0)
-                    dhtClient.QueryFindNode(initialContacts, randomNodeID); //query manager auto add contacts that respond
-            }
-            catch
-            { }
+            if (initialContacts.Length > 0)
+                dhtClient.QueryFindNode(initialContacts, randomNodeID);
         }
 
         #endregion

@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2017  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -166,7 +166,7 @@ namespace BitChatCore.Network.KademliaDHT
             if (contact == null)
                 return false;
 
-            return _nodeID.Equals(contact._nodeID);
+            return Equals(_nodeID, contact._nodeID);
         }
 
         public override int GetHashCode()
@@ -176,7 +176,10 @@ namespace BitChatCore.Network.KademliaDHT
 
         public override string ToString()
         {
-            return _nodeID.ToString();
+            if (_nodeID == null)
+                return _nodeEP.ToString();
+            else
+                return _nodeID.ToString();
         }
 
         #endregion
