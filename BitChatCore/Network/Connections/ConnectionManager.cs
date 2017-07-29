@@ -67,6 +67,7 @@ namespace BitChatCore.Network.Connections
 
         #region variables
 
+        const int SOCKET_CONNECTION_TIMEOUT = 10000; //10 sec connection timeout
         const int SOCKET_SEND_TIMEOUT = 30000; //30 sec socket timeout; application protocol NOOPs at 15 sec
         const int SOCKET_RECV_TIMEOUT = 120000; //keep socket open for long time to allow tunnelling requests between time
 
@@ -542,7 +543,7 @@ namespace BitChatCore.Network.Connections
             { }
         }
 
-        private static void AcceptDecoyHttpConnection(Stream networkStream)
+        private static void AcceptDecoyHttpConnection(Stream s)
         {
             //read http request
             int byteRead;
@@ -550,7 +551,7 @@ namespace BitChatCore.Network.Connections
 
             while (true)
             {
-                byteRead = networkStream.ReadByte();
+                byteRead = s.ReadByte();
                 switch (byteRead)
                 {
                     case '\r':
@@ -576,10 +577,10 @@ namespace BitChatCore.Network.Connections
             httpHeaders = httpHeaders.Replace("$DATE", DateTime.UtcNow.ToString("ddd, dd MMM yyyy HH:mm:ss"));
             byte[] buffer = System.Text.Encoding.UTF8.GetBytes(httpHeaders);
 
-            networkStream.Write(buffer, 0, buffer.Length);
+            s.Write(buffer, 0, buffer.Length);
         }
 
-        private static void MakeDecoyHttpConnection(Stream networkStream, IPEndPoint remotePeerEP)
+        private static void MakeDecoyHttpConnection(Stream s, IPEndPoint remotePeerEP)
         {
             //write http request
             string httpHeaders = "GET / HTTP/1.1\r\nHost: $HOST\r\nConnection: keep-alive\r\nUser-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3071.115 Safari/537.36\r\nAccept: text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8\r\nAccept-Encoding: gzip, deflate\r\nAccept-Language: en-GB,en-US;q=0.8,en;q=0.6\r\n\r\n";
@@ -587,7 +588,7 @@ namespace BitChatCore.Network.Connections
             httpHeaders = httpHeaders.Replace("$HOST", remotePeerEP.ToString());
             byte[] buffer = System.Text.Encoding.UTF8.GetBytes(httpHeaders);
 
-            networkStream.Write(buffer, 0, buffer.Length);
+            s.Write(buffer, 0, buffer.Length);
 
             //read http response
             int byteRead;
@@ -595,7 +596,7 @@ namespace BitChatCore.Network.Connections
 
             while (true)
             {
-                byteRead = networkStream.ReadByte();
+                byteRead = s.ReadByte();
                 switch (byteRead)
                 {
                     case '\r':
@@ -616,10 +617,10 @@ namespace BitChatCore.Network.Connections
             }
         }
 
-        internal void AcceptConnectionInitiateProtocol(Stream networkStream, IPEndPoint remotePeerEP)
+        internal void AcceptConnectionInitiateProtocol(Stream s, IPEndPoint remotePeerEP)
         {
             //read version
-            int version = networkStream.ReadByte();
+            int version = s.ReadByte();
 
             switch (version)
             {
@@ -629,30 +630,27 @@ namespace BitChatCore.Network.Connections
                 case 0: //DHT TCP support switch
                     try
                     {
-                        byte[] response = _dhtClient.ProcessQueryPacket(networkStream, remotePeerEP.Address);
-                        if (response != null)
-                            networkStream.Write(response, 0, response.Length);
+                        _dhtClient.AcceptConnection(s, remotePeerEP.Address);
                     }
                     finally
                     {
-                        networkStream.Close();
+                        s.Close();
                     }
-
                     break;
 
                 case 1:
                     //read peer id
                     byte[] peerID = new byte[20];
-                    OffsetStream.StreamRead(networkStream, peerID, 0, 20);
+                    OffsetStream.StreamRead(s, peerID, 0, 20);
                     BinaryID remotePeerID = new BinaryID(peerID);
 
                     //read service port
                     byte[] remoteServicePort = new byte[2];
-                    OffsetStream.StreamRead(networkStream, remoteServicePort, 0, 2);
+                    OffsetStream.StreamRead(s, remoteServicePort, 0, 2);
                     remotePeerEP = new IPEndPoint(remotePeerEP.Address, BitConverter.ToUInt16(remoteServicePort, 0));
 
                     //add
-                    Connection connection = AddConnection(networkStream, remotePeerID, remotePeerEP);
+                    Connection connection = AddConnection(s, remotePeerID, remotePeerEP);
                     if (connection != null)
                     {
                         //send ok
@@ -661,24 +659,24 @@ namespace BitChatCore.Network.Connections
                         buffer[0] = 0; //signal ok
                         Buffer.BlockCopy(_localPeerID.ID, 0, buffer, 1, 20); //peer id
 
-                        networkStream.Write(buffer, 0, 21);
+                        s.Write(buffer, 0, 21);
                     }
                     else
                     {
                         //send cancel
-                        networkStream.WriteByte(1); //signal cancel
-                        networkStream.Close();
+                        s.WriteByte(1); //signal cancel
+                        s.Close();
                     }
 
                     break;
 
                 default:
-                    networkStream.Close();
+                    s.Close();
                     throw new IOException("Cannot accept remote connection: protocol version not supported.");
             }
         }
 
-        private Connection MakeConnectionInitiateProtocol(Stream networkStream, IPEndPoint remotePeerEP)
+        private Connection MakeConnectionInitiateProtocol(Stream s, IPEndPoint remotePeerEP)
         {
             try
             {
@@ -690,11 +688,11 @@ namespace BitChatCore.Network.Connections
                     Buffer.BlockCopy(_localPeerID.ID, 0, buffer, 1, 20); //peer id
                     Buffer.BlockCopy(BitConverter.GetBytes(Convert.ToUInt16(_localPort)), 0, buffer, 21, 2); //service port
 
-                    networkStream.Write(buffer, 0, 23);
+                    s.Write(buffer, 0, 23);
                 }
 
                 //read response
-                int response = networkStream.ReadByte();
+                int response = s.ReadByte();
                 switch (response)
                 {
                     case -1:
@@ -702,17 +700,17 @@ namespace BitChatCore.Network.Connections
 
                     case 0:
                         byte[] buffer = new byte[20];
-                        OffsetStream.StreamRead(networkStream, buffer, 0, 20);
+                        OffsetStream.StreamRead(s, buffer, 0, 20);
                         BinaryID remotePeerID = new BinaryID(buffer);
 
-                        Connection connection = AddConnection(networkStream, remotePeerID, remotePeerEP);
+                        Connection connection = AddConnection(s, remotePeerID, remotePeerEP);
                         if (connection == null)
                         {
                             //check for existing connection again!
                             Connection existingConnection = GetExistingConnection(remotePeerEP);
                             if (existingConnection != null)
                             {
-                                networkStream.Dispose();
+                                s.Dispose();
                                 return existingConnection;
                             }
 
@@ -729,7 +727,7 @@ namespace BitChatCore.Network.Connections
                             Connection existingConnection = GetExistingConnection(remotePeerEP);
                             if (existingConnection != null)
                             {
-                                networkStream.Dispose();
+                                s.Dispose();
                                 return existingConnection;
                             }
                         }
@@ -739,7 +737,7 @@ namespace BitChatCore.Network.Connections
             }
             catch
             {
-                networkStream.Dispose();
+                s.Dispose();
                 throw;
             }
         }
@@ -1100,6 +1098,57 @@ namespace BitChatCore.Network.Connections
 
         #region public
 
+        public Stream CreateConnection(IPEndPoint remoteNodeEP)
+        {
+            Socket client = null;
+
+            try
+            {
+                if (_profile.Proxy != null)
+                {
+                    switch (_profile.Proxy.Type)
+                    {
+                        case NetProxyType.Http:
+                            client = _profile.Proxy.HttpProxy.Connect(remoteNodeEP);
+                            break;
+
+                        case NetProxyType.Socks5:
+                            using (SocksConnectRequestHandler requestHandler = _profile.Proxy.SocksProxy.Connect(remoteNodeEP))
+                            {
+                                client = requestHandler.GetSocket();
+                            }
+                            break;
+
+                        default:
+                            throw new NotSupportedException("Proxy type not supported.");
+                    }
+                }
+                else
+                {
+                    client = new Socket(remoteNodeEP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
+
+                    IAsyncResult result = client.BeginConnect(remoteNodeEP, null, null);
+                    if (!result.AsyncWaitHandle.WaitOne(SOCKET_CONNECTION_TIMEOUT))
+                        throw new SocketException((int)SocketError.TimedOut);
+                }
+
+                client.NoDelay = true;
+
+                NetworkStream s = new NetworkStream(client, true);
+
+                MakeDecoyHttpConnection(s, remoteNodeEP);
+
+                return s;
+            }
+            catch
+            {
+                if (client != null)
+                    client.Dispose();
+
+                throw;
+            }
+        }
+
         public Connection MakeConnection(IPEndPoint remotePeerEP)
         {
             if (NetUtilities.IsIPv4MappedIPv6Address(remotePeerEP.Address))
@@ -1127,52 +1176,18 @@ namespace BitChatCore.Network.Connections
 
                 try
                 {
-                    //try new tcp connection
-                    Socket client;
+                    Stream s = CreateConnection(remotePeerEP);
 
-                    if (_profile.Proxy != null)
-                    {
-                        switch (_profile.Proxy.Type)
-                        {
-                            case NetProxyType.Http:
-                                client = _profile.Proxy.HttpProxy.Connect(remotePeerEP);
-                                break;
-
-                            case NetProxyType.Socks5:
-                                using (SocksConnectRequestHandler requestHandler = _profile.Proxy.SocksProxy.Connect(remotePeerEP))
-                                {
-                                    client = requestHandler.GetSocket();
-                                }
-                                break;
-
-                            default:
-                                throw new NotSupportedException("Proxy type not supported.");
-                        }
-                    }
-                    else
-                    {
-                        client = new Socket(remotePeerEP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-
-                        IAsyncResult result = client.BeginConnect(remotePeerEP, null, null);
-                        if (!result.AsyncWaitHandle.WaitOne(SOCKET_SEND_TIMEOUT))
-                            throw new SocketException((int)SocketError.TimedOut);
-                    }
-
-                    client.NoDelay = true;
-                    client.SendTimeout = SOCKET_SEND_TIMEOUT;
-                    client.ReceiveTimeout = SOCKET_RECV_TIMEOUT;
-
-                    NetworkStream networkStream = new NetworkStream(client, true);
+                    s.WriteTimeout = SOCKET_SEND_TIMEOUT;
+                    s.ReadTimeout = SOCKET_RECV_TIMEOUT;
 
                     try
                     {
-                        MakeDecoyHttpConnection(networkStream, remotePeerEP);
-
-                        return MakeConnectionInitiateProtocol(networkStream, remotePeerEP);
+                        return MakeConnectionInitiateProtocol(s, remotePeerEP);
                     }
                     catch
                     {
-                        networkStream.Dispose();
+                        s.Dispose();
                         throw;
                     }
                 }
@@ -1217,10 +1232,10 @@ namespace BitChatCore.Network.Connections
                     return existingConnection;
 
                 //create tunnel via proxy peer
-                Stream proxyNetworkStream = viaConnection.RequestProxyTunnel(remotePeerEP);
+                Stream s = viaConnection.RequestProxyTunnel(remotePeerEP);
 
                 //make new connection protocol begins
-                return MakeConnectionInitiateProtocol(proxyNetworkStream, remotePeerEP);
+                return MakeConnectionInitiateProtocol(s, remotePeerEP);
             }
             finally
             {
@@ -1228,63 +1243,6 @@ namespace BitChatCore.Network.Connections
                 {
                     _makeVirtualConnectionList.Remove(remotePeerEP);
                 }
-            }
-        }
-
-        public void SendDhtPacket(IPEndPoint remoteNodeEP, byte[] buffer, int offset, int size)
-        {
-            Socket client = null;
-
-            try
-            {
-                if (_profile.Proxy != null)
-                {
-                    switch (_profile.Proxy.Type)
-                    {
-                        case NetProxyType.Http:
-                            client = _profile.Proxy.HttpProxy.Connect(remoteNodeEP);
-                            break;
-
-                        case NetProxyType.Socks5:
-                            using (SocksConnectRequestHandler requestHandler = _profile.Proxy.SocksProxy.Connect(remoteNodeEP))
-                            {
-                                client = requestHandler.GetSocket();
-                            }
-                            break;
-
-                        default:
-                            throw new NotSupportedException("Proxy type not supported.");
-                    }
-                }
-                else
-                {
-                    client = new Socket(remoteNodeEP.AddressFamily, SocketType.Stream, ProtocolType.Tcp);
-
-                    IAsyncResult result = client.BeginConnect(remoteNodeEP, null, null);
-                    if (!result.AsyncWaitHandle.WaitOne(DhtClient.QUERY_TIMEOUT))
-                        throw new SocketException((int)SocketError.TimedOut);
-                }
-
-                client.NoDelay = true;
-                client.SendTimeout = DhtClient.QUERY_TIMEOUT;
-                client.ReceiveTimeout = DhtClient.QUERY_TIMEOUT;
-
-                NetworkStream networkStream = new NetworkStream(client);
-
-                MakeDecoyHttpConnection(networkStream, remoteNodeEP);
-
-                //send request
-                networkStream.Write(buffer, offset, size);
-
-                //read and process response
-                _dhtClient.ProcessResponsePacket(networkStream, remoteNodeEP.Address);
-            }
-            catch
-            { }
-            finally
-            {
-                if (client != null)
-                    client.Close();
             }
         }
 
