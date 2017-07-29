@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2016  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2017  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -53,7 +53,7 @@ namespace BitChatCore.Network
 
         NetProxy _proxy;
 
-        List<IPEndPoint> _dhtPeers = new List<IPEndPoint>();
+        IPEndPoint[] _dhtPeers = new IPEndPoint[] { };
         DateTime _dhtLastUpdated;
         Exception _dhtLastException;
 
@@ -214,18 +214,14 @@ namespace BitChatCore.Network
                 _dhtLastUpdated = DateTime.UtcNow;
                 _dhtLastException = null; //reset last error
 
-                if ((peers != null) && (peers.Length > 0))
+                if ((peers == null) || (peers.Length == 0))
                 {
-                    lock (_dhtPeers)
-                    {
-                        foreach (IPEndPoint peer in peers)
-                        {
-                            if (!_dhtPeers.Contains(peer))
-                                _dhtPeers.Add(peer);
-                        }
-                    }
-
-                    DiscoveredPeers?.Invoke(this, peers);
+                    _dhtPeers = new IPEndPoint[] { };
+                }
+                else
+                {
+                    _dhtPeers = peers;
+                    DiscoveredPeers?.Invoke(this, _dhtPeers);
                 }
             }
             catch (Exception ex)
@@ -378,18 +374,12 @@ namespace BitChatCore.Network
 
         public int DhtGetTotalPeers()
         {
-            lock (_dhtPeers)
-            {
-                return _dhtPeers.Count;
-            }
+            return _dhtPeers.Length;
         }
 
         public IPEndPoint[] DhtGetPeers()
         {
-            lock (_dhtPeers)
-            {
-                return _dhtPeers.ToArray();
-            }
+            return _dhtPeers;
         }
 
         public void DhtUpdate()
