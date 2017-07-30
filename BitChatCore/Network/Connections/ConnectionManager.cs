@@ -89,12 +89,12 @@ namespace BitChatCore.Network.Connections
 
         //dht
         DhtClient _dhtClient;
-        BinaryID _dhtSeedingNetworkID = new BinaryID(new byte[] { 0xfa, 0x20, 0xf3, 0x45, 0xe6, 0xbe, 0x43, 0x68, 0xcb, 0x1e, 0x2a, 0xfb, 0xc0, 0x08, 0x0d, 0x95, 0xf1, 0xd1, 0xe6, 0x5b });
-        TrackerManager _dhtSeedingTracker;
+        const string DHT_DNS_BOOTSTRAP_DOMAIN = "dht.bitchat.im";
+        BinaryID _dhtBootstrapTrackerNetworkID = new BinaryID(new byte[] { 0xfa, 0x20, 0xf3, 0x45, 0xe6, 0xbe, 0x43, 0x68, 0xcb, 0x1e, 0x2a, 0xfb, 0xc0, 0x08, 0x0d, 0x95, 0xf1, 0xd1, 0xe6, 0x5b });
+        TrackerManager _dhtBootstrapTracker;
 
         //internet connectivity
         const int CONNECTIVITY_CHECK_TIMER_INTERVAL = 60 * 1000;
-
         Uri CONNECTIVITY_CHECK_WEB_SERVICE = new Uri("https://bitchat.im/connectivity/check2.aspx");
         Timer _connectivityCheckTimer;
         InternetConnectivityStatus _internetStatus = InternetConnectivityStatus.Identifying;
@@ -178,11 +178,11 @@ namespace BitChatCore.Network.Connections
             _dhtClient = new DhtClient(_localPort, this);
             _dhtClient.AddNode(profile.BootstrapDhtNodes);
 
-            //setup dht seeding tracker
-            _dhtSeedingTracker = new TrackerManager(_dhtSeedingNetworkID, _localPort, null, DHT_SEED_TRACKER_UPDATE_INTERVAL);
-            _dhtSeedingTracker.Proxy = _profile.Proxy;
-            _dhtSeedingTracker.DiscoveredPeers += dhtSeedingTracker_DiscoveredPeers;
-            _dhtSeedingTracker.StartTracking(profile.TrackerURIs);
+            //setup dht bootstrap tracker
+            _dhtBootstrapTracker = new TrackerManager(_dhtBootstrapTrackerNetworkID, _localPort, null, DHT_SEED_TRACKER_UPDATE_INTERVAL);
+            _dhtBootstrapTracker.Proxy = _profile.Proxy;
+            _dhtBootstrapTracker.DiscoveredPeers += dhtSeedingTracker_DiscoveredPeers;
+            _dhtBootstrapTracker.StartTracking(profile.TrackerURIs);
 
             //start accepting connections
             _tcpListenerThread = new Thread(AcceptTcpConnectionAsync);
@@ -218,9 +218,9 @@ namespace BitChatCore.Network.Connections
                 if (_tcpListener != null)
                     _tcpListener.Dispose();
 
-                //stop dht seeding tracker
-                if (_dhtSeedingTracker != null)
-                    _dhtSeedingTracker.Dispose();
+                //stop dht bootstrap tracker
+                if (_dhtBootstrapTracker != null)
+                    _dhtBootstrapTracker.Dispose();
 
                 //stop dht client
                 if (_dhtClient != null)
@@ -578,6 +578,7 @@ namespace BitChatCore.Network.Connections
             byte[] buffer = System.Text.Encoding.UTF8.GetBytes(httpHeaders);
 
             s.Write(buffer, 0, buffer.Length);
+            s.Flush();
         }
 
         private static void MakeDecoyHttpConnection(Stream s, IPEndPoint remotePeerEP)
@@ -589,6 +590,7 @@ namespace BitChatCore.Network.Connections
             byte[] buffer = System.Text.Encoding.UTF8.GetBytes(httpHeaders);
 
             s.Write(buffer, 0, buffer.Length);
+            s.Flush();
 
             //read http response
             int byteRead;
@@ -689,6 +691,7 @@ namespace BitChatCore.Network.Connections
                     Buffer.BlockCopy(BitConverter.GetBytes(Convert.ToUInt16(_localPort)), 0, buffer, 21, 2); //service port
 
                     s.Write(buffer, 0, 23);
+                    s.Flush();
                 }
 
                 //read response
@@ -752,7 +755,7 @@ namespace BitChatCore.Network.Connections
         {
             NetProxy proxy = _profile.Proxy;
 
-            _dhtSeedingTracker.Proxy = proxy;
+            _dhtBootstrapTracker.Proxy = proxy;
 
             if (proxy != null)
             {
@@ -772,6 +775,7 @@ namespace BitChatCore.Network.Connections
 
             InternetConnectivityStatus newInternetStatus = InternetConnectivityStatus.Identifying;
             UPnPDeviceStatus newUPnPStatus;
+            NetworkInfo defaultNetworkInfo = null;
 
             if (_profile.EnableUPnP)
                 newUPnPStatus = UPnPDeviceStatus.Identifying;
@@ -800,7 +804,7 @@ namespace BitChatCore.Network.Connections
                     return;
                 }
 
-                NetworkInfo defaultNetworkInfo = NetUtilities.GetDefaultNetworkInfo();
+                defaultNetworkInfo = NetUtilities.GetDefaultNetworkInfo();
                 if (defaultNetworkInfo == null)
                 {
                     //no internet available;
@@ -980,26 +984,57 @@ namespace BitChatCore.Network.Connections
                         _internetStatus = newInternetStatus;
                         _upnpDeviceStatus = newUPnPStatus;
 
+                        int dhtTotalNodes = _dhtClient.GetTotalNodes();
+
+                        if ((dhtTotalNodes == 0) && (defaultNetworkInfo != null))
+                        {
+                            //add bootstrap node via DNS
+                            List<IPAddress> dnsServers = new List<IPAddress>(defaultNetworkInfo.Interface.GetIPProperties().DnsAddresses);
+
+                            if (dnsServers.Count > 0)
+                            {
+
+                                DnsClient dnsClient = new DnsClient(dnsServers.ToArray());
+                                DnsDatagram response = dnsClient.Resolve(DHT_DNS_BOOTSTRAP_DOMAIN, DnsResourceRecordType.TXT);
+
+                                foreach (DnsResourceRecord answer in response.Answer)
+                                {
+                                    if (answer.Name.Equals(DHT_DNS_BOOTSTRAP_DOMAIN) && (answer.Type == DnsResourceRecordType.TXT))
+                                    {
+                                        DnsTXTRecord txtRecord = (DnsTXTRecord)answer.RDATA;
+
+                                        try
+                                        {
+                                            string[] values = txtRecord.TXTData.Split('|');
+                                            _dhtClient.AddNode(new IPEndPoint(IPAddress.Parse(values[0]), int.Parse(values[1])));
+                                        }
+                                        catch
+                                        { }
+                                    }
+                                }
+                            }
+                        }
+
                         if (this.ExternalEndPoint == null)
                         {
                             //if no incoming connection possible
 
-                            if (_dhtClient.GetTotalNodes() < DhtClient.KADEMLIA_K)
+                            if (dhtTotalNodes < DhtClient.KADEMLIA_K)
                             {
-                                _dhtSeedingTracker.LookupOnly = true;
-                                _dhtSeedingTracker.ScheduleUpdateNow(); //start finding dht nodes immediately
+                                _dhtBootstrapTracker.LookupOnly = true;
+                                _dhtBootstrapTracker.ScheduleUpdateNow(); //start finding dht nodes immediately
                             }
                             else
                             {
-                                _dhtSeedingTracker.StopTracking(); //we have enough dht nodes and can stop seeding tracker
+                                _dhtBootstrapTracker.StopTracking(); //we have enough dht nodes and can stop bootstrap tracker
                             }
                         }
                         else
                         {
-                            _dhtSeedingTracker.LookupOnly = false;
+                            _dhtBootstrapTracker.LookupOnly = false;
 
-                            if (!_dhtSeedingTracker.IsTrackerRunning)
-                                _dhtSeedingTracker.StartTracking(); //keep seeding tracker running for other peers to find dht bootstrap nodes
+                            if (!_dhtBootstrapTracker.IsTrackerRunning)
+                                _dhtBootstrapTracker.StartTracking(); //keep bootstrap tracker running for other peers to find dht bootstrap nodes
                         }
 
                         InternetConnectivityStatusChanged?.Invoke(this, EventArgs.Empty);
