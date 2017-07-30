@@ -142,24 +142,28 @@ namespace BitChatCore.Network.KademliaDHT
 
         private DhtRpcPacket ProcessQuery(DhtRpcPacket query, IPAddress remoteNodeIP)
         {
+            if (query.SourceNodeID.Equals(_currentNode.NodeID))
+                return null; //decline self node query
+
             switch (query.Type)
             {
                 case DhtRpcType.PING:
-                    return DhtRpcPacket.CreatePingPacket(_currentNode.NodeID);
+                    return DhtRpcPacket.CreatePingPacket(_currentNode);
 
                 case DhtRpcType.FIND_NODE:
-                    return DhtRpcPacket.CreateFindNodePacketResponse(_currentNode.NodeID, query.NetworkID, _routingTable.GetKClosestContacts(query.NetworkID));
+                    AddNode(new IPEndPoint(remoteNodeIP, query.SourceNodePort)); //add node if endpoint doesnt exists
+                    return DhtRpcPacket.CreateFindNodePacketResponse(_currentNode, query.NetworkID, _routingTable.GetKClosestContacts(query.NetworkID));
 
                 case DhtRpcType.FIND_PEERS:
                     PeerEndPoint[] peers = _currentNode.GetPeers(query.NetworkID);
                     if (peers.Length == 0)
-                        return DhtRpcPacket.CreateFindPeersPacketResponse(_currentNode.NodeID, query.NetworkID, _routingTable.GetKClosestContacts(query.NetworkID), peers);
+                        return DhtRpcPacket.CreateFindPeersPacketResponse(_currentNode, query.NetworkID, _routingTable.GetKClosestContacts(query.NetworkID), peers);
                     else
-                        return DhtRpcPacket.CreateFindPeersPacketResponse(_currentNode.NodeID, query.NetworkID, new NodeContact[] { }, peers);
+                        return DhtRpcPacket.CreateFindPeersPacketResponse(_currentNode, query.NetworkID, new NodeContact[] { }, peers);
 
                 case DhtRpcType.ANNOUNCE_PEER:
                     _currentNode.StorePeer(query.NetworkID, new PeerEndPoint(remoteNodeIP, query.ServicePort));
-                    return DhtRpcPacket.CreateAnnouncePeerPacketResponse(_currentNode.NodeID, query.NetworkID, _currentNode.GetPeers(query.NetworkID));
+                    return DhtRpcPacket.CreateAnnouncePeerPacketResponse(_currentNode, query.NetworkID, _currentNode.GetPeers(query.NetworkID));
 
                 default:
                     throw new Exception("Invalid DHT-RPC type.");
@@ -172,11 +176,14 @@ namespace BitChatCore.Network.KademliaDHT
 
             try
             {
-                s = _manager.CreateConnection(contact.NodeEP);
+                Stream connection = _manager.CreateConnection(contact.NodeEP);
 
                 //set timeout
-                s.WriteTimeout = QUERY_TIMEOUT;
-                s.ReadTimeout = QUERY_TIMEOUT;
+                connection.WriteTimeout = QUERY_TIMEOUT;
+                connection.ReadTimeout = QUERY_TIMEOUT;
+
+                //enable buffering
+                s = new BufferedStream(connection, 512);
 
                 //send DHT TCP switch
                 s.WriteByte(0);
@@ -213,7 +220,7 @@ namespace BitChatCore.Network.KademliaDHT
                     if (bucketContact == null)
                         closestBucket.AddContactInCurrentBucket(contact);
                     else
-                        bucketContact.UpdateLastSeenTime();
+                        bucketContact.UpdateLastSeenTime(contact.NodeEP);
 
                     if (contactFailed)
                         return null;
@@ -265,9 +272,9 @@ namespace BitChatCore.Network.KademliaDHT
             DhtRpcPacket response;
 
             if (queryType == DhtRpcType.FIND_NODE)
-                response = Query(DhtRpcPacket.CreateFindNodePacketQuery(_currentNode.NodeID, nodeID), contact);
+                response = Query(DhtRpcPacket.CreateFindNodePacketQuery(_currentNode, nodeID), contact);
             else
-                response = Query(DhtRpcPacket.CreateFindPeersPacketQuery(_currentNode.NodeID, nodeID), contact);
+                response = Query(DhtRpcPacket.CreateFindPeersPacketQuery(_currentNode, nodeID), contact);
 
             if ((response == null) || (response.Type != queryType))
             {
@@ -456,7 +463,7 @@ namespace BitChatCore.Network.KademliaDHT
             List<PeerEndPoint> peers = parameters[2] as List<PeerEndPoint>;
             ushort servicePort = (ushort)parameters[3];
 
-            DhtRpcPacket response = Query(DhtRpcPacket.CreateAnnouncePeerPacketQuery(_currentNode.NodeID, networkID, servicePort), contact);
+            DhtRpcPacket response = Query(DhtRpcPacket.CreateAnnouncePeerPacketQuery(_currentNode, networkID, servicePort), contact);
             if ((response != null) && (response.Type == DhtRpcType.ANNOUNCE_PEER) && (response.Peers.Length > 0))
             {
                 lock (peers)
@@ -474,13 +481,13 @@ namespace BitChatCore.Network.KademliaDHT
 
         internal bool Ping(NodeContact contact)
         {
-            DhtRpcPacket response = Query(DhtRpcPacket.CreatePingPacket(_currentNode.NodeID), contact);
+            DhtRpcPacket response = Query(DhtRpcPacket.CreatePingPacket(_currentNode), contact);
             return (response != null);
         }
 
         private void PingAsync(object state)
         {
-            Query(DhtRpcPacket.CreatePingPacket(_currentNode.NodeID), new NodeContact(null, state as IPEndPoint));
+            Query(DhtRpcPacket.CreatePingPacket(_currentNode), new NodeContact(null, state as IPEndPoint));
         }
 
         internal NodeContact[] QueryFindNode(NodeContact[] initialContacts, BinaryID nodeID)
@@ -534,11 +541,11 @@ namespace BitChatCore.Network.KademliaDHT
             while (true)
             {
                 DhtRpcPacket response = ProcessQuery(new DhtRpcPacket(s), remoteNodeIP);
-                if (response != null)
-                {
-                    response.WriteTo(s);
-                    s.Flush();
-                }
+                if (response == null)
+                    break;
+
+                response.WriteTo(s);
+                s.Flush();
             }
         }
 

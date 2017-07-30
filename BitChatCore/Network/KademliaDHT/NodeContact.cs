@@ -32,10 +32,10 @@ namespace BitChatCore.Network.KademliaDHT
         const int NODE_RPC_FAIL_LIMIT = 5; //max failed RPC count before declaring node stale
         const int NODE_STALE_TIMEOUT_SECONDS = 900; //15mins timeout before declaring node stale
 
-        BinaryID _nodeID;
+        readonly BinaryID _nodeID;
         IPEndPoint _nodeEP;
 
-        bool _currentNode;
+        readonly bool _currentNode;
         DateTime _lastSeen = DateTime.UtcNow;
         int _failRpcCount = 0;
 
@@ -106,8 +106,11 @@ namespace BitChatCore.Network.KademliaDHT
                 return ((_failRpcCount > NODE_RPC_FAIL_LIMIT) || ((DateTime.UtcNow - _lastSeen).TotalSeconds > NODE_STALE_TIMEOUT_SECONDS));
         }
 
-        public void UpdateLastSeenTime()
+        public void UpdateLastSeenTime(IPEndPoint nodeEP)
         {
+            if (_failRpcCount > 0)
+                _nodeEP = nodeEP; //node ip changed
+
             _lastSeen = DateTime.UtcNow;
             _failRpcCount = 0;
         }
