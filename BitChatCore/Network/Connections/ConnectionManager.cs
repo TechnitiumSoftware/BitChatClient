@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2016  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2017  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -67,6 +67,7 @@ namespace BitChatCore.Network.Connections
 
         #region variables
 
+        public const int BUFFER_SIZE = 64 * 1024;
         const int SOCKET_CONNECTION_TIMEOUT = 10000; //10 sec connection timeout
         const int SOCKET_SEND_TIMEOUT = 30000; //30 sec socket timeout; application protocol NOOPs at 15 sec
         const int SOCKET_RECV_TIMEOUT = 120000; //keep socket open for long time to allow tunnelling requests between time
@@ -279,7 +280,7 @@ namespace BitChatCore.Network.Connections
                     if (NetUtilities.IsIPv4MappedIPv6Address(remotePeerEP.Address))
                         remotePeerEP = new IPEndPoint(NetUtilities.ConvertFromIPv4MappedIPv6Address(remotePeerEP.Address), remotePeerEP.Port);
 
-                    ThreadPool.QueueUserWorkItem(AcceptConnectionInitiateProtocolAsync, new object[] { new NetworkStream(socket, true), remotePeerEP });
+                    ThreadPool.QueueUserWorkItem(AcceptConnectionInitiateProtocolAsync, new object[] { new BufferedStream(new NetworkStream(socket, true), BUFFER_SIZE), remotePeerEP });
                 }
                 while (true);
             }
@@ -291,19 +292,19 @@ namespace BitChatCore.Network.Connections
         {
             object[] parameters = parameter as object[];
 
-            Stream networkStream = parameters[0] as Stream;
+            Stream s = parameters[0] as Stream;
             IPEndPoint remotePeerEP = parameters[1] as IPEndPoint;
 
             try
             {
-                AcceptDecoyHttpConnection(networkStream);
-                AcceptConnectionInitiateProtocol(networkStream, remotePeerEP);
+                AcceptDecoyHttpConnection(s);
+                AcceptConnectionInitiateProtocol(s, remotePeerEP);
             }
             catch
             { }
         }
 
-        private Connection AddConnection(Stream networkStream, BinaryID remotePeerID, IPEndPoint remotePeerEP)
+        private Connection AddConnection(Stream s, BinaryID remotePeerID, IPEndPoint remotePeerEP)
         {
             if ((remotePeerEP.AddressFamily == AddressFamily.InterNetworkV6) && (remotePeerEP.Address.ScopeId != 0))
                 remotePeerEP = new IPEndPoint(new IPAddress(remotePeerEP.Address.GetAddressBytes()), remotePeerEP.Port);
@@ -320,7 +321,7 @@ namespace BitChatCore.Network.Connections
                     Connection existingConnection = _connectionListByConnectionID[remotePeerEP];
 
                     //check for virtual vs real connection
-                    bool currentIsVirtual = Connection.IsStreamProxyTunnelConnection(networkStream);
+                    bool currentIsVirtual = Connection.IsStreamProxyTunnelConnection(s);
                     bool existingIsVirtual = existingConnection.IsProxyTunnelConnection;
 
                     if (existingIsVirtual && !currentIsVirtual)
@@ -339,7 +340,7 @@ namespace BitChatCore.Network.Connections
                     Connection existingConnection = _connectionListByPeerID[remotePeerID];
 
                     //check for virtual vs real connection
-                    bool currentIsVirtual = Connection.IsStreamProxyTunnelConnection(networkStream);
+                    bool currentIsVirtual = Connection.IsStreamProxyTunnelConnection(s);
                     bool existingIsVirtual = existingConnection.IsProxyTunnelConnection;
 
                     if (existingIsVirtual && !currentIsVirtual)
@@ -369,7 +370,7 @@ namespace BitChatCore.Network.Connections
                 }
 
                 //add connection
-                Connection connection = new Connection(networkStream, remotePeerID, remotePeerEP, this);
+                Connection connection = new Connection(s, remotePeerID, remotePeerEP, this);
                 _connectionListByConnectionID.Add(remotePeerEP, connection);
                 _connectionListByPeerID.Add(remotePeerID, connection);
 
@@ -636,7 +637,7 @@ namespace BitChatCore.Network.Connections
                     }
                     finally
                     {
-                        s.Close();
+                        s.Dispose();
                     }
                     break;
 
@@ -656,24 +657,21 @@ namespace BitChatCore.Network.Connections
                     if (connection != null)
                     {
                         //send ok
-                        byte[] buffer = new byte[21];
-
-                        buffer[0] = 0; //signal ok
-                        Buffer.BlockCopy(_localPeerID.ID, 0, buffer, 1, 20); //peer id
-
-                        s.Write(buffer, 0, 21);
+                        s.WriteByte(0); //signal ok
+                        s.Write(_localPeerID.ID, 0, 20); //peer id
+                        s.Flush();
                     }
                     else
                     {
                         //send cancel
                         s.WriteByte(1); //signal cancel
-                        s.Close();
+                        s.Dispose();
                     }
 
                     break;
 
                 default:
-                    s.Close();
+                    s.Dispose();
                     throw new IOException("Cannot accept remote connection: protocol version not supported.");
             }
         }
@@ -683,16 +681,10 @@ namespace BitChatCore.Network.Connections
             try
             {
                 //send request
-                {
-                    byte[] buffer = new byte[23]; //request buffer
-
-                    buffer[0] = 1; //version
-                    Buffer.BlockCopy(_localPeerID.ID, 0, buffer, 1, 20); //peer id
-                    Buffer.BlockCopy(BitConverter.GetBytes(Convert.ToUInt16(_localPort)), 0, buffer, 21, 2); //service port
-
-                    s.Write(buffer, 0, 23);
-                    s.Flush();
-                }
+                s.WriteByte(1); //version
+                s.Write(_localPeerID.ID, 0, 20); //peer id
+                s.Write(BitConverter.GetBytes(Convert.ToUInt16(_localPort)), 0, 2); //service port
+                s.Flush();
 
                 //read response
                 int response = s.ReadByte();
@@ -1218,7 +1210,7 @@ namespace BitChatCore.Network.Connections
 
                     try
                     {
-                        return MakeConnectionInitiateProtocol(s, remotePeerEP);
+                        return MakeConnectionInitiateProtocol(new BufferedStream(s, BUFFER_SIZE), remotePeerEP);
                     }
                     catch
                     {
