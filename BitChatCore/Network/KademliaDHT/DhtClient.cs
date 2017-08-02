@@ -176,19 +176,14 @@ namespace BitChatCore.Network.KademliaDHT
 
             try
             {
-                Stream connection = _manager.CreateConnection(contact.NodeEP);
+                s = _manager.GetConnectionStream(contact.NodeEP);
 
                 //set timeout
-                connection.WriteTimeout = QUERY_TIMEOUT;
-                connection.ReadTimeout = QUERY_TIMEOUT;
-
-                //enable buffering
-                s = new BufferedStream(connection, 512);
-
-                //send DHT TCP switch
-                s.WriteByte(0);
+                s.WriteTimeout = QUERY_TIMEOUT;
+                s.ReadTimeout = QUERY_TIMEOUT;
 
                 //send query
+                s.WriteByte(0); //send DHT TCP switch
                 query.WriteTo(s);
                 s.Flush();
 

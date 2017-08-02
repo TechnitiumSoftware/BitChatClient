@@ -24,6 +24,6 @@ namespace BitChatCore.Network.KademliaDHT
 {
     interface IDhtClientManager
     {
-        Stream CreateConnection(IPEndPoint remoteNodeEP);
+        Stream GetConnectionStream(IPEndPoint remoteNodeEP);
     }
 }
