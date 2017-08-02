@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2016  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2017  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -75,27 +75,22 @@ namespace BitChatCore.Network.Connections
 
         #region variables
 
-        const int MAX_FRAME_SIZE = 65279; //65535 (max ipv4 packet size) - 256 (margin for other headers)
-        const int BUFFER_SIZE = 65535;
-
         readonly Stream _baseStream;
-        BinaryID _remotePeerID;
-        IPEndPoint _remotePeerEP;
-        ConnectionManager _connectionManager;
+        readonly BinaryID _remotePeerID;
+        readonly IPEndPoint _remotePeerEP;
+        readonly ConnectionManager _connectionManager;
 
         readonly Dictionary<BinaryID, ChannelStream> _channels = new Dictionary<BinaryID, ChannelStream>();
 
         Thread _readThread;
 
-        Dictionary<BinaryID, object> _peerStatusLockList = new Dictionary<BinaryID, object>();
-        List<Joint> _proxyTunnelJointList = new List<Joint>();
+        readonly Dictionary<BinaryID, object> _peerStatusLockList = new Dictionary<BinaryID, object>();
+        readonly List<Joint> _proxyTunnelJointList = new List<Joint>();
 
-        Dictionary<BinaryID, object> _tcpRelayRequestLockList = new Dictionary<BinaryID, object>();
-        Dictionary<BinaryID, TcpRelayService> _tcpRelays = new Dictionary<BinaryID, TcpRelayService>();
+        readonly Dictionary<BinaryID, object> _tcpRelayRequestLockList = new Dictionary<BinaryID, object>();
+        readonly Dictionary<BinaryID, TcpRelayService> _tcpRelays = new Dictionary<BinaryID, TcpRelayService>();
 
         int _channelWriteTimeout = 30000;
-
-        byte[] _writeBufferData = new byte[BUFFER_SIZE];
 
         #endregion
 
@@ -188,8 +183,7 @@ namespace BitChatCore.Network.Connections
 
         private void WriteFrame(SignalType signalType, BinaryID channelName, byte[] buffer, int offset, int count)
         {
-            const int FRAME_HEADER_SIZE = 23;
-            int frameCount = MAX_FRAME_SIZE - FRAME_HEADER_SIZE;
+            int frameCount = ConnectionManager.BUFFER_SIZE;
 
             lock (_baseStream)
             {
@@ -198,23 +192,14 @@ namespace BitChatCore.Network.Connections
                     if (count < frameCount)
                         frameCount = count;
 
-                    //write frame signal
-                    _writeBufferData[0] = (byte)signalType;
+                    _baseStream.WriteByte((byte)signalType); //write frame signal
+                    _baseStream.Write(channelName.ID, 0, 20); //write channel name
+                    _baseStream.Write(BitConverter.GetBytes(Convert.ToUInt16(frameCount)), 0, 2); //write data length
 
-                    //write channel name
-                    Buffer.BlockCopy(channelName.ID, 0, _writeBufferData, 1, 20);
-
-                    //write data length
-                    byte[] bufferCount = BitConverter.GetBytes(Convert.ToUInt16(frameCount));
-                    _writeBufferData[21] = bufferCount[0];
-                    _writeBufferData[22] = bufferCount[1];
-
-                    //write data
                     if (frameCount > 0)
-                        Buffer.BlockCopy(buffer, offset, _writeBufferData, FRAME_HEADER_SIZE, frameCount);
+                        _baseStream.Write(buffer, offset, frameCount); //write data
 
-                    //output buffer to base stream
-                    _baseStream.Write(_writeBufferData, 0, FRAME_HEADER_SIZE + frameCount);
+                    //flush base stream
                     _baseStream.Flush();
 
                     offset += frameCount;
@@ -231,8 +216,8 @@ namespace BitChatCore.Network.Connections
                 //frame parameters
                 int signalType;
                 BinaryID channelName = new BinaryID(new byte[20]);
-                int dataLength;
-                byte[] dataBuffer = new byte[BUFFER_SIZE];
+                ushort dataLength;
+                byte[] dataLengthBuffer = new byte[2];
 
                 while (true)
                 {
@@ -247,12 +232,14 @@ namespace BitChatCore.Network.Connections
                     OffsetStream.StreamRead(_baseStream, channelName.ID, 0, 20);
 
                     //read data length
-                    OffsetStream.StreamRead(_baseStream, dataBuffer, 0, 2);
-                    dataLength = BitConverter.ToUInt16(dataBuffer, 0);
+                    OffsetStream.StreamRead(_baseStream, dataLengthBuffer, 0, 2);
+                    dataLength = BitConverter.ToUInt16(dataLengthBuffer, 0);
 
-                    //read data
+                    //read data stream
+                    OffsetStream dataStream = null;
+
                     if (dataLength > 0)
-                        OffsetStream.StreamRead(_baseStream, dataBuffer, 0, dataLength);
+                        dataStream = new OffsetStream(_baseStream, 0, dataLength, true, false);
 
                     #endregion
 
@@ -319,7 +306,7 @@ namespace BitChatCore.Network.Connections
                                     channel = _channels[channelName];
                                 }
 
-                                channel.FeedReadBuffer(dataBuffer, 0, dataLength, _channelWriteTimeout);
+                                channel.FeedReadBuffer(dataStream, _channelWriteTimeout);
                             }
                             catch
                             { }
@@ -469,37 +456,34 @@ namespace BitChatCore.Network.Connections
                                 BinaryID[] networkIDs;
                                 Uri[] trackerURIs;
 
-                                using (MemoryStream mS = new MemoryStream(dataBuffer, 0, dataLength, false))
+                                //read network id list
+                                networkIDs = new BinaryID[dataStream.ReadByte()];
+                                byte[] XORnetworkID = new byte[20];
+
+                                for (int i = 0; i < networkIDs.Length; i++)
                                 {
-                                    //read network id list
-                                    networkIDs = new BinaryID[mS.ReadByte()];
-                                    byte[] XORnetworkID = new byte[20];
+                                    OffsetStream.StreamRead(dataStream, XORnetworkID, 0, 20);
 
-                                    for (int i = 0; i < networkIDs.Length; i++)
+                                    byte[] networkID = new byte[20];
+
+                                    for (int j = 0; j < 20; j++)
                                     {
-                                        mS.Read(XORnetworkID, 0, 20);
-
-                                        byte[] networkID = new byte[20];
-
-                                        for (int j = 0; j < 20; j++)
-                                        {
-                                            networkID[j] = (byte)(channelName.ID[j] ^ XORnetworkID[j]);
-                                        }
-
-                                        networkIDs[i] = new BinaryID(networkID);
+                                        networkID[j] = (byte)(channelName.ID[j] ^ XORnetworkID[j]);
                                     }
 
-                                    //read tracker uri list
-                                    trackerURIs = new Uri[mS.ReadByte()];
-                                    byte[] data = new byte[255];
+                                    networkIDs[i] = new BinaryID(networkID);
+                                }
 
-                                    for (int i = 0; i < trackerURIs.Length; i++)
-                                    {
-                                        int length = mS.ReadByte();
-                                        mS.Read(data, 0, length);
+                                //read tracker uri list
+                                trackerURIs = new Uri[dataStream.ReadByte()];
+                                byte[] data = new byte[255];
 
-                                        trackerURIs[i] = new Uri(Encoding.UTF8.GetString(data, 0, length));
-                                    }
+                                for (int i = 0; i < trackerURIs.Length; i++)
+                                {
+                                    int length = dataStream.ReadByte();
+                                    OffsetStream.StreamRead(dataStream, data, 0, length);
+
+                                    trackerURIs[i] = new Uri(Encoding.UTF8.GetString(data, 0, length));
                                 }
 
                                 lock (_tcpRelays)
@@ -524,25 +508,22 @@ namespace BitChatCore.Network.Connections
                             {
                                 BinaryID[] networkIDs;
 
-                                using (MemoryStream mS = new MemoryStream(dataBuffer, 0, dataLength, false))
+                                //read network id list
+                                networkIDs = new BinaryID[dataStream.ReadByte()];
+                                byte[] XORnetworkID = new byte[20];
+
+                                for (int i = 0; i < networkIDs.Length; i++)
                                 {
-                                    //read network id list
-                                    networkIDs = new BinaryID[mS.ReadByte()];
-                                    byte[] XORnetworkID = new byte[20];
+                                    OffsetStream.StreamRead(dataStream, XORnetworkID, 0, 20);
 
-                                    for (int i = 0; i < networkIDs.Length; i++)
+                                    byte[] networkID = new byte[20];
+
+                                    for (int j = 0; j < 20; j++)
                                     {
-                                        mS.Read(XORnetworkID, 0, 20);
-
-                                        byte[] networkID = new byte[20];
-
-                                        for (int j = 0; j < 20; j++)
-                                        {
-                                            networkID[j] = (byte)(channelName.ID[j] ^ XORnetworkID[j]);
-                                        }
-
-                                        networkIDs[i] = new BinaryID(networkID);
+                                        networkID[j] = (byte)(channelName.ID[j] ^ XORnetworkID[j]);
                                     }
+
+                                    networkIDs[i] = new BinaryID(networkID);
                                 }
 
                                 lock (_tcpRelays)
@@ -585,20 +566,17 @@ namespace BitChatCore.Network.Connections
 
                         case SignalType.TcpRelayResponsePeerList:
                             #region TcpRelayResponsePeerList
-
-                            using (MemoryStream mS = new MemoryStream(dataBuffer, 0, dataLength, false))
                             {
-                                int count = mS.ReadByte();
+                                int count = dataStream.ReadByte();
                                 List<IPEndPoint> peerEPs = new List<IPEndPoint>(count);
 
                                 for (int i = 0; i < count; i++)
                                 {
-                                    peerEPs.Add(IPEndPointParser.Parse(mS));
+                                    peerEPs.Add(IPEndPointParser.Parse(dataStream));
                                 }
 
                                 TcpRelayPeersAvailable.BeginInvoke(this, channelName.Clone(), peerEPs, null, null);
                             }
-
                             #endregion
                             break;
 
@@ -606,13 +584,25 @@ namespace BitChatCore.Network.Connections
                             #region ChannelInvitationBitChatNetwork
 
                             if (_connectionManager.Profile.AllowInboundInvitations)
-                                BitChatNetworkInvitation.BeginInvoke(channelName.Clone(), _remotePeerEP, Encoding.UTF8.GetString(dataBuffer, 0, dataLength), null, null);
+                            {
+                                byte[] buffer = new byte[dataStream.Length];
+                                OffsetStream.StreamRead(dataStream, buffer, 0, buffer.Length);
+
+                                BitChatNetworkInvitation.BeginInvoke(channelName.Clone(), _remotePeerEP, Encoding.UTF8.GetString(buffer, 0, buffer.Length), null, null);
+                            }
 
                             #endregion
                             break;
 
                         default:
                             throw new IOException("Invalid frame signal type.");
+                    }
+
+                    if (dataStream != null)
+                    {
+                        //discard any unread data
+                        if (dataStream.Length > dataStream.Position)
+                            OffsetStream.StreamCopy(dataStream, new NullStream(), 4096);
                     }
                 }
             }
@@ -992,12 +982,12 @@ namespace BitChatCore.Network.Connections
             const int CHANNEL_READ_TIMEOUT = 60000; //channel read timeout; application must NOOP
             const int CHANNEL_WRITE_TIMEOUT = 30000; //dummy timeout for write since base channel write timeout will be used
 
-            Connection _connection;
-            BinaryID _channelName;
+            readonly Connection _connection;
+            readonly BinaryID _channelName;
 
-            readonly byte[] _readBuffer = new byte[BUFFER_SIZE];
-            int _offset;
-            int _count;
+            readonly byte[] _readBuffer = new byte[ConnectionManager.BUFFER_SIZE];
+            int _readBufferPosition;
+            int _readBufferCount;
 
             int _readTimeout = CHANNEL_READ_TIMEOUT;
             int _writeTimeout = CHANNEL_WRITE_TIMEOUT;
@@ -1128,7 +1118,7 @@ namespace BitChatCore.Network.Connections
 
                 lock (this)
                 {
-                    if (_count < 1)
+                    if (_readBufferCount < 1)
                     {
                         if (_disposed)
                             return 0;
@@ -1136,21 +1126,21 @@ namespace BitChatCore.Network.Connections
                         if (!Monitor.Wait(this, _readTimeout))
                             throw new IOException("Read timed out.");
 
-                        if (_count < 1)
+                        if (_readBufferCount < 1)
                             return 0;
                     }
 
                     int bytesToCopy = count;
 
-                    if (bytesToCopy > _count)
-                        bytesToCopy = _count;
+                    if (bytesToCopy > _readBufferCount)
+                        bytesToCopy = _readBufferCount;
 
-                    Buffer.BlockCopy(_readBuffer, _offset, buffer, offset, bytesToCopy);
+                    Buffer.BlockCopy(_readBuffer, _readBufferPosition, buffer, offset, bytesToCopy);
 
-                    _offset += bytesToCopy;
-                    _count -= bytesToCopy;
+                    _readBufferPosition += bytesToCopy;
+                    _readBufferCount -= bytesToCopy;
 
-                    if (_count < 1)
+                    if (_readBufferCount < 1)
                         Monitor.Pulse(this);
 
                     return bytesToCopy;
@@ -1169,8 +1159,9 @@ namespace BitChatCore.Network.Connections
 
             #region private
 
-            internal void FeedReadBuffer(byte[] buffer, int offset, int count, int timeout)
+            internal void FeedReadBuffer(Stream s, int timeout)
             {
+                int count = Convert.ToInt32(s.Length - s.Position);
                 if (count > 0)
                 {
                     lock (this)
@@ -1178,18 +1169,18 @@ namespace BitChatCore.Network.Connections
                         if (_disposed)
                             throw new ObjectDisposedException("ChannelStream");
 
-                        if (_count > 0)
+                        if (_readBufferCount > 0)
                         {
                             if (!Monitor.Wait(this, timeout))
-                                throw new IOException("Channel WriteBuffer timed out.");
+                                throw new IOException("Channel FeedReadBuffer timed out.");
 
-                            if (_count > 0)
-                                throw new IOException("Channel WriteBuffer failed. Buffer not empty.");
+                            if (_readBufferCount > 0)
+                                throw new IOException("Channel FeedReadBuffer failed. Buffer not empty.");
                         }
 
-                        Buffer.BlockCopy(buffer, offset, _readBuffer, 0, count);
-                        _offset = 0;
-                        _count = count;
+                        OffsetStream.StreamRead(s, _readBuffer, 0, count);
+                        _readBufferPosition = 0;
+                        _readBufferCount = count;
 
                         Monitor.Pulse(this);
                     }

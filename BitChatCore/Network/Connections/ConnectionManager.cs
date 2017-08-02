@@ -67,7 +67,7 @@ namespace BitChatCore.Network.Connections
 
         #region variables
 
-        public const int BUFFER_SIZE = 64 * 1024;
+        public const int BUFFER_SIZE = ushort.MaxValue;
         const int SOCKET_CONNECTION_TIMEOUT = 10000; //10 sec connection timeout
         const int SOCKET_SEND_TIMEOUT = 30000; //30 sec socket timeout; application protocol NOOPs at 15 sec
         const int SOCKET_RECV_TIMEOUT = 120000; //keep socket open for long time to allow tunnelling requests between time
