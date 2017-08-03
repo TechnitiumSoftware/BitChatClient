@@ -1032,25 +1032,29 @@ namespace BitChatCore.Network.Connections
 
                             if (dnsServers.Count > 0)
                             {
-
-                                DnsClient dnsClient = new DnsClient(dnsServers.ToArray());
-                                DnsDatagram response = dnsClient.Resolve(DHT_DNS_BOOTSTRAP_DOMAIN, DnsResourceRecordType.TXT);
-
-                                foreach (DnsResourceRecord answer in response.Answer)
+                                try
                                 {
-                                    if (answer.Name.Equals(DHT_DNS_BOOTSTRAP_DOMAIN) && (answer.Type == DnsResourceRecordType.TXT))
-                                    {
-                                        DnsTXTRecord txtRecord = (DnsTXTRecord)answer.RDATA;
+                                    DnsClient dnsClient = new DnsClient(dnsServers.ToArray());
+                                    DnsDatagram response = dnsClient.Resolve(DHT_DNS_BOOTSTRAP_DOMAIN, DnsResourceRecordType.TXT);
 
-                                        try
+                                    foreach (DnsResourceRecord answer in response.Answer)
+                                    {
+                                        if (answer.Name.Equals(DHT_DNS_BOOTSTRAP_DOMAIN) && (answer.Type == DnsResourceRecordType.TXT))
                                         {
-                                            string[] values = txtRecord.TXTData.Split('|');
-                                            _dhtClient.AddNode(new IPEndPoint(IPAddress.Parse(values[0]), int.Parse(values[1])));
+                                            DnsTXTRecord txtRecord = (DnsTXTRecord)answer.RDATA;
+
+                                            try
+                                            {
+                                                string[] values = txtRecord.TXTData.Split('|');
+                                                _dhtClient.AddNode(new IPEndPoint(IPAddress.Parse(values[0]), int.Parse(values[1])));
+                                            }
+                                            catch
+                                            { }
                                         }
-                                        catch
-                                        { }
                                     }
                                 }
+                                catch
+                                { }
                             }
                         }
 
