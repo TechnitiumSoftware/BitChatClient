@@ -66,28 +66,44 @@ namespace BitChatCore.FileSharing
 
         public SharedFileMetaData(Stream s)
         {
-            BinaryReader bR = new BinaryReader(s);
-
-            switch (bR.ReadByte()) //version
+            switch (s.ReadByte()) //version
             {
                 case 1:
-                    _fileName = Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte()));
-                    _contentType = new ContentType(Encoding.UTF8.GetString(bR.ReadBytes(bR.ReadByte())));
-                    _lastModified = _epoch.AddSeconds(bR.ReadInt64());
+                    int length;
+                    byte[] buffer = new byte[255];
 
-                    _fileSize = bR.ReadInt64();
-                    _blockSize = bR.ReadInt32();
+                    length = s.ReadByte();
+                    OffsetStream.StreamRead(s, buffer, 0, length);
+                    _fileName = Encoding.UTF8.GetString(buffer, 0, length);
 
-                    _hashAlgo = Encoding.ASCII.GetString(bR.ReadBytes(bR.ReadByte()));
+                    length = s.ReadByte();
+                    OffsetStream.StreamRead(s, buffer, 0, length);
+                    _contentType = new ContentType(Encoding.UTF8.GetString(buffer, 0, length));
+
+                    OffsetStream.StreamRead(s, buffer, 0, 8);
+                    _lastModified = _epoch.AddSeconds(BitConverter.ToInt64(buffer, 0));
+
+                    OffsetStream.StreamRead(s, buffer, 0, 8);
+                    _fileSize = BitConverter.ToInt64(buffer, 0);
+
+                    OffsetStream.StreamRead(s, buffer, 0, 4);
+                    _blockSize = BitConverter.ToInt32(buffer, 0);
+
+                    length = s.ReadByte();
+                    OffsetStream.StreamRead(s, buffer, 0, length);
+                    _hashAlgo = Encoding.ASCII.GetString(buffer, 0, length);
 
                     int totalBlocks = Convert.ToInt32(Math.Ceiling(Convert.ToDouble((double)_fileSize / _blockSize)));
 
                     _blockHash = new byte[totalBlocks][];
 
-                    int hashLength = bR.ReadByte();
+                    int hashLength = s.ReadByte();
 
                     for (int i = 0; i < totalBlocks; i++)
-                        _blockHash[i] = bR.ReadBytes(hashLength);
+                    {
+                        _blockHash[i] = new byte[hashLength];
+                        OffsetStream.StreamRead(s, _blockHash[i], 0, hashLength);
+                    }
 
                     _fileID = ComputeFileID();
                     break;
@@ -131,35 +147,31 @@ namespace BitChatCore.FileSharing
 
         public void WriteTo(Stream s)
         {
-            BinaryWriter bW = new BinaryWriter(s);
+            byte[] buffer;
 
-            byte[] buffer = null;
-
-            bW.Write((byte)1);
+            s.WriteByte(1);
 
             buffer = Encoding.UTF8.GetBytes(_fileName);
-            bW.Write(Convert.ToByte(buffer.Length));
-            bW.Write(buffer);
+            s.WriteByte(Convert.ToByte(buffer.Length));
+            s.Write(buffer, 0, buffer.Length);
 
             buffer = Encoding.UTF8.GetBytes(_contentType.MediaType);
-            bW.Write(Convert.ToByte(buffer.Length));
-            bW.Write(buffer);
+            s.WriteByte(Convert.ToByte(buffer.Length));
+            s.Write(buffer, 0, buffer.Length);
 
-            bW.Write(Convert.ToInt64((_lastModified - _epoch).TotalSeconds));
+            s.Write(BitConverter.GetBytes(Convert.ToInt64((_lastModified - _epoch).TotalSeconds)), 0, 8);
 
-            bW.Write(_fileSize);
-            bW.Write(_blockSize);
+            s.Write(BitConverter.GetBytes(_fileSize), 0, 8);
+            s.Write(BitConverter.GetBytes(_blockSize), 0, 4);
 
             buffer = Encoding.ASCII.GetBytes(_hashAlgo);
-            bW.Write(Convert.ToByte(buffer.Length));
-            bW.Write(buffer);
+            s.WriteByte(Convert.ToByte(buffer.Length));
+            s.Write(buffer, 0, buffer.Length);
 
-            bW.Write(Convert.ToByte(_blockHash[0].Length));
+            s.WriteByte(Convert.ToByte(_blockHash[0].Length));
 
             for (int i = 0; i < _blockHash.Length; i++)
-                bW.Write(_blockHash[i]);
-
-            bW.Flush();
+                s.Write(_blockHash[i], 0, _blockHash[i].Length);
         }
 
         public byte[] ToArray()
