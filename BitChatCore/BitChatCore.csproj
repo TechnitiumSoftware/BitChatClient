@@ -92,7 +92,7 @@
     <Compile Include="Network\SecureChannel\SecureChannelStream.cs" />
     <Compile Include="Network\SecureChannel\SecureChannelClientStream.cs" />
     <Compile Include="Network\SecureChannel\SecureChannelException.cs" />
-    <Compile Include="Network\SecureChannel\SecureChannelPacket.cs" />
+    <Compile Include="Network\SecureChannel\SecureChannelHandshakePacket.cs" />
     <Compile Include="Network\SecureChannel\SecureChannelServerStream.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

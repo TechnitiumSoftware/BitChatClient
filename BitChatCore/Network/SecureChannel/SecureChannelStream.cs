@@ -97,10 +97,10 @@ namespace BitChatCore.Network.SecureChannel
         const byte HEADER_FLAG_RENEGOTIATE = 1;
         const byte HEADER_FLAG_CLOSE_CHANNEL = 2;
 
-        protected static RandomNumberGenerator _rnd = new RNGCryptoServiceProvider();
-        static RandomNumberGenerator _rndPadding = new RNGCryptoServiceProvider();
+        readonly protected static RandomNumberGenerator _rnd = new RNGCryptoServiceProvider();
+        readonly static RandomNumberGenerator _rndPadding = new RNGCryptoServiceProvider();
 
-        protected IPEndPoint _remotePeerEP;
+        readonly protected IPEndPoint _remotePeerEP;
         protected Certificate _remotePeerCert;
 
         //io & crypto related
@@ -122,24 +122,24 @@ namespace BitChatCore.Network.SecureChannel
         Timer _reNegotiationTimer;
         const int _reNegotiationTimerInterval = 30000;
 
-        object _writeLock = new object();
-        object _readLock = new object();
+        readonly object _writeLock = new object();
+        readonly object _readLock = new object();
 
         //buffering
-        const int MAX_PACKET_SIZE = 65255; //max connection frame payload size
+        const int MAX_PACKET_SIZE = 65504; //mod 32 round figure
         const int BUFFER_SIZE = 65535;
 
         int _authHMACSize;
 
-        byte[] _writeBufferData = new byte[BUFFER_SIZE];
+        readonly byte[] _writeBufferData = new byte[BUFFER_SIZE];
         int _writeBufferPosition = 3;
         byte[] _writeBufferPadding;
-        byte[] _writeEncryptedData = new byte[BUFFER_SIZE];
+        readonly byte[] _writeEncryptedData = new byte[BUFFER_SIZE];
 
-        byte[] _readBufferData = new byte[BUFFER_SIZE];
+        readonly byte[] _readBufferData = new byte[BUFFER_SIZE];
         int _readBufferPosition;
         int _readBufferLength;
-        byte[] _readEncryptedData = new byte[BUFFER_SIZE];
+        readonly byte[] _readEncryptedData = new byte[BUFFER_SIZE];
 
         MemoryStream _reNegotiateReadBuffer;
         bool _channelClosed = false;
@@ -310,7 +310,7 @@ namespace BitChatCore.Network.SecureChannel
         public override int Read(byte[] buffer, int offset, int count)
         {
             if (count < 1)
-                throw new ArgumentOutOfRangeException("Count must be atleast 1 byte.");
+                return 0;
 
             lock (_readLock)
             {
@@ -462,6 +462,7 @@ namespace BitChatCore.Network.SecureChannel
 
                 //write encrypted data + auth hmac
                 _baseStream.Write(_writeEncryptedData, 0, _writeBufferPosition);
+                _baseStream.Flush();
 
                 //reset buffer
                 _writeBufferPosition = 3;
@@ -612,7 +613,7 @@ namespace BitChatCore.Network.SecureChannel
             return _reNegotiating;
         }
 
-        protected byte[] GenerateMasterKey(SecureChannelPacket.Hello clientHello, SecureChannelPacket.Hello serverHello, byte[] preSharedKey, KeyAgreement keyAgreement, byte[] otherPartyPublicKey)
+        protected byte[] GenerateMasterKey(SecureChannelHandshakeHello clientHello, SecureChannelHandshakeHello serverHello, byte[] preSharedKey, KeyAgreement keyAgreement, byte[] otherPartyPublicKey)
         {
             using (MemoryStream mS = new MemoryStream(128))
             {

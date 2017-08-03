@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2017  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@ using System;
 using System.IO;
 using System.Net;
 using System.Security.Cryptography;
+using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.Network.SecureChannel
@@ -29,13 +30,13 @@ namespace BitChatCore.Network.SecureChannel
     {
         #region variables
 
-        int _version;
+        readonly int _version;
 
-        CertificateStore _serverCredentials;
-        Certificate[] _trustedRootCertificates;
-        ISecureChannelSecurityManager _manager;
-        SecureChannelCryptoOptionFlags _supportedOptions;
-        byte[] _preSharedKey;
+        readonly CertificateStore _serverCredentials;
+        readonly Certificate[] _trustedRootCertificates;
+        readonly ISecureChannelSecurityManager _manager;
+        readonly SecureChannelCryptoOptionFlags _supportedOptions;
+        readonly byte[] _preSharedKey;
 
         #endregion
 
@@ -54,6 +55,7 @@ namespace BitChatCore.Network.SecureChannel
             {
                 //send server protocol version
                 stream.WriteByte(4);
+                stream.Flush();
 
                 //read client protocol version
                 _version = stream.ReadByte();
@@ -81,10 +83,15 @@ namespace BitChatCore.Network.SecureChannel
                 {
                     try
                     {
+                        Stream s;
+
                         if (_baseStream == null)
-                            SecureChannelPacket.WritePacket(stream, ex.Code);
+                            s = stream;
                         else
-                            SecureChannelPacket.WritePacket(this, ex.Code);
+                            s = this;
+
+                        new SecureChannelHandshakePacket(ex.Code).WriteTo(s);
+                        s.Flush();
                     }
                     catch
                     { }
@@ -100,10 +107,15 @@ namespace BitChatCore.Network.SecureChannel
             {
                 try
                 {
+                    Stream s;
+
                     if (_baseStream == null)
-                        SecureChannelPacket.WritePacket(stream, SecureChannelCode.UnknownException);
+                        s = stream;
                     else
-                        SecureChannelPacket.WritePacket(this, SecureChannelCode.UnknownException);
+                        s = this;
+
+                    new SecureChannelHandshakePacket(SecureChannelCode.UnknownException).WriteTo(s);
+                    s.Flush();
                 }
                 catch
                 { }
@@ -118,10 +130,12 @@ namespace BitChatCore.Network.SecureChannel
 
         private void ProtocolV4(Stream stream)
         {
+            WriteBufferedStream bufferedStream = new WriteBufferedStream(stream, 8 * 1024);
+
             #region 1. hello handshake
 
             //read client hello
-            SecureChannelPacket.Hello clientHello = (new SecureChannelPacket(stream)).GetHello();
+            SecureChannelHandshakeHello clientHello = new SecureChannelHandshakeHello(bufferedStream);
 
             //select crypto option
             _selectedCryptoOption = _supportedOptions & clientHello.CryptoOptions;
@@ -144,8 +158,8 @@ namespace BitChatCore.Network.SecureChannel
             }
 
             //send server hello
-            SecureChannelPacket.Hello serverHello = new SecureChannelPacket.Hello(BinaryID.GenerateRandomID256(), _selectedCryptoOption);
-            SecureChannelPacket.WritePacket(stream, serverHello);
+            SecureChannelHandshakeHello serverHello = new SecureChannelHandshakeHello(BinaryID.GenerateRandomID256(), _selectedCryptoOption);
+            serverHello.WriteTo(bufferedStream);
 
             #endregion
 
@@ -174,23 +188,24 @@ namespace BitChatCore.Network.SecureChannel
             }
 
             //send server key exchange data
-            SecureChannelPacket.KeyExchange serverKeyExchange = new SecureChannelPacket.KeyExchange(keyAgreement.GetPublicKey(), _serverCredentials.PrivateKey, hashAlgo);
-            SecureChannelPacket.WritePacket(stream, serverKeyExchange);
+            new SecureChannelHandshakeKeyExchange(keyAgreement.GetPublicKey(), _serverCredentials.PrivateKey, hashAlgo).WriteTo(bufferedStream);
+            bufferedStream.Flush();
 
             //read client key exchange data
-            SecureChannelPacket.KeyExchange clientKeyExchange = (new SecureChannelPacket(stream)).GetKeyExchange();
+            SecureChannelHandshakeKeyExchange clientKeyExchange = new SecureChannelHandshakeKeyExchange(bufferedStream);
 
             //generate master key
             byte[] masterKey = GenerateMasterKey(clientHello, serverHello, _preSharedKey, keyAgreement, clientKeyExchange.PublicKey);
 
             //verify master key using HMAC authentication
             {
-                SecureChannelPacket.Authentication clientAuthentication = (new SecureChannelPacket(stream)).GetAuthentication();
+                SecureChannelHandshakeAuthentication clientAuthentication = new SecureChannelHandshakeAuthentication(bufferedStream);
                 if (!clientAuthentication.IsValid(serverHello, masterKey))
                     throw new SecureChannelException(SecureChannelCode.ProtocolAuthenticationFailed, _remotePeerEP, _remotePeerCert);
 
-                SecureChannelPacket.Authentication serverAuthentication = new SecureChannelPacket.Authentication(clientHello, masterKey);
-                SecureChannelPacket.WritePacket(stream, serverAuthentication);
+                SecureChannelHandshakeAuthentication serverAuthentication = new SecureChannelHandshakeAuthentication(clientHello, masterKey);
+                serverAuthentication.WriteTo(bufferedStream);
+                bufferedStream.Flush();
             }
 
             //enable channel encryption
@@ -223,7 +238,7 @@ namespace BitChatCore.Network.SecureChannel
             if (!IsReNegotiating())
             {
                 //read client certificate
-                _remotePeerCert = (new SecureChannelPacket(this)).GetCertificate();
+                _remotePeerCert = new SecureChannelHandshakeCertificate(this).Certificate;
 
                 //verify client certificate
                 try
@@ -258,7 +273,10 @@ namespace BitChatCore.Network.SecureChannel
 
             //send server certificate
             if (!IsReNegotiating())
-                SecureChannelPacket.WritePacket(this, _serverCredentials.Certificate);
+            {
+                new SecureChannelHandshakeCertificate(_serverCredentials.Certificate).WriteTo(this);
+                this.Flush();
+            }
 
             #endregion
         }
@@ -285,7 +303,8 @@ namespace BitChatCore.Network.SecureChannel
             {
                 try
                 {
-                    SecureChannelPacket.WritePacket(_baseStream, ex.Code);
+                    new SecureChannelHandshakePacket(ex.Code).WriteTo(_baseStream);
+                    _baseStream.Flush();
                 }
                 catch
                 { }
