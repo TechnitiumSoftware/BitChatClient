@@ -1183,8 +1183,7 @@ namespace BitChatCore.Network
 
                     try
                     {
-                        FixMemoryStream mS = new FixMemoryStream(BUFFER_SIZE);
-                        byte[] buffer = mS.Buffer;
+                        byte[] buffer = new byte[2];
                         ushort port;
                         int dataLength;
 
@@ -1196,16 +1195,13 @@ namespace BitChatCore.Network
                             OffsetStream.StreamRead(_channel, buffer, 0, 2);
                             dataLength = BitConverter.ToUInt16(buffer, 0);
 
-                            OffsetStream.StreamRead(_channel, buffer, 0, dataLength);
+                            OffsetStream dataStream = new OffsetStream(_channel, 0, dataLength, true, false);
 
                             if (port == 0)
                             {
-                                mS.SetLength(dataLength);
-                                mS.Position = 0;
-
                                 try
                                 {
-                                    _peer.MessageReceived(this, mS);
+                                    _peer.MessageReceived(this, dataStream);
                                 }
                                 catch
                                 { }
@@ -1221,7 +1217,7 @@ namespace BitChatCore.Network
                                         stream = _dataStreams[port];
                                     }
 
-                                    stream.WriteBuffer(buffer, 0, dataLength, 30000);
+                                    stream.FeedReadBuffer(dataStream, 30000);
                                 }
                                 catch
                                 {
@@ -1229,6 +1225,9 @@ namespace BitChatCore.Network
                                         stream.Dispose();
                                 }
                             }
+
+                            if (dataStream.Length > dataStream.Position)
+                                OffsetStream.StreamCopy(dataStream, Stream.Null, 4096);
                         }
                     }
                     catch (SecureChannelException ex)
@@ -1333,9 +1332,9 @@ namespace BitChatCore.Network
                     readonly VirtualSession _session;
                     readonly ushort _port;
 
-                    readonly byte[] _buffer = new byte[BUFFER_SIZE];
-                    int _offset;
-                    int _count;
+                    readonly byte[] _readBuffer = new byte[BUFFER_SIZE];
+                    int _readBufferPosition;
+                    int _readBufferCount;
 
                     int _readTimeout = DATA_READ_TIMEOUT;
                     int _writeTimeout = DATA_WRITE_TIMEOUT;
@@ -1464,7 +1463,7 @@ namespace BitChatCore.Network
 
                         lock (this)
                         {
-                            if (_count < 1)
+                            if (_readBufferCount < 1)
                             {
                                 if (_disposed)
                                     return 0;
@@ -1472,21 +1471,21 @@ namespace BitChatCore.Network
                                 if (!Monitor.Wait(this, _readTimeout))
                                     throw new IOException("Read timed out.");
 
-                                if (_count < 1)
+                                if (_readBufferCount < 1)
                                     return 0;
                             }
 
                             int bytesToCopy = count;
 
-                            if (bytesToCopy > _count)
-                                bytesToCopy = _count;
+                            if (bytesToCopy > _readBufferCount)
+                                bytesToCopy = _readBufferCount;
 
-                            Buffer.BlockCopy(_buffer, _offset, buffer, offset, bytesToCopy);
+                            Buffer.BlockCopy(_readBuffer, _readBufferPosition, buffer, offset, bytesToCopy);
 
-                            _offset += bytesToCopy;
-                            _count -= bytesToCopy;
+                            _readBufferPosition += bytesToCopy;
+                            _readBufferCount -= bytesToCopy;
 
-                            if (_count < 1)
+                            if (_readBufferCount < 1)
                                 Monitor.Pulse(this);
 
                             return bytesToCopy;
@@ -1505,8 +1504,10 @@ namespace BitChatCore.Network
 
                     #region private
 
-                    internal void WriteBuffer(byte[] buffer, int offset, int count, int timeout)
+                    internal void FeedReadBuffer(Stream s, int timeout)
                     {
+                        int count = Convert.ToInt32(s.Length - s.Position);
+
                         if (count < 1)
                         {
                             Dispose();
@@ -1518,18 +1519,18 @@ namespace BitChatCore.Network
                             if (_disposed)
                                 throw new ObjectDisposedException("DataStream");
 
-                            if (_count > 0)
+                            if (_readBufferCount > 0)
                             {
                                 if (!Monitor.Wait(this, timeout))
                                     throw new IOException("DataStream WriteBuffer timed out.");
 
-                                if (_count > 0)
+                                if (_readBufferCount > 0)
                                     throw new IOException("DataStream WriteBuffer failed. Buffer not empty.");
                             }
 
-                            Buffer.BlockCopy(buffer, offset, _buffer, 0, count);
-                            _offset = 0;
-                            _count = count;
+                            OffsetStream.StreamRead(s, _readBuffer, 0, count);
+                            _readBufferPosition = 0;
+                            _readBufferCount = count;
 
                             Monitor.Pulse(this);
                         }

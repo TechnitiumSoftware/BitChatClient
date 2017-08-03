@@ -602,7 +602,7 @@ namespace BitChatCore.Network.Connections
                     {
                         //discard any unread data
                         if (dataStream.Length > dataStream.Position)
-                            OffsetStream.StreamCopy(dataStream, new NullStream(), 4096);
+                            OffsetStream.StreamCopy(dataStream, Stream.Null, 4096);
                     }
                 }
             }
