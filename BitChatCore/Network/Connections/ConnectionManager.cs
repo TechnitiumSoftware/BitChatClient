@@ -74,42 +74,42 @@ namespace BitChatCore.Network.Connections
 
         const int DHT_SEED_TRACKER_UPDATE_INTERVAL = 300;
 
-        BitChatProfile _profile;
+        readonly BitChatProfile _profile;
 
-        BinaryID _localPeerID;
+        readonly BinaryID _localPeerID;
 
-        Dictionary<IPEndPoint, object> _makeConnectionList = new Dictionary<IPEndPoint, object>();
-        Dictionary<IPEndPoint, object> _makeVirtualConnectionList = new Dictionary<IPEndPoint, object>();
+        readonly Dictionary<IPEndPoint, object> _makeConnectionList = new Dictionary<IPEndPoint, object>();
+        readonly Dictionary<IPEndPoint, object> _makeVirtualConnectionList = new Dictionary<IPEndPoint, object>();
 
-        Dictionary<IPEndPoint, Connection> _connectionListByConnectionID = new Dictionary<IPEndPoint, Connection>();
-        Dictionary<BinaryID, Connection> _connectionListByPeerID = new Dictionary<BinaryID, Connection>();
+        readonly Dictionary<IPEndPoint, Connection> _connectionListByConnectionID = new Dictionary<IPEndPoint, Connection>();
+        readonly Dictionary<BinaryID, Connection> _connectionListByPeerID = new Dictionary<BinaryID, Connection>();
 
         //tcp listener
-        Socket _tcpListener;
-        Thread _tcpListenerThread;
+        readonly Socket _tcpListener;
+        readonly Thread _tcpListenerThread;
 
         //dht
-        DhtClient _dhtClient;
+        readonly DhtClient _dhtClient;
         const string DHT_DNS_BOOTSTRAP_DOMAIN = "dht.bitchat.im";
-        BinaryID _dhtBootstrapTrackerNetworkID = new BinaryID(new byte[] { 0xfa, 0x20, 0xf3, 0x45, 0xe6, 0xbe, 0x43, 0x68, 0xcb, 0x1e, 0x2a, 0xfb, 0xc0, 0x08, 0x0d, 0x95, 0xf1, 0xd1, 0xe6, 0x5b });
-        TrackerManager _dhtBootstrapTracker;
+        readonly BinaryID _dhtBootstrapTrackerNetworkID = new BinaryID(new byte[] { 0xfa, 0x20, 0xf3, 0x45, 0xe6, 0xbe, 0x43, 0x68, 0xcb, 0x1e, 0x2a, 0xfb, 0xc0, 0x08, 0x0d, 0x95, 0xf1, 0xd1, 0xe6, 0x5b });
+        readonly TrackerManager _dhtBootstrapTracker;
 
         //internet connectivity
         const int CONNECTIVITY_CHECK_TIMER_INTERVAL = 60 * 1000;
-        Uri CONNECTIVITY_CHECK_WEB_SERVICE = new Uri("https://bitchat.im/connectivity/check2.aspx");
-        Timer _connectivityCheckTimer;
+        readonly Uri CONNECTIVITY_CHECK_WEB_SERVICE = new Uri("https://bitchat.im/connectivity/check2.aspx");
+        readonly Timer _connectivityCheckTimer;
         InternetConnectivityStatus _internetStatus = InternetConnectivityStatus.Identifying;
         InternetGatewayDevice _upnpDevice;
         UPnPDeviceStatus _upnpDeviceStatus = UPnPDeviceStatus.Identifying;
 
         //received invitations
-        Dictionary<IPEndPoint, DateTime> _receivedInvitations = new Dictionary<IPEndPoint, DateTime>(10);
+        readonly Dictionary<IPEndPoint, DateTime> _receivedInvitations = new Dictionary<IPEndPoint, DateTime>(10);
         const int INVITATION_INFO_EXPIRY_MINUTES = 15;
 
-        int _localPort;
-        IPAddress _localLiveIP = null;
-        IPAddress _upnpExternalIP = null;
-        IPEndPoint _connectivityCheckExternalEP = null;
+        readonly int _localPort;
+        IPAddress _localLiveIP;
+        IPAddress _upnpExternalIP;
+        IPEndPoint _connectivityCheckExternalEP;
 
         #endregion
 
@@ -229,10 +229,7 @@ namespace BitChatCore.Network.Connections
 
                 //shutdown upnp port mapping
                 if (_connectivityCheckTimer != null)
-                {
                     _connectivityCheckTimer.Dispose();
-                    _connectivityCheckTimer = null;
-                }
 
                 //stop channel services
                 List<Connection> connectionList = new List<Connection>();
@@ -812,6 +809,7 @@ namespace BitChatCore.Network.Connections
             if (_upnpDeviceStatus == UPnPDeviceStatus.Identifying)
                 _upnpDevice = null;
 
+            IPEndPoint oldExternalEP = this.ExternalEndPoint;
             InternetConnectivityStatus newInternetStatus = InternetConnectivityStatus.Identifying;
             UPnPDeviceStatus newUPnPStatus;
             NetworkInfo defaultNetworkInfo = null;
@@ -948,7 +946,7 @@ namespace BitChatCore.Network.Connections
                 try
                 {
                     //validate change in status by performing tests
-                    if (_internetStatus != newInternetStatus)
+                    if ((_internetStatus != newInternetStatus) || !Equals(oldExternalEP, this.ExternalEndPoint))
                     {
                         switch (newInternetStatus)
                         {
@@ -1356,10 +1354,7 @@ namespace BitChatCore.Network.Connections
                         return null;
 
                     default:
-                        if (_connectivityCheckExternalEP == null)
-                            return null;
-                        else
-                            return _connectivityCheckExternalEP;
+                        return _connectivityCheckExternalEP;
                 }
             }
         }
