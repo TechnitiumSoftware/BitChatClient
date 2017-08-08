@@ -1021,6 +1021,10 @@ namespace BitChatCore.Network.Connections
                         _internetStatus = newInternetStatus;
                         _upnpDeviceStatus = newUPnPStatus;
 
+                        //update dht with local node external ep
+                        _dhtClient.UpdateLocalNodeEP(this.ExternalEndPoint);
+
+                        //do dht bootstrap
                         int dhtTotalNodes = _dhtClient.GetTotalNodes();
 
                         if ((dhtTotalNodes == 0) && (defaultNetworkInfo != null))

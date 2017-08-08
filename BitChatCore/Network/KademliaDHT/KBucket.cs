@@ -392,7 +392,7 @@ namespace BitChatCore.Network.KademliaDHT
 
                 if (_contacts.ContainsKey(contact.NodeID))
                 {
-                    _contacts[contact.NodeID].UpdateLastSeenTime(contact.NodeEP);
+                    _contacts[contact.NodeID].UpdateLastSeenTime();
                     return true;
                 }
 
@@ -445,7 +445,7 @@ namespace BitChatCore.Network.KademliaDHT
 
                 if (_replacementContacts.ContainsKey(contact.NodeID))
                 {
-                    _replacementContacts[contact.NodeID].UpdateLastSeenTime(contact.NodeEP);
+                    _replacementContacts[contact.NodeID].UpdateLastSeenTime();
                     return true;
                 }
 

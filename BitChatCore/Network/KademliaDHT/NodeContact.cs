@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using System;
 using System.IO;
 using System.Net;
-using System.Net.Sockets;
+using System.Security.Cryptography;
 using TechnitiumLibrary.IO;
 
 namespace BitChatCore.Network.KademliaDHT
@@ -32,10 +32,12 @@ namespace BitChatCore.Network.KademliaDHT
         const int NODE_RPC_FAIL_LIMIT = 5; //max failed RPC count before declaring node stale
         const int NODE_STALE_TIMEOUT_SECONDS = 900; //15mins timeout before declaring node stale
 
-        readonly BinaryID _nodeID;
-        IPEndPoint _nodeEP;
+        static readonly byte[] NODE_ID_SALT = new byte[] { 0xF4, 0xC7, 0x56, 0x9A, 0xA3, 0xAD, 0xC9, 0xA7, 0x13, 0x0E, 0xCA, 0x56, 0x56, 0xA3, 0x52, 0x8F, 0xFE, 0x6E, 0x9C, 0x72 };
 
-        readonly bool _currentNode;
+        readonly IPEndPoint _nodeEP;
+        readonly BinaryID _nodeID;
+
+        protected bool _currentNode;
         DateTime _lastSeen = DateTime.UtcNow;
         int _failRpcCount = 0;
 
@@ -45,53 +47,26 @@ namespace BitChatCore.Network.KademliaDHT
 
         public NodeContact(Stream s)
         {
-            byte[] nodeID = new byte[20];
-
-            OffsetStream.StreamRead(s, nodeID, 0, 20);
-            _nodeID = new BinaryID(nodeID);
-
-            byte[] address;
-            byte[] port;
-
-            switch (s.ReadByte())
-            {
-                case -1:
-                    throw new EndOfStreamException();
-
-                case 0:
-                    address = new byte[4];
-                    port = new byte[2];
-
-                    OffsetStream.StreamRead(s, address, 0, 4);
-                    OffsetStream.StreamRead(s, port, 0, 2);
-                    break;
-
-                case 1:
-                    address = new byte[16];
-                    port = new byte[2];
-
-                    OffsetStream.StreamRead(s, address, 0, 16);
-                    OffsetStream.StreamRead(s, port, 0, 2);
-                    break;
-
-                default:
-                    throw new Exception("AddressFamily not supported.");
-            }
-
-            _nodeEP = new IPEndPoint(new IPAddress(address), BitConverter.ToUInt16(port, 0));
+            _nodeEP = IPEndPointParser.Parse(s);
+            _nodeID = GetNodeID(_nodeEP);
         }
 
-        public NodeContact(BinaryID nodeID, IPEndPoint nodeEP)
+        public NodeContact(IPEndPoint nodeEP)
         {
-            _nodeID = nodeID;
             _nodeEP = nodeEP;
+            _nodeID = GetNodeID(_nodeEP);
         }
 
-        protected NodeContact(int localDhtPort)
+        #endregion
+
+        #region static
+
+        public static BinaryID GetNodeID(IPEndPoint nodeEP)
         {
-            _nodeID = BinaryID.GenerateRandomID160();
-            _nodeEP = new IPEndPoint(IPAddress.Loopback, localDhtPort);
-            _currentNode = true;
+            using (HMAC hmac = new HMACSHA1(NODE_ID_SALT))
+            {
+                return new BinaryID(hmac.ComputeHash(IPEndPointParser.ToArray(nodeEP)));
+            }
         }
 
         #endregion
@@ -106,11 +81,8 @@ namespace BitChatCore.Network.KademliaDHT
                 return ((_failRpcCount > NODE_RPC_FAIL_LIMIT) || ((DateTime.UtcNow - _lastSeen).TotalSeconds > NODE_STALE_TIMEOUT_SECONDS));
         }
 
-        public void UpdateLastSeenTime(IPEndPoint nodeEP)
+        public void UpdateLastSeenTime()
         {
-            if (_failRpcCount > 0)
-                _nodeEP = nodeEP; //node ip changed
-
             _lastSeen = DateTime.UtcNow;
             _failRpcCount = 0;
         }
@@ -122,36 +94,12 @@ namespace BitChatCore.Network.KademliaDHT
 
         public void WriteTo(Stream s)
         {
-            s.Write(_nodeID.ID, 0, 20);
-
-            byte[] address = _nodeEP.Address.GetAddressBytes();
-            byte[] port = BitConverter.GetBytes(Convert.ToUInt16(_nodeEP.Port));
-
-            switch (_nodeEP.AddressFamily)
-            {
-                case AddressFamily.InterNetwork:
-                    s.WriteByte(0);
-                    break;
-
-                case AddressFamily.InterNetworkV6:
-                    s.WriteByte(1);
-                    break;
-
-                default:
-                    throw new Exception("AddressFamily not supported.");
-            }
-
-            s.Write(address, 0, address.Length);
-            s.Write(port, 0, 2);
+            IPEndPointParser.WriteTo(_nodeEP, s);
         }
 
         public byte[] ToArray()
         {
-            using (MemoryStream mS = new MemoryStream())
-            {
-                WriteTo(mS);
-                return mS.ToArray();
-            }
+            return IPEndPointParser.ToArray(_nodeEP);
         }
 
         public Stream ToStream()
@@ -179,10 +127,7 @@ namespace BitChatCore.Network.KademliaDHT
 
         public override string ToString()
         {
-            if (_nodeID == null)
-                return _nodeEP.ToString();
-            else
-                return _nodeID.ToString();
+            return _nodeEP.ToString();
         }
 
         #endregion

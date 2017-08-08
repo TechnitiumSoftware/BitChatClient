@@ -59,8 +59,8 @@ namespace BitChatCore.Network.KademliaDHT
 
         readonly IDhtClientManager _manager;
 
-        readonly CurrentNode _currentNode;
-        readonly KBucket _routingTable;
+        CurrentNode _currentNode;
+        KBucket _routingTable;
 
         readonly Timer _healthTimer;
 
@@ -73,7 +73,7 @@ namespace BitChatCore.Network.KademliaDHT
             _manager = manager;
 
             //init routing table
-            _currentNode = new CurrentNode(localDhtPort);
+            _currentNode = new CurrentNode(new IPEndPoint(IPAddress.Loopback, localDhtPort));
             _routingTable = new KBucket(_currentNode);
 
             //start health timer
@@ -101,6 +101,9 @@ namespace BitChatCore.Network.KademliaDHT
         {
             if (!_disposed)
             {
+                if (_routingTable != null)
+                    _routingTable.Dispose();
+
                 if (_healthTimer != null)
                     _healthTimer.Dispose();
 
@@ -142,9 +145,6 @@ namespace BitChatCore.Network.KademliaDHT
 
         private DhtRpcPacket ProcessQuery(DhtRpcPacket query, IPAddress remoteNodeIP)
         {
-            if (query.SourceNodeID.Equals(_currentNode.NodeID))
-                return null; //decline self node query
-
             switch (query.Type)
             {
                 case DhtRpcType.PING:
@@ -192,33 +192,13 @@ namespace BitChatCore.Network.KademliaDHT
 
                 //auto add contact or update last seen time
                 {
-                    bool contactFailed = false;
-
-                    if (contact.NodeID == null)
-                    {
-                        //must be new contact
-                        contact = new NodeContact(response.SourceNodeID, contact.NodeEP);
-                    }
-                    else if (contact.NodeID != response.SourceNodeID)
-                    {
-                        //contact nodeID changed! fail old node contact
-                        contact.IncrementRpcFailCount();
-                        contactFailed = true;
-
-                        //add new node contact
-                        contact = new NodeContact(response.SourceNodeID, contact.NodeEP);
-                    }
-
                     KBucket closestBucket = _routingTable.FindClosestBucket(contact.NodeID);
                     NodeContact bucketContact = closestBucket.FindContactInCurrentBucket(contact.NodeID);
 
                     if (bucketContact == null)
                         closestBucket.AddContactInCurrentBucket(contact);
                     else
-                        bucketContact.UpdateLastSeenTime(contact.NodeEP);
-
-                    if (contactFailed)
-                        return null;
+                        bucketContact.UpdateLastSeenTime();
                 }
 
                 return response;
@@ -482,7 +462,7 @@ namespace BitChatCore.Network.KademliaDHT
 
         private void PingAsync(object state)
         {
-            Query(DhtRpcPacket.CreatePingPacket(_currentNode), new NodeContact(null, state as IPEndPoint));
+            Query(DhtRpcPacket.CreatePingPacket(_currentNode), new NodeContact(state as IPEndPoint));
         }
 
         internal NodeContact[] QueryFindNode(NodeContact[] initialContacts, BinaryID nodeID)
@@ -531,6 +511,20 @@ namespace BitChatCore.Network.KademliaDHT
 
         #region public
 
+        public void UpdateLocalNodeEP(IPEndPoint localNodeEP)
+        {
+            if ((localNodeEP != null) && !_currentNode.NodeEP.Equals(localNodeEP))
+            {
+                NodeContact[] existingContacts = _routingTable.GetAllContacts(true);
+                _routingTable.Dispose();
+
+                _currentNode = new CurrentNode(localNodeEP);
+                _routingTable = new KBucket(_currentNode);
+
+                AddNode(existingContacts);
+            }
+        }
+
         public void AcceptConnection(Stream s, IPAddress remoteNodeIP)
         {
             while (true)
@@ -542,6 +536,12 @@ namespace BitChatCore.Network.KademliaDHT
                 response.WriteTo(s);
                 s.Flush();
             }
+        }
+
+        public void AddNode(IEnumerable<NodeContact> contacts)
+        {
+            foreach (NodeContact contact in contacts)
+                AddNode(contact.NodeEP);
         }
 
         public void AddNode(IEnumerable<IPEndPoint> nodeEPs)
@@ -610,15 +610,17 @@ namespace BitChatCore.Network.KademliaDHT
 
             const int MAX_PEERS_TO_RETURN = 30;
 
-            Dictionary<BinaryID, List<PeerEndPoint>> _data = new Dictionary<BinaryID, List<PeerEndPoint>>();
+            readonly Dictionary<BinaryID, List<PeerEndPoint>> _data = new Dictionary<BinaryID, List<PeerEndPoint>>();
 
             #endregion
 
             #region constructor
 
-            public CurrentNode(int localDhtPort)
-                : base(localDhtPort)
-            { }
+            public CurrentNode(IPEndPoint localNodeEP)
+                : base(localNodeEP)
+            {
+                _currentNode = true;
+            }
 
             #endregion
 
