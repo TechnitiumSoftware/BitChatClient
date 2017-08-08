@@ -22,6 +22,7 @@ using System.IO;
 using System.Net;
 using System.Security.Cryptography;
 using TechnitiumLibrary.IO;
+using TechnitiumLibrary.Net;
 
 namespace BitChatCore.Network.KademliaDHT
 {

@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2016  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2017  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -335,13 +335,20 @@ namespace BitChatCore
 
                     case "dht_nodes":
                         {
-                            List<Bincoding> dhtNodeList = item.Value.GetList();
+                            try
+                            {
+                                List<Bincoding> dhtNodeList = item.Value.GetList();
 
-                            _bootstrapDhtNodes = new IPEndPoint[dhtNodeList.Count];
-                            int i = 0;
+                                _bootstrapDhtNodes = new IPEndPoint[dhtNodeList.Count];
+                                int i = 0;
 
-                            foreach (Bincoding dhtItem in dhtNodeList)
-                                _bootstrapDhtNodes[i++] = IPEndPointParser.Parse(dhtItem.GetValueStream());
+                                foreach (Bincoding dhtItem in dhtNodeList)
+                                    _bootstrapDhtNodes[i++] = IPEndPointParser.Parse(dhtItem.GetValueStream());
+                            }
+                            catch (NotSupportedException)
+                            {
+                                _bootstrapDhtNodes = new IPEndPoint[] { };
+                            }
                         }
                         break;
 

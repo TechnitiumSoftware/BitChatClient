@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2017  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -23,6 +23,7 @@ using System.IO;
 using System.Net;
 using System.Text;
 using TechnitiumLibrary.IO;
+using TechnitiumLibrary.Net;
 
 namespace BitChatCore.Network
 {

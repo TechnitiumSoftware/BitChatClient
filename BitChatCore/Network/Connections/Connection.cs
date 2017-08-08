@@ -34,6 +34,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using TechnitiumLibrary.IO;
+using TechnitiumLibrary.Net;
 
 namespace BitChatCore.Network.Connections
 {
