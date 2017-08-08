@@ -96,7 +96,7 @@ namespace BitChatCore.Network.Connections
 
         //internet connectivity
         const int CONNECTIVITY_CHECK_TIMER_INTERVAL = 60 * 1000;
-        readonly Uri CONNECTIVITY_CHECK_WEB_SERVICE = new Uri("https://bitchat.im/connectivity/check2.aspx");
+        readonly Uri CONNECTIVITY_CHECK_WEB_SERVICE = new Uri("https://bitchat.im/connectivity/check.aspx");
         readonly Timer _connectivityCheckTimer;
         InternetConnectivityStatus _internetStatus = InternetConnectivityStatus.Identifying;
         InternetGatewayDevice _upnpDevice;
@@ -1117,39 +1117,10 @@ namespace BitChatCore.Network.Connections
                         _webCheckError = false;
                         _webCheckSuccess = (mS.ReadByte() == 1);
 
-                        switch (mS.ReadByte())
-                        {
-                            case -1:
-                                throw new EndOfStreamException();
-
-                            case 1: //ipv4
-                                {
-                                    byte[] ipv4 = new byte[4];
-                                    byte[] port = new byte[2];
-
-                                    mS.Read(ipv4, 0, 4);
-                                    mS.Read(port, 0, 2);
-
-                                    _connectivityCheckExternalEP = new IPEndPoint(new IPAddress(ipv4), BitConverter.ToUInt16(port, 0));
-                                }
-                                break;
-
-                            case 2: //ipv6
-                                {
-                                    byte[] ipv6 = new byte[16];
-                                    byte[] port = new byte[2];
-
-                                    mS.Read(ipv6, 0, 16);
-                                    mS.Read(port, 0, 2);
-
-                                    _connectivityCheckExternalEP = new IPEndPoint(new IPAddress(ipv6), BitConverter.ToUInt16(port, 0));
-                                }
-                                break;
-
-                            default:
-                                _connectivityCheckExternalEP = null;
-                                break;
-                        }
+                        if (_webCheckSuccess)
+                            _connectivityCheckExternalEP = IPEndPointParser.Parse(mS);
+                        else
+                            _connectivityCheckExternalEP = null;
                     }
                 }
             }
