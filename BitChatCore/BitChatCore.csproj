@@ -68,7 +68,6 @@
     <Compile Include="FileSharing\SharedFileMetaData.cs" />
     <Compile Include="FileSharing\SharedFile.cs" />
     <Compile Include="IDebug.cs" />
-    <Compile Include="Network\IPEndPointParser.cs" />
     <Compile Include="MessageItem.cs" />
     <Compile Include="MessageRecipient.cs" />
     <Compile Include="MessageStore.cs" />
