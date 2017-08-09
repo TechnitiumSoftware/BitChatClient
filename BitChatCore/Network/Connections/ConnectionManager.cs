@@ -967,7 +967,7 @@ namespace BitChatCore.Network.Connections
                                 break;
 
                             default:
-                                if (WebUtilities.IsWebAccessible())
+                                if (WebUtilities.IsWebAccessible(null, null, false, 10000))
                                 {
                                     switch (newInternetStatus)
                                     {
@@ -1110,7 +1110,7 @@ namespace BitChatCore.Network.Connections
                 {
                     client.Proxy = _profile.Proxy;
                     client.QueryString.Add("port", externalPort.ToString());
-                    client.Timeout = 30000;
+                    client.Timeout = 10000;
 
                     using (Stream s = client.OpenRead(CONNECTIVITY_CHECK_WEB_SERVICE))
                     {
