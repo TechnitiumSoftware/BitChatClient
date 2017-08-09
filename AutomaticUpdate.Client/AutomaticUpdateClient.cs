@@ -190,9 +190,11 @@ namespace AutomaticUpdate.Client
                     client.UserAgent = GetUserAgent();
                     client.IfModifiedSince = _lastModifiedGMT;
 
-                    byte[] responseData = client.DownloadData(_checkUpdateURL);
+                    using (Stream s = client.OpenRead(_checkUpdateURL))
+                    {
+                        _updateInfo = new UpdateInfo(s);
+                    }
 
-                    _updateInfo = new UpdateInfo(new MemoryStream(responseData, false));
                     _lastModifiedGMT = DateTime.Parse(client.ResponseHeaders["Last-Modified"]);
 
                     if (_updateInfo.IsUpdateAvailable(_currentVersion))

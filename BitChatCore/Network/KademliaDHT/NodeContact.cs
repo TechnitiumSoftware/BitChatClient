@@ -66,7 +66,13 @@ namespace BitChatCore.Network.KademliaDHT
         {
             using (HMAC hmac = new HMACSHA1(NODE_ID_SALT))
             {
-                return new BinaryID(hmac.ComputeHash(IPEndPointParser.ToArray(nodeEP)));
+                using (MemoryStream mS = new MemoryStream())
+                {
+                    IPEndPointParser.WriteTo(nodeEP, mS);
+                    mS.Position = 0;
+
+                    return new BinaryID(hmac.ComputeHash(mS));
+                }
             }
         }
 
@@ -96,19 +102,6 @@ namespace BitChatCore.Network.KademliaDHT
         public void WriteTo(Stream s)
         {
             IPEndPointParser.WriteTo(_nodeEP, s);
-        }
-
-        public byte[] ToArray()
-        {
-            return IPEndPointParser.ToArray(_nodeEP);
-        }
-
-        public Stream ToStream()
-        {
-            MemoryStream mS = new MemoryStream();
-            WriteTo(mS);
-            mS.Position = 0;
-            return mS;
         }
 
         public override bool Equals(object obj)

@@ -143,23 +143,6 @@ namespace BitChatCore.Network
             s.Write(_id, 0, _id.Length);
         }
 
-        public byte[] ToArray()
-        {
-            using (MemoryStream mS = new MemoryStream())
-            {
-                WriteTo(mS);
-                return mS.ToArray();
-            }
-        }
-
-        public Stream ToStream()
-        {
-            MemoryStream mS = new MemoryStream();
-            WriteTo(mS);
-            mS.Position = 0;
-            return mS;
-        }
-
         #endregion
 
         #region operators

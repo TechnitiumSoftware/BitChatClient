@@ -126,23 +126,6 @@ namespace AutomaticUpdate.Client
             _signature.WriteTo(s);
         }
 
-        public byte[] ToArray()
-        {
-            using (MemoryStream mS = new MemoryStream())
-            {
-                WriteTo(mS);
-                return mS.ToArray();
-            }
-        }
-
-        public Stream ToStream()
-        {
-            MemoryStream mS = new MemoryStream();
-            WriteTo(mS);
-            mS.Position = 0;
-            return mS;
-        }
-
         #endregion
 
         #region properties

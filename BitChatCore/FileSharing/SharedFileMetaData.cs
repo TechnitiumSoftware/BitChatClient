@@ -174,23 +174,6 @@ namespace BitChatCore.FileSharing
                 s.Write(_blockHash[i], 0, _blockHash[i].Length);
         }
 
-        public byte[] ToArray()
-        {
-            using (MemoryStream mS = new MemoryStream())
-            {
-                WriteTo(mS);
-                return mS.ToArray();
-            }
-        }
-
-        public Stream ToStream()
-        {
-            MemoryStream mS = new MemoryStream();
-            WriteTo(mS);
-            mS.Position = 0;
-            return mS;
-        }
-
         #endregion
 
         #region properties

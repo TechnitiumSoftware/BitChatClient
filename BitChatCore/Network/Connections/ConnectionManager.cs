@@ -1112,13 +1112,13 @@ namespace BitChatCore.Network.Connections
                     client.QueryString.Add("port", externalPort.ToString());
                     client.Timeout = 30000;
 
-                    using (MemoryStream mS = new MemoryStream(client.DownloadData(CONNECTIVITY_CHECK_WEB_SERVICE)))
+                    using (Stream s = client.OpenRead(CONNECTIVITY_CHECK_WEB_SERVICE))
                     {
                         _webCheckError = false;
-                        _webCheckSuccess = (mS.ReadByte() == 1);
+                        _webCheckSuccess = (s.ReadByte() == 1);
 
                         if (_webCheckSuccess)
-                            _connectivityCheckExternalEP = IPEndPointParser.Parse(mS);
+                            _connectivityCheckExternalEP = IPEndPointParser.Parse(s);
                         else
                             _connectivityCheckExternalEP = null;
                     }

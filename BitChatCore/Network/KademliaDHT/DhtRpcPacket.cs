@@ -255,23 +255,6 @@ namespace BitChatCore.Network.KademliaDHT
             }
         }
 
-        public byte[] ToArray()
-        {
-            using (MemoryStream mS = new MemoryStream(128))
-            {
-                WriteTo(mS);
-                return mS.ToArray();
-            }
-        }
-
-        public Stream ToStream()
-        {
-            MemoryStream mS = new MemoryStream(128);
-            WriteTo(mS);
-            mS.Position = 0;
-            return mS;
-        }
-
         #endregion
 
         #region properties

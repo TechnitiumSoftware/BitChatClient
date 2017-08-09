@@ -74,23 +74,6 @@ namespace BitChatCore.Network
                 IPEndPointParser.WriteTo(peerEP, s);
         }
 
-        public byte[] ToArray()
-        {
-            using (MemoryStream mS = new MemoryStream())
-            {
-                WriteTo(mS);
-                return mS.ToArray();
-            }
-        }
-
-        public Stream ToStream()
-        {
-            MemoryStream mS = new MemoryStream();
-            WriteTo(mS);
-            mS.Position = 0;
-            return mS;
-        }
-
         public override bool Equals(object obj)
         {
             if (ReferenceEquals(null, obj))
