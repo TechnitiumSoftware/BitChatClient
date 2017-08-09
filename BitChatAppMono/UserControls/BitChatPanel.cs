@@ -255,9 +255,7 @@ namespace BitChatApp.UserControls
 
         public void WriteSettingsTo(Stream s)
         {
-            BinaryWriter bW = new BinaryWriter(s);
-            WriteSettingsTo(bW);
-            bW.Flush();
+            WriteSettingsTo(new BinaryWriter(s));
         }
 
         public void WriteSettingsTo(BinaryWriter bW)

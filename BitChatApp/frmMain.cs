@@ -793,8 +793,6 @@ namespace BitChatApp
 
             if (!panelFound)
                 bW.Write((byte)0);
-
-            bW.Flush();
         }
 
         private void LoadProfileSettings(byte[] clientData)
@@ -826,28 +824,26 @@ namespace BitChatApp
         {
             using (MemoryStream mS = new MemoryStream())
             {
-                Package pkg = new Package(mS, PackageMode.Create);
-
+                using (Package pkg = new Package(mS, PackageMode.Create))
                 {
-                    MemoryStream ui = new MemoryStream();
-                    WriteUISettingsTo(ui);
-                    ui.Position = 0;
+                    {
+                        MemoryStream ui = new MemoryStream();
+                        WriteUISettingsTo(ui);
+                        ui.Position = 0;
 
-                    pkg.AddItem(new PackageItem("ui", ui));
+                        pkg.AddItem(new PackageItem("ui", ui));
+                    }
+
+                    {
+                        MemoryStream au = new MemoryStream();
+                        BinaryWriter bW = new BinaryWriter(au);
+                        bW.Write(_updateClient.LastUpdateCheckedOn.ToBinary());
+                        bW.Write(_updateClient.LastModifiedGMT.ToBinary());
+                        au.Position = 0;
+
+                        pkg.AddItem(new PackageItem("au", au));
+                    }
                 }
-
-                {
-                    MemoryStream au = new MemoryStream();
-                    BinaryWriter bW = new BinaryWriter(au);
-                    bW.Write(_updateClient.LastUpdateCheckedOn.ToBinary());
-                    bW.Write(_updateClient.LastModifiedGMT.ToBinary());
-                    bW.Flush();
-                    au.Position = 0;
-
-                    pkg.AddItem(new PackageItem("au", au));
-                }
-
-                pkg.Flush();
 
                 return mS.ToArray();
             }
