@@ -198,9 +198,12 @@ namespace BitChatCore
                 client.Proxy = _proxy;
                 client.UserAgent = GetUserAgent();
 
-                byte[] data = client.UploadData(apiUri.AbsoluteUri + "?cmd=reg", _localCertStore.Certificate.ToArray());
+                using (Stream s = client.OpenWriteEx(apiUri.AbsoluteUri + "?cmd=reg"))
+                {
+                    _localCertStore.Certificate.WriteTo(s);
+                }
 
-                using (BinaryReader bR = new BinaryReader(new MemoryStream(data)))
+                using (BinaryReader bR = new BinaryReader(client.GetResponseStream()))
                 {
                     int errorCode = bR.ReadInt32();
                     if (errorCode != 0)
@@ -221,9 +224,7 @@ namespace BitChatCore
                 client.Proxy = _proxy;
                 client.UserAgent = GetUserAgent();
 
-                byte[] data = client.DownloadData(apiUri.AbsoluteUri + "?cmd=dlc&email=" + _localCertStore.Certificate.IssuedTo.EmailAddress.Address);
-
-                using (BinaryReader bR = new BinaryReader(new MemoryStream(data)))
+                using (BinaryReader bR = new BinaryReader(client.OpenRead(apiUri.AbsoluteUri + "?cmd=dlc&email=" + _localCertStore.Certificate.IssuedTo.EmailAddress.Address)))
                 {
                     int errorCode = bR.ReadInt32();
                     if (errorCode != 0)
@@ -461,8 +462,16 @@ namespace BitChatCore
             {
                 List<Bincoding> dhtNodeList = new List<Bincoding>(_bootstrapDhtNodes.Length);
 
-                foreach (IPEndPoint nodeEP in _bootstrapDhtNodes)
-                    dhtNodeList.Add(Bincoding.GetValue(IPEndPointParser.ToArray(nodeEP)));
+                using (MemoryStream mS = new MemoryStream())
+                {
+                    foreach (IPEndPoint nodeEP in _bootstrapDhtNodes)
+                    {
+                        mS.SetLength(0);
+                        IPEndPointParser.WriteTo(nodeEP, mS);
+
+                        dhtNodeList.Add(Bincoding.GetValue(mS.ToArray()));
+                    }
+                }
 
                 encoder.Encode("dht_nodes", dhtNodeList);
             }
@@ -888,23 +897,6 @@ namespace BitChatCore
                 encoder.EncodeNull();
             }
 
-            public byte[] ToArray()
-            {
-                using (MemoryStream mS = new MemoryStream())
-                {
-                    WriteTo(mS);
-                    return mS.ToArray();
-                }
-            }
-
-            public Stream ToStream()
-            {
-                MemoryStream mS = new MemoryStream();
-                WriteTo(mS);
-                mS.Position = 0;
-                return mS;
-            }
-
             #endregion
 
             #region properties
@@ -1052,23 +1044,6 @@ namespace BitChatCore
 
                 //signal end
                 encoder.EncodeNull();
-            }
-
-            public byte[] ToArray()
-            {
-                using (MemoryStream mS = new MemoryStream())
-                {
-                    WriteTo(mS);
-                    return mS.ToArray();
-                }
-            }
-
-            public Stream ToStream()
-            {
-                MemoryStream mS = new MemoryStream();
-                WriteTo(mS);
-                mS.Position = 0;
-                return mS;
             }
 
             #endregion
