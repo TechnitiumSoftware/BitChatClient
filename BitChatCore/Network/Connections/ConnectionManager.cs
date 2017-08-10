@@ -1151,6 +1151,9 @@ namespace BitChatCore.Network.Connections
 
         public Stream GetConnectionStream(IPEndPoint remoteNodeEP)
         {
+            if (NetUtilities.IsIPv4MappedIPv6Address(remoteNodeEP.Address))
+                remoteNodeEP = new IPEndPoint(NetUtilities.ConvertFromIPv4MappedIPv6Address(remoteNodeEP.Address), remoteNodeEP.Port);
+
             Stream s = new WriteBufferedStream(new NetworkStream(Connect(remoteNodeEP), true), 512);
 
             MakeDecoyHttpConnection(s, remoteNodeEP);

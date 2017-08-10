@@ -646,7 +646,14 @@ namespace BitChatCore.Network
                             dataRecv.Position = 0;
                             dataRecv.SetLength(bytesRecv);
 
-                            ReceivedPacket(new DiscoveryPacket(dataRecv), peerIP);
+                            try
+                            {
+                                ReceivedPacket(new DiscoveryPacket(dataRecv), peerIP);
+                            }
+                            catch (Exception ex)
+                            {
+                                Debug.Write("LocalPeerDiscovery.Listner.RecvDataAsync", ex);
+                            }
                         }
                     }
                 }
@@ -662,19 +669,36 @@ namespace BitChatCore.Network
 
             public void SendTo(byte[] buffer, int offset, int count, IPAddress remoteIP)
             {
-                _udpListener.SendTo(buffer, offset, count, SocketFlags.None, new IPEndPoint(remoteIP, _listenerPort));
+                if ((_udpListener.AddressFamily == AddressFamily.InterNetworkV6) && (remoteIP.AddressFamily == AddressFamily.InterNetwork))
+                    remoteIP = NetUtilities.ConvertToIPv4MappedIPv6Address(remoteIP);
+
+                try
+                {
+                    _udpListener.SendTo(buffer, offset, count, SocketFlags.None, new IPEndPoint(remoteIP, _listenerPort));
+                }
+                catch (Exception ex)
+                {
+                    Debug.Write("LocalPeerDiscovery.Listener.SendTo", ex);
+                }
             }
 
             public void BroadcastTo(byte[] buffer, int offset, int count, NetworkInfo network)
             {
                 if (network.LocalIP.AddressFamily == AddressFamily.InterNetwork)
                 {
+                    IPAddress broadcastIP = network.BroadcastIP;
+
+                    if (_udpListener.AddressFamily == AddressFamily.InterNetworkV6)
+                        broadcastIP = NetUtilities.ConvertToIPv4MappedIPv6Address(broadcastIP);
+
                     try
                     {
-                        _udpListener.SendTo(buffer, offset, count, SocketFlags.None, new IPEndPoint(network.BroadcastIP, _listenerPort));
+                        _udpListener.SendTo(buffer, offset, count, SocketFlags.None, new IPEndPoint(broadcastIP, _listenerPort));
                     }
-                    catch
-                    { }
+                    catch (Exception ex)
+                    {
+                        Debug.Write("LocalPeerDiscovery.Listener.BroadcastTo", ex);
+                    }
                 }
                 else
                 {
@@ -683,8 +707,10 @@ namespace BitChatCore.Network
                         _udpListener.SetSocketOption(SocketOptionLevel.IPv6, SocketOptionName.MulticastInterface, network.Interface.GetIPProperties().GetIPv6Properties().Index);
                         _udpListener.SendTo(buffer, offset, count, SocketFlags.None, new IPEndPoint(IPAddress.Parse(IPV6_MULTICAST_IP), _listenerPort));
                     }
-                    catch
-                    { }
+                    catch (Exception ex)
+                    {
+                        Debug.Write("LocalPeerDiscovery.Listener.BroadcastTo", ex);
+                    }
                 }
             }
 
@@ -696,14 +722,19 @@ namespace BitChatCore.Network
                     {
                         if (network.LocalIP.AddressFamily == AddressFamily.InterNetwork)
                         {
+                            IPAddress broadcastIP = network.BroadcastIP;
+
+                            if (_udpListener.AddressFamily == AddressFamily.InterNetworkV6)
+                                broadcastIP = NetUtilities.ConvertToIPv4MappedIPv6Address(broadcastIP);
+
                             //do broadcast
                             try
                             {
-                                _udpListener.SendTo(buffer, offset, count, SocketFlags.None, new IPEndPoint(network.BroadcastIP, _listenerPort));
+                                _udpListener.SendTo(buffer, offset, count, SocketFlags.None, new IPEndPoint(broadcastIP, _listenerPort));
                             }
                             catch (Exception ex)
                             {
-                                Debug.Write("LocalPeerDiscovery.Broadcast", ex);
+                                Debug.Write("LocalPeerDiscovery.Listener.Broadcast", ex);
                             }
                         }
                         else
@@ -716,7 +747,7 @@ namespace BitChatCore.Network
                             }
                             catch (Exception ex)
                             {
-                                Debug.Write("LocalPeerDiscovery.Multicast", ex);
+                                Debug.Write("LocalPeerDiscovery.Listener.Broadcast", ex);
                             }
                         }
                     }
