@@ -1030,34 +1030,29 @@ namespace BitChatCore.Network.Connections
                         if ((dhtTotalNodes == 0) && (defaultNetworkInfo != null))
                         {
                             //add bootstrap node via DNS
-                            List<IPAddress> dnsServers = new List<IPAddress>(defaultNetworkInfo.Interface.GetIPProperties().DnsAddresses);
-
-                            if (dnsServers.Count > 0)
+                            try
                             {
-                                try
+                                DnsClient dnsClient = new DnsClient();
+                                DnsDatagram response = dnsClient.Resolve(DHT_DNS_BOOTSTRAP_DOMAIN, DnsResourceRecordType.TXT);
+
+                                foreach (DnsResourceRecord answer in response.Answer)
                                 {
-                                    DnsClient dnsClient = new DnsClient(dnsServers.ToArray());
-                                    DnsDatagram response = dnsClient.Resolve(DHT_DNS_BOOTSTRAP_DOMAIN, DnsResourceRecordType.TXT);
-
-                                    foreach (DnsResourceRecord answer in response.Answer)
+                                    if (answer.Name.Equals(DHT_DNS_BOOTSTRAP_DOMAIN) && (answer.Type == DnsResourceRecordType.TXT))
                                     {
-                                        if (answer.Name.Equals(DHT_DNS_BOOTSTRAP_DOMAIN) && (answer.Type == DnsResourceRecordType.TXT))
-                                        {
-                                            DnsTXTRecord txtRecord = (DnsTXTRecord)answer.RDATA;
+                                        DnsTXTRecord txtRecord = (DnsTXTRecord)answer.RDATA;
 
-                                            try
-                                            {
-                                                string[] values = txtRecord.TXTData.Split('|');
-                                                _dhtClient.AddNode(new IPEndPoint(IPAddress.Parse(values[0]), int.Parse(values[1])));
-                                            }
-                                            catch
-                                            { }
+                                        try
+                                        {
+                                            string[] values = txtRecord.TXTData.Split('|');
+                                            _dhtClient.AddNode(new IPEndPoint(IPAddress.Parse(values[0]), int.Parse(values[1])));
                                         }
+                                        catch
+                                        { }
                                     }
                                 }
-                                catch
-                                { }
                             }
+                            catch
+                            { }
                         }
 
                         if (this.ExternalEndPoint == null)

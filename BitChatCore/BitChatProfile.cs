@@ -172,10 +172,9 @@ namespace BitChatCore
 
             //check if email address domain exists
             {
-                DnsClient dns = new DnsClient(IPAddress.Parse("8.8.8.8"));
-
                 try
                 {
+                    DnsClient dns = new DnsClient();
                     dns.ResolveMX(_localCertStore.Certificate.IssuedTo.EmailAddress);
                 }
                 catch (NameErrorDnsClientException)
