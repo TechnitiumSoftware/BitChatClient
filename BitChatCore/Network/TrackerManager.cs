@@ -45,30 +45,32 @@ namespace BitChatCore.Network
         const int TRACKER_RETRY_UPDATE_INTERVAL_SECONDS = 30; //30 sec
         const int TRACKER_FAILED_UPDATE_INTERVAL_SECONDS = 30 * 60; //30 mins
 
-        BinaryID _networkID;
-        int _servicePort;
-        DhtClient _dhtClient;
+        readonly BinaryID _networkID;
+        readonly int _servicePort;
+        readonly DhtNode _ipv4DhtNode;
+        readonly DhtNode _ipv6DhtNode;
         int _customUpdateInterval;
         bool _lookupOnly;
 
         NetProxy _proxy;
 
-        IPEndPoint[] _dhtPeers = new IPEndPoint[] { };
+        readonly List<IPEndPoint> _dhtPeers = new List<IPEndPoint>();
         DateTime _dhtLastUpdated;
         Exception _dhtLastException;
 
-        List<TrackerClient> _trackers = new List<TrackerClient>();
+        readonly List<TrackerClient> _trackers = new List<TrackerClient>();
         Timer _trackerUpdateTimer;
 
         #endregion
 
         #region constructor
 
-        public TrackerManager(BinaryID networkID, int servicePort, DhtClient dhtClient, int customUpdateInterval, bool lookupOnly = false)
+        public TrackerManager(BinaryID networkID, int servicePort, DhtNode ipv4DhtNode, DhtNode ipv6DhtNode, int customUpdateInterval, bool lookupOnly = false)
         {
             _networkID = networkID;
             _servicePort = servicePort;
-            _dhtClient = dhtClient;
+            _ipv4DhtNode = ipv4DhtNode;
+            _ipv6DhtNode = ipv6DhtNode;
             _customUpdateInterval = customUpdateInterval;
             _lookupOnly = lookupOnly;
         }
@@ -76,11 +78,6 @@ namespace BitChatCore.Network
         #endregion
 
         #region IDisposable
-
-        ~TrackerManager()
-        {
-            Dispose(false);
-        }
 
         public void Dispose()
         {
@@ -94,7 +91,8 @@ namespace BitChatCore.Network
         {
             if (!_disposed)
             {
-                StopTracking();
+                if (disposing)
+                    StopTracking();
 
                 _disposed = true;
             }
@@ -141,10 +139,15 @@ namespace BitChatCore.Network
                 }
 
                 //update dht
-                if (_dhtClient != null)
+                if (forceUpdate || (DateTime.UtcNow - _dhtLastUpdated).TotalSeconds > GetDhtUpdateInterval())
                 {
-                    if (forceUpdate || (DateTime.UtcNow - _dhtLastUpdated).TotalSeconds > GetDhtUpdateInterval())
-                        ThreadPool.QueueUserWorkItem(UpdateDhtAsync, localEP);
+                    _dhtPeers.Clear();
+
+                    if (_ipv4DhtNode != null)
+                        ThreadPool.QueueUserWorkItem(UpdateDhtAsync, new object[] { _ipv4DhtNode, localEP });
+
+                    if (_ipv6DhtNode != null)
+                        ThreadPool.QueueUserWorkItem(UpdateDhtAsync, new object[] { _ipv6DhtNode, localEP });
                 }
             }
             catch
@@ -180,8 +183,8 @@ namespace BitChatCore.Network
                         {
                             DiscoveredPeers?.Invoke(this, tracker.Peers);
 
-                            if (_dhtClient != null)
-                                _dhtClient.AddNode(tracker.Peers);
+                            if (_ipv4DhtNode != null)
+                                _ipv4DhtNode.AddNode(tracker.Peers);
                         }
 
                         break;
@@ -200,28 +203,27 @@ namespace BitChatCore.Network
 
         private void UpdateDhtAsync(object state)
         {
-            IPEndPoint localEP = state as IPEndPoint;
+            object[] parameters = state as object[];
+
+            DhtNode dhtNode = parameters[0] as DhtNode;
+            IPEndPoint localEP = parameters[1] as IPEndPoint;
 
             try
             {
                 IPEndPoint[] peers;
 
                 if (_lookupOnly)
-                    peers = _dhtClient.FindPeers(_networkID);
+                    peers = dhtNode.FindPeers(_networkID);
                 else
-                    peers = _dhtClient.Announce(_networkID, localEP.Port);
+                    peers = dhtNode.Announce(_networkID, localEP.Port);
 
                 _dhtLastUpdated = DateTime.UtcNow;
                 _dhtLastException = null; //reset last error
 
-                if ((peers == null) || (peers.Length == 0))
+                if ((peers != null) && (peers.Length > 0))
                 {
-                    _dhtPeers = new IPEndPoint[] { };
-                }
-                else
-                {
-                    _dhtPeers = peers;
-                    DiscoveredPeers?.Invoke(this, _dhtPeers);
+                    _dhtPeers.AddRange(peers);
+                    DiscoveredPeers?.Invoke(this, peers);
                 }
             }
             catch (Exception ex)
@@ -253,7 +255,7 @@ namespace BitChatCore.Network
 
                 if (_trackerUpdateTimer == null)
                 {
-                    if ((_trackers.Count > 0) || (_dhtClient != null))
+                    if ((_trackers.Count > 0) || (_ipv4DhtNode != null) || (_ipv6DhtNode != null))
                         _trackerUpdateTimer = new Timer(TrackerUpdateTimerCallBack, TrackerClientEvent.Started, 1000, Timeout.Infinite);
                 }
             }
@@ -273,7 +275,7 @@ namespace BitChatCore.Network
 
                     foreach (TrackerClient tracker in _trackers)
                     {
-                        ThreadPool.QueueUserWorkItem(new WaitCallback(UpdateTrackerAsync), new object[] { tracker, TrackerClientEvent.Stopped, localEP });
+                        ThreadPool.QueueUserWorkItem(UpdateTrackerAsync, new object[] { tracker, TrackerClientEvent.Stopped, localEP });
                     }
                 }
             }
@@ -374,12 +376,12 @@ namespace BitChatCore.Network
 
         public int DhtGetTotalPeers()
         {
-            return _dhtPeers.Length;
+            return _dhtPeers.Count;
         }
 
         public IPEndPoint[] DhtGetPeers()
         {
-            return _dhtPeers;
+            return _dhtPeers.ToArray();
         }
 
         public void DhtUpdate()
