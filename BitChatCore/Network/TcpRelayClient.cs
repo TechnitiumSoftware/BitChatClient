@@ -121,7 +121,7 @@ namespace BitChatCore.Network
                 //if less number of relay node connections available, try to find new relay nodes
                 if (lessRelayNodesAvailable)
                 {
-                    IPEndPoint[] nodeEPs = _connectionManager.DhtClient.GetAllNodes();
+                    IPEndPoint[] nodeEPs = _connectionManager.IPv4DhtNode.GetAllNodeEPs();
 
                     foreach (IPEndPoint relayNodeEP in nodeEPs)
                     {

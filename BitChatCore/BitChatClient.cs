@@ -289,7 +289,7 @@ namespace BitChatCore
         {
             if (_inboundInvitationDhtOnlyTrackerClient == null)
             {
-                _inboundInvitationDhtOnlyTrackerClient = new TrackerManager(_maskedEmailAddress, _connectionManager.LocalPort, _connectionManager.DhtClient, BIT_CHAT_INVITATION_TRACKER_UPDATE_INTERVAL);
+                _inboundInvitationDhtOnlyTrackerClient = new TrackerManager(_maskedEmailAddress, _connectionManager.LocalPort, _connectionManager.IPv4DhtNode, _connectionManager.IPv6DhtNode, BIT_CHAT_INVITATION_TRACKER_UPDATE_INTERVAL);
                 _inboundInvitationDhtOnlyTrackerClient.StartTracking();
 
                 if (_tcpRelayClient != null)
@@ -371,9 +371,9 @@ namespace BitChatCore
             }
         }
 
-        private void ConnectionManager_InternetConnectivityStatusChanged(object sender, EventArgs e)
+        private void ConnectionManager_IPv4InternetConnectivityStatusChanged(object sender, EventArgs e)
         {
-            IPEndPoint externalEP = _connectionManager.ExternalEndPoint;
+            IPEndPoint externalEP = _connectionManager.IPv4ExternalEndPoint;
 
             if (externalEP == null)
             {
@@ -488,7 +488,7 @@ namespace BitChatCore
 
             //start connection manager
             _connectionManager = new ConnectionManager(_profile);
-            _connectionManager.InternetConnectivityStatusChanged += ConnectionManager_InternetConnectivityStatusChanged;
+            _connectionManager.IPv4InternetConnectivityStatusChanged += ConnectionManager_IPv4InternetConnectivityStatusChanged;
             _connectionManager.BitChatNetworkChannelInvitation += ConnectionManager_BitChatNetworkChannelInvitation;
             _connectionManager.BitChatNetworkChannelRequest += ConnectionManager_BitChatNetworkChannelRequest;
             _connectionManager.TcpRelayPeersAvailable += ConnectionManager_TcpRelayPeersAvailable;
@@ -582,9 +582,13 @@ namespace BitChatCore
 
             _profile.BitChatInfoList = bitChatInfoList.ToArray();
 
-            IPEndPoint[] dhtNodes = _connectionManager.DhtClient.GetAllNodes();
-            if (dhtNodes.Length > 0)
-                _profile.BootstrapDhtNodes = dhtNodes;
+            List<IPEndPoint> bootstrapDhtNodes = new List<IPEndPoint>();
+
+            bootstrapDhtNodes.AddRange(_connectionManager.IPv4DhtNode.GetAllNodeEPs());
+            bootstrapDhtNodes.AddRange(_connectionManager.IPv6DhtNode.GetAllNodeEPs());
+
+            if (bootstrapDhtNodes.Count > 0)
+                _profile.BootstrapDhtNodes = bootstrapDhtNodes.ToArray();
 
             ManageInboundInvitationTracking();
         }
@@ -607,14 +611,23 @@ namespace BitChatCore
         public int LocalPort
         { get { return _connectionManager.LocalPort; } }
 
-        public BinaryID DhtNodeID
-        { get { return _connectionManager.DhtClient.LocalNodeID; } }
-        
-        public int DhtTotalNodes
-        { get { return _connectionManager.DhtClient.GetTotalNodes(); } }
+        public BinaryID IPv4DhtNodeID
+        { get { return _connectionManager.IPv4DhtNode.LocalNodeID; } }
 
-        public InternetConnectivityStatus InternetStatus
-        { get { return _connectionManager.InternetStatus; } }
+        public BinaryID IPv6DhtNodeID
+        { get { return _connectionManager.IPv6DhtNode.LocalNodeID; } }
+
+        public int IPv4DhtTotalNodes
+        { get { return _connectionManager.IPv4DhtNode.GetTotalNodes(); } }
+
+        public int IPv6DhtTotalNodes
+        { get { return _connectionManager.IPv6DhtNode.GetTotalNodes(); } }
+
+        public InternetConnectivityStatus IPv4InternetStatus
+        { get { return _connectionManager.IPv4InternetStatus; } }
+
+        public InternetConnectivityStatus IPv6InternetStatus
+        { get { return _connectionManager.IPv6InternetStatus; } }
 
         public UPnPDeviceStatus UPnPStatus
         { get { return _connectionManager.UPnPStatus; } }
@@ -625,8 +638,11 @@ namespace BitChatCore
         public IPAddress UPnPExternalIP
         { get { return _connectionManager.UPnPExternalIP; } }
 
-        public IPEndPoint ExternalEndPoint
-        { get { return _connectionManager.ExternalEndPoint; } }
+        public IPEndPoint IPv4ExternalEndPoint
+        { get { return _connectionManager.IPv4ExternalEndPoint; } }
+
+        public IPEndPoint IPv6ExternalEndPoint
+        { get { return _connectionManager.IPv6ExternalEndPoint; } }
 
         public IPEndPoint[] TcpRelayNodes
         {

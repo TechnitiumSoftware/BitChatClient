@@ -181,10 +181,13 @@ namespace BitChatCore.Network
 
                         if (tracker.Peers.Count > 0)
                         {
-                            DiscoveredPeers?.Invoke(this, tracker.Peers);
-
                             if (_ipv4DhtNode != null)
                                 _ipv4DhtNode.AddNode(tracker.Peers);
+
+                            if (_ipv6DhtNode != null)
+                                _ipv6DhtNode.AddNode(tracker.Peers);
+
+                            DiscoveredPeers?.Invoke(this, tracker.Peers);
                         }
 
                         break;

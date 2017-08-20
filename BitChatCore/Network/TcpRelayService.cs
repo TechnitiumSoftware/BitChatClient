@@ -44,9 +44,9 @@ namespace BitChatCore.Network
 
         #region constructor
 
-        private TcpRelayService(BinaryID networkID, int servicePort, DhtClient dhtClient)
+        private TcpRelayService(BinaryID networkID, int servicePort, DhtNode ipv4DhtNode)
         {
-            _trackerManager = new TrackerManager(networkID, servicePort, dhtClient, BIT_CHAT_TRACKER_UPDATE_INTERVAL);
+            _trackerManager = new TrackerManager(networkID, servicePort, ipv4DhtNode, null, BIT_CHAT_TRACKER_UPDATE_INTERVAL);
 
             //start keep alive timer
             _tcpRelayConnectionKeepAliveTimer = new Timer(RelayConnectionKeepAliveTimerCallback, null, TCP_RELAY_KEEP_ALIVE_INTERVAL, Timeout.Infinite);
@@ -125,7 +125,7 @@ namespace BitChatCore.Network
 
         #region static
 
-        public static TcpRelayService StartTcpRelay(BinaryID networkID, Connection connection, int servicePort, DhtClient dhtClient, Uri[] tracketURIs)
+        public static TcpRelayService StartTcpRelay(BinaryID networkID, Connection connection, int servicePort, DhtNode dhtNode, Uri[] tracketURIs)
         {
             TcpRelayService relay;
 
@@ -137,7 +137,7 @@ namespace BitChatCore.Network
                 }
                 else
                 {
-                    relay = new TcpRelayService(networkID, servicePort, dhtClient);
+                    relay = new TcpRelayService(networkID, servicePort, dhtNode);
                     _relays.Add(networkID, relay);
                 }
 

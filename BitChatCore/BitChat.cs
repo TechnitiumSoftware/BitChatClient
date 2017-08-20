@@ -170,7 +170,7 @@ namespace BitChatCore
             }
 
             //init tracking
-            _trackerManager = new TrackerManager(_network.NetworkID, _network.ConnectionManager.LocalPort, _network.ConnectionManager.DhtClient, BIT_CHAT_TRACKER_UPDATE_INTERVAL_SECONDS);
+            _trackerManager = new TrackerManager(_network.NetworkID, _network.ConnectionManager.LocalPort, _network.ConnectionManager.IPv4DhtNode, _network.ConnectionManager.IPv6DhtNode, BIT_CHAT_TRACKER_UPDATE_INTERVAL_SECONDS);
             _trackerManager.Proxy = _network.ConnectionManager.Profile.Proxy;
             _trackerManager.DiscoveredPeers += TrackerManager_DiscoveredPeers;
             _enableTracking = enableTracking;
@@ -211,7 +211,7 @@ namespace BitChatCore
                 if (_sendInvitation)
                 {
                     //init outbound invitation tracker
-                    _outboundInvitationDhtOnlyTrackerClient = new TrackerManager(_network.MaskedPeerEmailAddress, _network.ConnectionManager.LocalPort, _network.ConnectionManager.DhtClient, 30, true);
+                    _outboundInvitationDhtOnlyTrackerClient = new TrackerManager(_network.MaskedPeerEmailAddress, _network.ConnectionManager.LocalPort, _network.ConnectionManager.IPv4DhtNode, _network.ConnectionManager.IPv6DhtNode, 30, true);
                     _outboundInvitationDhtOnlyTrackerClient.DiscoveredPeers += OutboundInvitationDhtOnlyTrackerManager_DiscoveredPeers;
 
                     if (_network.Status == BitChatNetworkStatus.Online)
@@ -1763,7 +1763,8 @@ namespace BitChatCore
                         foreach (PeerInfo peerInfo in peerList)
                         {
                             _bitChat._network.MakeConnection(peerInfo.PeerEPList);
-                            _bitChat._network.ConnectionManager.DhtClient.AddNode(peerInfo.PeerEPList);
+                            _bitChat._network.ConnectionManager.IPv4DhtNode.AddNode(peerInfo.PeerEPList);
+                            _bitChat._network.ConnectionManager.IPv6DhtNode.AddNode(peerInfo.PeerEPList);
                         }
 
                         //start network status check
