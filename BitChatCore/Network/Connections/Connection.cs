@@ -76,6 +76,8 @@ namespace BitChatCore.Network.Connections
 
         #region variables
 
+        const int CONNECTION_FRAME_BUFFER_SIZE = 8 * 1024;
+
         readonly Stream _baseStream;
         readonly BinaryID _remotePeerID;
         readonly IPEndPoint _remotePeerEP;
@@ -184,15 +186,15 @@ namespace BitChatCore.Network.Connections
 
         private void WriteFrame(SignalType signalType, BinaryID channelName, byte[] buffer, int offset, int count)
         {
-            int frameCount = ConnectionManager.BUFFER_SIZE;
+            int frameCount = CONNECTION_FRAME_BUFFER_SIZE;
 
-            lock (_baseStream)
+            do
             {
-                do
-                {
-                    if (count < frameCount)
-                        frameCount = count;
+                if (count < frameCount)
+                    frameCount = count;
 
+                lock (_baseStream)
+                {
                     _baseStream.WriteByte((byte)signalType); //write frame signal
                     _baseStream.Write(channelName.ID, 0, 20); //write channel name
                     _baseStream.Write(BitConverter.GetBytes(Convert.ToUInt16(frameCount)), 0, 2); //write data length
@@ -202,12 +204,12 @@ namespace BitChatCore.Network.Connections
 
                     //flush base stream
                     _baseStream.Flush();
-
-                    offset += frameCount;
-                    count -= frameCount;
                 }
-                while (count > 0);
+
+                offset += frameCount;
+                count -= frameCount;
             }
+            while (count > 0);
         }
 
         private void ReadFrameAsync()
@@ -409,7 +411,20 @@ namespace BitChatCore.Network.Connections
                                     _channels.Add(channel.ChannelName, channel);
 
                                     //pass channel as connection async
-                                    ThreadPool.QueueUserWorkItem(AcceptProxyConnectionAsync, channel);
+                                    Thread t = new Thread(delegate (object state)
+                                    {
+                                        try
+                                        {
+                                            _connectionManager.AcceptConnectionInitiateProtocol(channel, ConvertChannelNameToEp(channel.ChannelName));
+                                        }
+                                        catch
+                                        {
+                                            channel.Dispose();
+                                        }
+                                    });
+
+                                    t.IsBackground = true;
+                                    t.Start();
                                 }
                             }
 
@@ -493,7 +508,7 @@ namespace BitChatCore.Network.Connections
                                     {
                                         if (!_tcpRelays.ContainsKey(networkID))
                                         {
-                                            TcpRelayService relay = TcpRelayService.StartTcpRelay(networkID, this, _connectionManager.LocalPort, _connectionManager.DhtClient, trackerURIs);
+                                            TcpRelayService relay = TcpRelayService.StartTcpRelay(networkID, this, _connectionManager.LocalPort, _connectionManager.IPv4DhtNode, trackerURIs);
                                             _tcpRelays.Add(networkID, relay);
                                         }
                                     }
@@ -612,25 +627,6 @@ namespace BitChatCore.Network.Connections
             finally
             {
                 Dispose();
-            }
-        }
-
-        private void AcceptProxyConnectionAsync(object state)
-        {
-            ChannelStream channel = state as ChannelStream;
-
-            try
-            {
-                _connectionManager.AcceptConnectionInitiateProtocol(channel, ConvertChannelNameToEp(channel.ChannelName));
-            }
-            catch
-            {
-                try
-                {
-                    channel.Dispose();
-                }
-                catch
-                { }
             }
         }
 
@@ -986,8 +982,8 @@ namespace BitChatCore.Network.Connections
             readonly Connection _connection;
             readonly BinaryID _channelName;
 
-            readonly byte[] _readBuffer = new byte[ConnectionManager.BUFFER_SIZE];
-            int _readBufferPosition;
+            readonly byte[] _readBuffer = new byte[CONNECTION_FRAME_BUFFER_SIZE];
+            int _readBufferOffset;
             int _readBufferCount;
 
             int _readTimeout = CHANNEL_READ_TIMEOUT;
@@ -1136,9 +1132,9 @@ namespace BitChatCore.Network.Connections
                     if (bytesToCopy > _readBufferCount)
                         bytesToCopy = _readBufferCount;
 
-                    Buffer.BlockCopy(_readBuffer, _readBufferPosition, buffer, offset, bytesToCopy);
+                    Buffer.BlockCopy(_readBuffer, _readBufferOffset, buffer, offset, bytesToCopy);
 
-                    _readBufferPosition += bytesToCopy;
+                    _readBufferOffset += bytesToCopy;
                     _readBufferCount -= bytesToCopy;
 
                     if (_readBufferCount < 1)
@@ -1163,7 +1159,9 @@ namespace BitChatCore.Network.Connections
             internal void FeedReadBuffer(Stream s, int timeout)
             {
                 int count = Convert.ToInt32(s.Length - s.Position);
-                if (count > 0)
+                int readCount = _readBuffer.Length;
+
+                while (count > 0)
                 {
                     lock (this)
                     {
@@ -1179,9 +1177,13 @@ namespace BitChatCore.Network.Connections
                                 throw new IOException("Channel FeedReadBuffer failed. Buffer not empty.");
                         }
 
-                        OffsetStream.StreamRead(s, _readBuffer, 0, count);
-                        _readBufferPosition = 0;
-                        _readBufferCount = count;
+                        if (count < readCount)
+                            readCount = count;
+
+                        OffsetStream.StreamRead(s, _readBuffer, 0, readCount);
+                        _readBufferOffset = 0;
+                        _readBufferCount = readCount;
+                        count -= readCount;
 
                         Monitor.Pulse(this);
                     }
