@@ -126,7 +126,7 @@ namespace BitChatCore.Network.SecureChannel
         readonly object _readLock = new object();
 
         //buffering
-        const int MAX_PACKET_SIZE = 65504; //mod 32 round figure
+        public const int MAX_PACKET_SIZE = 65504; //mod 32 round figure
         const int BUFFER_SIZE = 65535;
 
         int _authHMACSize;

@@ -65,8 +65,8 @@ namespace BitChatCore.Network
 
         #region variables
 
-        public const int MAX_MESSAGE_SIZE = 65216; //max payload size of secure channel packet - 4 bytes header
-        const int BUFFER_SIZE = 65535;
+        public const int MAX_MESSAGE_SIZE = SecureChannelStream.MAX_PACKET_SIZE - 32;
+        const int DATA_STREAM_BUFFER_SIZE = 8 * 1024;
 
         const int RE_NEGOTIATE_AFTER_BYTES_SENT = 104857600; //100mb
         const int RE_NEGOTIATE_AFTER_SECONDS = 3600; //1hr
@@ -1332,8 +1332,8 @@ namespace BitChatCore.Network
                     readonly VirtualSession _session;
                     readonly ushort _port;
 
-                    readonly byte[] _readBuffer = new byte[BUFFER_SIZE];
-                    int _readBufferPosition;
+                    readonly byte[] _readBuffer = new byte[DATA_STREAM_BUFFER_SIZE];
+                    int _readBufferOffset;
                     int _readBufferCount;
 
                     int _readTimeout = DATA_READ_TIMEOUT;
@@ -1480,9 +1480,9 @@ namespace BitChatCore.Network
                             if (bytesToCopy > _readBufferCount)
                                 bytesToCopy = _readBufferCount;
 
-                            Buffer.BlockCopy(_readBuffer, _readBufferPosition, buffer, offset, bytesToCopy);
+                            Buffer.BlockCopy(_readBuffer, _readBufferOffset, buffer, offset, bytesToCopy);
 
-                            _readBufferPosition += bytesToCopy;
+                            _readBufferOffset += bytesToCopy;
                             _readBufferCount -= bytesToCopy;
 
                             if (_readBufferCount < 1)
@@ -1514,25 +1514,34 @@ namespace BitChatCore.Network
                             return;
                         }
 
-                        lock (this)
-                        {
-                            if (_disposed)
-                                throw new ObjectDisposedException("DataStream");
+                        int readCount = _readBuffer.Length;
 
-                            if (_readBufferCount > 0)
+                        while (count > 0)
+                        {
+                            lock (this)
                             {
-                                if (!Monitor.Wait(this, timeout))
-                                    throw new IOException("DataStream WriteBuffer timed out.");
+                                if (_disposed)
+                                    throw new ObjectDisposedException("DataStream");
 
                                 if (_readBufferCount > 0)
-                                    throw new IOException("DataStream WriteBuffer failed. Buffer not empty.");
+                                {
+                                    if (!Monitor.Wait(this, timeout))
+                                        throw new IOException("DataStream WriteBuffer timed out.");
+
+                                    if (_readBufferCount > 0)
+                                        throw new IOException("DataStream WriteBuffer failed. Buffer not empty.");
+                                }
+
+                                if (count < readCount)
+                                    readCount = count;
+
+                                OffsetStream.StreamRead(s, _readBuffer, 0, readCount);
+                                _readBufferOffset = 0;
+                                _readBufferCount = readCount;
+                                count -= readCount;
+
+                                Monitor.Pulse(this);
                             }
-
-                            OffsetStream.StreamRead(s, _readBuffer, 0, count);
-                            _readBufferPosition = 0;
-                            _readBufferCount = count;
-
-                            Monitor.Pulse(this);
                         }
                     }
 
