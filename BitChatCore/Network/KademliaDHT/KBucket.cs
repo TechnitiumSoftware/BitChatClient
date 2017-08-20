@@ -478,7 +478,7 @@ namespace BitChatCore.Network.KademliaDHT
                     {
                         if (contact != null)
                         {
-                            if (includeStaleContacts || !contact.IsStale())
+                            if ((includeStaleContacts || !contact.IsStale()) && !contact.IsCurrentNode)
                                 allContacts.Add(contact);
                         }
                     }
