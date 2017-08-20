@@ -22,7 +22,7 @@ using System.Net;
 
 namespace BitChatCore.Network.KademliaDHT
 {
-    interface IDhtClientManager
+    interface IDhtNodeManager
     {
         Stream GetConnectionStream(IPEndPoint remoteNodeEP);
     }

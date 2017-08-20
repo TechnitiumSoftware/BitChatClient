@@ -71,8 +71,8 @@
     <Compile Include="MessageItem.cs" />
     <Compile Include="MessageRecipient.cs" />
     <Compile Include="MessageStore.cs" />
-    <Compile Include="Network\KademliaDHT\DhtClient.cs" />
-    <Compile Include="Network\KademliaDHT\IDhtClientManager.cs" />
+    <Compile Include="Network\KademliaDHT\DhtNode.cs" />
+    <Compile Include="Network\KademliaDHT\IDhtNodeManager.cs" />
     <Compile Include="Network\KademliaDHT\NodeContact.cs" />
     <Compile Include="Network\KademliaDHT\KBucket.cs" />
     <Compile Include="Network\KademliaDHT\DhtRpcPacket.cs" />

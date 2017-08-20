@@ -37,7 +37,7 @@ using TechnitiumLibrary.Net;
  * 
  * FEATURES NOT IMPLEMENTED
  * ------------------------
- * 1. Node data republishing. Each peer MUST announce itself within 15mins to all nodes closer to bit chat networkID.
+ * 1. Node data republishing. Each peer MUST announce itself within 15 mins to all nodes closer to bit chat networkID.
  * 
  * REFERENCE
  * ---------
@@ -47,7 +47,7 @@ using TechnitiumLibrary.Net;
 
 namespace BitChatCore.Network.KademliaDHT
 {
-    class DhtClient : IDisposable
+    class DhtNode : IDisposable
     {
         #region variables
 
@@ -57,7 +57,7 @@ namespace BitChatCore.Network.KademliaDHT
         const int HEALTH_CHECK_TIMER_INTERVAL = 15 * 60 * 1000; //15 min
         const int KADEMLIA_ALPHA = 3;
 
-        readonly IDhtClientManager _manager;
+        readonly IDhtNodeManager _manager;
 
         CurrentNode _currentNode;
         KBucket _routingTable;
@@ -68,7 +68,7 @@ namespace BitChatCore.Network.KademliaDHT
 
         #region constructor
 
-        public DhtClient(IPEndPoint localNodeEP, IDhtClientManager manager)
+        public DhtNode(IPEndPoint localNodeEP, IDhtNodeManager manager)
         {
             _manager = manager;
 
