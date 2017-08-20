@@ -19,35 +19,27 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using System;
 using System.Collections.Generic;
-using System.Net;
 using System.Threading;
 
 namespace BitChatCore.Network.KademliaDHT
 {
-    class KBucket : IDisposable
+    class KBucket
     {
         #region variables
 
-        const int BUCKET_STALE_TIMEOUT_SECONDS = 900; //15mins timeout before declaring node stale
+        const int BUCKET_STALE_TIMEOUT_SECONDS = 900; //15 mins timeout before declaring node stale
 
-        BinaryID _bucketID;
-        int _bucketDepth;
-        bool _bucketContainsCurrentNode;
+        readonly BinaryID _bucketID;
+        readonly int _bucketDepth;
         DateTime _lastChanged;
 
-        KBucket _parentBucket = null;
+        readonly KBucket _parentBucket;
 
-        Dictionary<BinaryID, NodeContact> _contacts;
-        Dictionary<BinaryID, NodeContact> _replacementContacts;
+        volatile NodeContact[] _contacts;
+        volatile int _contactCount;
 
-        KBucket _leftBucket = null;
-        KBucket _rightBucket = null;
-
-        int _totalContacts = 0;
-        int _totalReplacementContacts = 0;
-
-        const int LOCK_TIMEOUT = 5000;
-        ReaderWriterLockSlim _lock;
+        volatile KBucket _leftBucket;
+        volatile KBucket _rightBucket;
 
         #endregion
 
@@ -57,14 +49,11 @@ namespace BitChatCore.Network.KademliaDHT
         {
             _bucketDepth = 0;
 
-            _contacts = new Dictionary<BinaryID, NodeContact>();
-            _replacementContacts = new Dictionary<BinaryID, NodeContact>();
+            _contacts = new NodeContact[DhtClient.KADEMLIA_K * 2];
 
-            _contacts.Add(currentNode.NodeID, currentNode);
-            _bucketContainsCurrentNode = true;
+            _contacts[0] = currentNode;
+            _contactCount = 1;
             _lastChanged = DateTime.UtcNow;
-
-            _lock = new ReaderWriterLockSlim();
         }
 
         private KBucket(KBucket parentBucket, bool left)
@@ -73,8 +62,7 @@ namespace BitChatCore.Network.KademliaDHT
 
             _parentBucket = parentBucket;
 
-            _contacts = new Dictionary<BinaryID, NodeContact>();
-            _replacementContacts = new Dictionary<BinaryID, NodeContact>();
+            _contacts = new NodeContact[DhtClient.KADEMLIA_K * 2];
 
             if (parentBucket._bucketID == null)
             {
@@ -88,7 +76,7 @@ namespace BitChatCore.Network.KademliaDHT
                 if (left)
                 {
                     _bucketID = new BinaryID(new byte[20]);
-                    _bucketID.ID[0] |= 0x80;
+                    _bucketID.ID[0] = 0x80;
 
                     _bucketID = parentBucket._bucketID | (_bucketID >> (_bucketDepth - 1));
                 }
@@ -99,98 +87,37 @@ namespace BitChatCore.Network.KademliaDHT
             }
 
             _lastChanged = DateTime.UtcNow;
-
-            _lock = new ReaderWriterLockSlim();
-        }
-
-        #endregion
-
-        #region IDisposable
-
-        ~KBucket()
-        {
-            Dispose(false);
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        bool _disposed = false;
-
-        private void Dispose(bool disposing)
-        {
-            if (!_disposed)
-            {
-                if (_lock != null)
-                {
-                    try
-                    {
-                        if (!_lock.TryEnterWriteLock(LOCK_TIMEOUT))
-                            throw new Exception("Could not enter write lock.");
-
-                        try
-                        {
-                            if (_leftBucket != null)
-                            {
-                                _leftBucket.Dispose();
-                                _leftBucket = null;
-                            }
-
-                            if (_rightBucket != null)
-                            {
-                                _rightBucket.Dispose();
-                                _rightBucket = null;
-                            }
-                        }
-                        finally
-                        {
-                            _lock.ExitWriteLock();
-                        }
-                    }
-                    catch
-                    { }
-
-                    _lock.Dispose();
-                    _lock = null;
-                }
-
-                _disposed = true;
-            }
         }
 
         #endregion
 
         #region static
 
-        public static NodeContact[] GetClosestContacts(IEnumerable<NodeContact> contacts, BinaryID nodeID, int count)
+        public static NodeContact[] GetClosestContacts(ICollection<NodeContact> contacts, BinaryID nodeID, int count)
         {
+            if (contacts.Count < count)
+                count = contacts.Count;
+
             NodeContact[] closestContacts = new NodeContact[count];
-            BinaryID[] min = new BinaryID[count];
-            BinaryID distance;
-            int ubound = count - 1;
-            int i;
-            int j;
+            BinaryID[] closestContactDistances = new BinaryID[count];
 
             foreach (NodeContact contact in contacts)
             {
-                distance = nodeID ^ contact.NodeID;
+                BinaryID distance = nodeID ^ contact.NodeID;
 
-                for (i = 0; i < count; i++)
+                for (int i = 0; i < count; i++)
                 {
-                    if ((min[i] == null) || (distance < min[i]))
+                    if ((closestContactDistances[i] == null) || (distance < closestContactDistances[i]))
                     {
                         //demote existing values
-                        for (j = ubound; j > i; j--)
+                        for (int j = count - 1; j > i; j--)
                         {
-                            min[j] = min[j - 1];
+                            closestContactDistances[j] = closestContactDistances[j - 1];
                             closestContacts[j] = closestContacts[j - 1];
                         }
 
                         //place current on top
-                        min[i] = distance;
+                        closestContactDistances[i] = distance;
                         closestContacts[i] = contact;
                         break;
                     }
@@ -200,648 +127,465 @@ namespace BitChatCore.Network.KademliaDHT
             return closestContacts;
         }
 
-        private static void SplitBucket(KBucket bucket)
+        private static void SplitBucket(KBucket bucket, NodeContact newContact)
         {
-            KBucket currentBucket = bucket;
+            if (bucket._contacts == null)
+                return;
 
-            while (true)
+            if (!bucket._contacts[0].IsCurrentNode)
+                throw new ArgumentException("Cannot split this k-bucket: must contain current node to split.");
+
+            KBucket leftBucket = new KBucket(bucket, true);
+            KBucket rightBucket = new KBucket(bucket, false);
+
+            foreach (NodeContact contact in bucket._contacts)
             {
-                KBucket leftBucket = new KBucket(currentBucket, true);
-                KBucket rightBucket = new KBucket(currentBucket, false);
-
-                foreach (KeyValuePair<BinaryID, NodeContact> nodeItem in currentBucket._contacts)
-                {
-                    if ((leftBucket._bucketID & nodeItem.Key) == leftBucket._bucketID)
-                    {
-                        leftBucket._contacts.Add(nodeItem.Key, nodeItem.Value);
-
-                        if (nodeItem.Value.IsCurrentNode)
-                            leftBucket._bucketContainsCurrentNode = true;
-                    }
-                    else
-                    {
-                        rightBucket._contacts.Add(nodeItem.Key, nodeItem.Value);
-
-                        if (nodeItem.Value.IsCurrentNode)
-                            rightBucket._bucketContainsCurrentNode = true;
-                    }
-                }
-
-                leftBucket._totalContacts = leftBucket._contacts.Count;
-                rightBucket._totalContacts = rightBucket._contacts.Count;
-
-                //demote current bucket to tree node
-                currentBucket._contacts = null;
-                currentBucket._replacementContacts = null;
-                currentBucket._bucketContainsCurrentNode = false;
-                currentBucket._leftBucket = leftBucket;
-                currentBucket._rightBucket = rightBucket;
-
-                if (leftBucket._contacts.Count > DhtClient.KADEMLIA_K)
-                {
-                    currentBucket = leftBucket;
-                }
-                else if (rightBucket._contacts.Count > DhtClient.KADEMLIA_K)
-                {
-                    currentBucket = rightBucket;
-                }
+                if ((leftBucket._bucketID & contact.NodeID) == leftBucket._bucketID)
+                    leftBucket._contacts[leftBucket._contactCount++] = contact;
                 else
-                {
-                    break;
-                }
+                    rightBucket._contacts[rightBucket._contactCount++] = contact;
             }
+
+            KBucket selectedBucket;
+
+            if ((leftBucket._bucketID & newContact.NodeID) == leftBucket._bucketID)
+                selectedBucket = leftBucket;
+            else
+                selectedBucket = rightBucket;
+
+            if (selectedBucket._contactCount == selectedBucket._contacts.Length)
+                SplitBucket(selectedBucket, newContact);
+            else
+                selectedBucket._contacts[selectedBucket._contactCount++] = newContact;
+
+            bucket._contacts = null;
+            bucket._leftBucket = leftBucket;
+            bucket._rightBucket = rightBucket;
         }
 
         private static void JoinBucket(KBucket parentBucket)
         {
-            if ((parentBucket._leftBucket == null) || (parentBucket._rightBucket == null))
-                return;
-
-            parentBucket._contacts = new Dictionary<BinaryID, NodeContact>(parentBucket._totalContacts);
-            parentBucket._replacementContacts = new Dictionary<BinaryID, NodeContact>(parentBucket._totalReplacementContacts);
-
-            //move contacts to this bucket
-            foreach (KeyValuePair<BinaryID, NodeContact> nodeItem in parentBucket._leftBucket._contacts)
+            lock (parentBucket)
             {
-                parentBucket._contacts.Add(nodeItem.Key, nodeItem.Value);
+                KBucket leftBucket = parentBucket._leftBucket;
+                KBucket rightBucket = parentBucket._rightBucket;
 
-                if (nodeItem.Value.IsCurrentNode)
-                    parentBucket._bucketContainsCurrentNode = true;
+                if ((leftBucket == null) || (rightBucket == null))
+                    return;
+
+                lock (leftBucket)
+                {
+                    lock (rightBucket)
+                    {
+                        if ((leftBucket._contactCount + rightBucket._contactCount) > DhtClient.KADEMLIA_K * 2)
+                            return; //child k-buckets have more contacts then parent can accomodate
+
+                        NodeContact[] contacts = new NodeContact[DhtClient.KADEMLIA_K * 2];
+                        int contactCount = 0;
+
+                        if ((leftBucket._contacts[0] != null) && leftBucket._contacts[0].IsCurrentNode)
+                        {
+                            foreach (NodeContact contact in leftBucket._contacts)
+                            {
+                                if (contact != null)
+                                    contacts[contactCount++] = contact;
+                            }
+
+                            foreach (NodeContact contact in rightBucket._contacts)
+                            {
+                                if (contact != null)
+                                    contacts[contactCount++] = contact;
+                            }
+                        }
+                        else
+                        {
+                            foreach (NodeContact contact in rightBucket._contacts)
+                            {
+                                if (contact != null)
+                                    contacts[contactCount++] = contact;
+                            }
+
+                            foreach (NodeContact contact in leftBucket._contacts)
+                            {
+                                if (contact != null)
+                                    contacts[contactCount++] = contact;
+                            }
+                        }
+
+                        parentBucket._contacts = contacts;
+                        parentBucket._contactCount = contactCount;
+                        parentBucket._leftBucket = null;
+                        parentBucket._rightBucket = null;
+                    }
+                }
             }
-
-            foreach (KeyValuePair<BinaryID, NodeContact> nodeItem in parentBucket._rightBucket._contacts)
-            {
-                parentBucket._contacts.Add(nodeItem.Key, nodeItem.Value);
-
-                if (nodeItem.Value.IsCurrentNode)
-                    parentBucket._bucketContainsCurrentNode = true;
-            }
-
-            parentBucket._leftBucket._parentBucket = null;
-            parentBucket._rightBucket._parentBucket = null;
-
-            parentBucket._leftBucket.Dispose();
-            parentBucket._rightBucket.Dispose();
-
-            parentBucket._leftBucket = null;
-            parentBucket._rightBucket = null;
         }
 
         #endregion
 
         #region private
 
-        private void IncrementContactCount()
+        private List<KBucket> GetAllLeafKBuckets()
         {
-            Interlocked.Increment(ref _totalContacts);
+            List<KBucket> allLeafKBuckets = new List<KBucket>();
 
             KBucket currentBucket = this;
 
-            while (currentBucket._parentBucket != null)
+            while (true)
             {
-                Interlocked.Increment(ref currentBucket._parentBucket._totalContacts);
-                currentBucket = currentBucket._parentBucket;
+                NodeContact[] contacts = currentBucket._contacts;
+                KBucket leftBucket = currentBucket._leftBucket;
+                KBucket rightBucket = currentBucket._rightBucket;
+
+                if ((contacts != null) || (leftBucket == null) || (rightBucket == null))
+                {
+                    allLeafKBuckets.Add(currentBucket);
+
+                    while (currentBucket._parentBucket != null)
+                    {
+                        if (ReferenceEquals(currentBucket, currentBucket._parentBucket._leftBucket))
+                        {
+                            currentBucket = currentBucket._parentBucket._rightBucket;
+                            break;
+                        }
+                        else
+                        {
+                            currentBucket = currentBucket._parentBucket;
+                        }
+                    }
+                }
+                else
+                {
+                    currentBucket = leftBucket;
+                }
+
+                if (currentBucket._parentBucket == null)
+                    break;
             }
-        }
 
-        private void DecrementContactCount()
-        {
-            Interlocked.Decrement(ref _totalContacts);
-
-            KBucket currentBucket = this;
-
-            while (currentBucket._parentBucket != null)
-            {
-                Interlocked.Decrement(ref currentBucket._parentBucket._totalContacts);
-                currentBucket = currentBucket._parentBucket;
-            }
-        }
-
-        private void IncrementReplacementContactCount()
-        {
-            Interlocked.Increment(ref _totalReplacementContacts);
-
-            KBucket currentBucket = this;
-
-            while (currentBucket._parentBucket != null)
-            {
-                Interlocked.Increment(ref currentBucket._parentBucket._totalReplacementContacts);
-                currentBucket = currentBucket._parentBucket;
-            }
-        }
-
-        private void DecrementReplacementContactCount()
-        {
-            Interlocked.Decrement(ref _totalReplacementContacts);
-
-            KBucket currentBucket = this;
-
-            while (currentBucket._parentBucket != null)
-            {
-                Interlocked.Decrement(ref currentBucket._parentBucket._totalReplacementContacts);
-                currentBucket = currentBucket._parentBucket;
-            }
-        }
-
-        private void CheckContactHealthAsync(object state)
-        {
-            object[] param = state as object[];
-
-            DhtClient dhtClient = param[0] as DhtClient;
-            NodeContact contact = param[1] as NodeContact;
-
-            if (dhtClient.Ping(contact))
-                return; //contact replied; do nothing.
-
-            try
-            {
-                //remove stale node
-                RemoveContactFromCurrentBucket(contact);
-            }
-            catch
-            { }
-        }
-
-        private void RefreshBucketAsync(object state)
-        {
-            DhtClient dhtClient = state as DhtClient;
-
-            //get random node ID in the bucket range
-            BinaryID randomNodeID = (BinaryID.GenerateRandomID160() << _bucketDepth) | _bucketID;
-
-            //find closest contacts for current node id
-            NodeContact[] initialContacts = GetKClosestContacts(randomNodeID);
-
-            if (initialContacts.Length > 0)
-                dhtClient.QueryFindNode(initialContacts, randomNodeID);
+            return allLeafKBuckets;
         }
 
         #endregion
 
         #region public
 
-        public bool AddContactInCurrentBucket(NodeContact contact)
-        {
-            if (!_lock.TryEnterWriteLock(LOCK_TIMEOUT))
-                throw new Exception("Could not enter write lock.");
-
-            try
-            {
-                if (_contacts == null)
-                    return false;
-
-                if (_contacts.ContainsKey(contact.NodeID))
-                {
-                    _contacts[contact.NodeID].UpdateLastSeenTime();
-                    return true;
-                }
-
-                if (_contacts.Count < DhtClient.KADEMLIA_K)
-                {
-                    _contacts.Add(contact.NodeID, contact);
-                    IncrementContactCount();
-                    _lastChanged = DateTime.UtcNow;
-
-                    if (contact.IsCurrentNode)
-                        _bucketContainsCurrentNode = true;
-
-                    return true;
-                }
-
-                if (_bucketContainsCurrentNode)
-                {
-                    _contacts.Add(contact.NodeID, contact);
-                    _lastChanged = DateTime.UtcNow;
-
-                    //remove any stale node contact
-                    NodeContact staleContact = null;
-
-                    foreach (NodeContact existingContact in _contacts.Values)
-                    {
-                        if (existingContact.IsStale())
-                        {
-                            staleContact = existingContact;
-                            break;
-                        }
-                    }
-
-                    if (staleContact != null)
-                    {
-                        //remove stale contact
-                        _contacts.Remove(staleContact.NodeID);
-                        return true;
-                    }
-
-                    //no stale contact found to replace with current contact
-                    IncrementContactCount();
-
-                    //split current bucket since count > k
-                    SplitBucket(this);
-
-                    return true;
-                }
-
-                //never split buckets that arent on the same side of the tree as the current node
-
-                if (_replacementContacts.ContainsKey(contact.NodeID))
-                {
-                    _replacementContacts[contact.NodeID].UpdateLastSeenTime();
-                    return true;
-                }
-
-                if (_replacementContacts.Count < DhtClient.KADEMLIA_K)
-                {
-                    //keep the current node contact in replacement cache
-                    _replacementContacts.Add(contact.NodeID, contact);
-                    IncrementReplacementContactCount();
-                    return true;
-                }
-
-                //find stale contact from replacement cache and replace with current contact
-                NodeContact staleReplacementContact = null;
-
-                foreach (NodeContact replacementContact in _replacementContacts.Values)
-                {
-                    if (replacementContact.IsStale())
-                    {
-                        staleReplacementContact = replacementContact;
-                        break;
-                    }
-                }
-
-                if (staleReplacementContact == null)
-                    return false;
-
-                //remove bad contact & keep the current node contact in replacement cache
-                _replacementContacts.Remove(staleReplacementContact.NodeID);
-                _replacementContacts.Add(contact.NodeID, contact);
-                return true;
-            }
-            finally
-            {
-                _lock.ExitWriteLock();
-            }
-        }
-
-        public bool RemoveContactFromCurrentBucket(NodeContact contact)
-        {
-            if (!_lock.TryEnterWriteLock(LOCK_TIMEOUT))
-                throw new Exception("Could not enter write lock.");
-
-            try
-            {
-                if (_contacts == null)
-                    return false;
-
-                if (_replacementContacts.Count < 1)
-                    return false;
-
-                if (_contacts.Remove(contact.NodeID))
-                {
-                    if (_replacementContacts.Count > 0)
-                    {
-                        //add good replacement contact to main contacts
-                        NodeContact goodContact = null;
-
-                        foreach (NodeContact replacementContact in _replacementContacts.Values)
-                        {
-                            if (!replacementContact.IsStale())
-                            {
-                                if ((goodContact == null) || (replacementContact.LastSeen > goodContact.LastSeen))
-                                    goodContact = replacementContact;
-                            }
-                        }
-
-                        if (goodContact == null)
-                        {
-                            //no good replacement contact available
-                            DecrementContactCount();
-                        }
-                        else
-                        {
-                            //move good replacement contact to main contacts
-                            _replacementContacts.Remove(goodContact.NodeID);
-                            _contacts.Add(goodContact.NodeID, goodContact);
-
-                            DecrementReplacementContactCount();
-                            _lastChanged = DateTime.UtcNow;
-                        }
-                    }
-                    else
-                    {
-                        //no replacement contacts available
-                        DecrementContactCount();
-                    }
-
-                    //check parent bucket contact count and join the parent buckets
-                    KBucket parentBucket = this._parentBucket;
-                    ReaderWriterLockSlim currentLock;
-
-                    while ((parentBucket != null) && (parentBucket._totalContacts <= DhtClient.KADEMLIA_K))
-                    {
-                        currentLock = parentBucket._lock;
-
-                        if (!currentLock.TryEnterWriteLock(LOCK_TIMEOUT))
-                            throw new Exception("Could not enter write lock.");
-
-                        try
-                        {
-                            JoinBucket(parentBucket);
-
-                            parentBucket = parentBucket._parentBucket;
-                        }
-                        finally
-                        {
-                            currentLock.ExitWriteLock();
-                        }
-                    }
-
-                    return true;
-                }
-                else
-                {
-                    if (_replacementContacts.Remove(contact.NodeID))
-                    {
-                        DecrementReplacementContactCount();
-                        return true;
-                    }
-                    else
-                    {
-                        return false;
-                    }
-                }
-            }
-            finally
-            {
-                _lock.ExitWriteLock();
-            }
-        }
-
-        public KBucket FindClosestBucket(BinaryID nodeID)
+        public bool AddContact(NodeContact contact)
         {
             KBucket currentBucket = this;
-            ReaderWriterLockSlim currentLock = this._lock;
 
             while (true)
             {
-                if (!currentLock.TryEnterReadLock(LOCK_TIMEOUT))
-                    throw new Exception("Could not enter read lock.");
+                NodeContact[] contacts = currentBucket._contacts;
+                KBucket leftBucket = currentBucket._leftBucket;
+                KBucket rightBucket = currentBucket._rightBucket;
 
-                try
+                lock (currentBucket)
                 {
-                    if (currentBucket._contacts != null)
-                        break;
-
-                    if ((currentBucket._leftBucket._bucketID & nodeID) == currentBucket._leftBucket._bucketID)
-                        currentBucket = currentBucket._leftBucket;
-                    else
-                        currentBucket = currentBucket._rightBucket;
-                }
-                finally
-                {
-                    currentLock.ExitReadLock();
-                }
-
-                currentLock = currentBucket._lock;
-            }
-
-            currentBucket._lastChanged = DateTime.UtcNow;
-            return currentBucket;
-        }
-
-        public NodeContact[] GetKClosestContacts(BinaryID networkID)
-        {
-            NodeContact[] contacts = null;
-            KBucket closestBucket = FindClosestBucket(networkID);
-
-            if (closestBucket._totalContacts >= DhtClient.KADEMLIA_K)
-            {
-                contacts = closestBucket.GetAllContacts(false);
-
-                if (contacts.Length > DhtClient.KADEMLIA_K)
-                    return GetClosestContacts(contacts, networkID, DhtClient.KADEMLIA_K);
-                else if (contacts.Length == DhtClient.KADEMLIA_K)
-                    return contacts;
-                else if (closestBucket._parentBucket == null)
-                    return contacts;
-                else
-                    contacts = null;
-            }
-
-            while (closestBucket._parentBucket != null)
-            {
-                KBucket parentBucket = closestBucket._parentBucket;
-
-                if (parentBucket._totalContacts >= DhtClient.KADEMLIA_K)
-                {
-                    contacts = parentBucket.GetAllContacts(false);
-
-                    if (contacts.Length > DhtClient.KADEMLIA_K)
-                        return GetClosestContacts(contacts, networkID, DhtClient.KADEMLIA_K);
-                    else if (contacts.Length == DhtClient.KADEMLIA_K)
-                        return contacts;
-                }
-
-                closestBucket = parentBucket;
-            }
-
-            if (contacts == null)
-                return closestBucket.GetAllContacts(false);
-            else
-                return contacts;
-        }
-
-        public NodeContact[] GetAllContacts(bool includeReplacementCache)
-        {
-            if (!_lock.TryEnterReadLock(LOCK_TIMEOUT))
-                throw new Exception("Could not enter read lock.");
-
-            try
-            {
-                NodeContact[] contacts;
-
-                if (_contacts == null)
-                {
-                    NodeContact[] leftContacts = _leftBucket.GetAllContacts(includeReplacementCache);
-                    NodeContact[] rightContacts = _rightBucket.GetAllContacts(includeReplacementCache);
-
-                    contacts = new NodeContact[leftContacts.Length + rightContacts.Length];
-
-                    Array.Copy(leftContacts, contacts, leftContacts.Length);
-                    Array.Copy(rightContacts, 0, contacts, leftContacts.Length, rightContacts.Length);
-                }
-                else
-                {
-                    int cacheCount;
-
-                    if (includeReplacementCache)
-                        cacheCount = _totalReplacementContacts;
-                    else
-                        cacheCount = 0;
-
-                    List<NodeContact> contactsList = new List<NodeContact>(_totalContacts + cacheCount);
-
-                    foreach (NodeContact contact in _contacts.Values)
+                    if ((contacts != null) || (leftBucket == null) || (rightBucket == null))
                     {
-                        if (!contact.IsStale() && !contact.IsCurrentNode)
-                            contactsList.Add(contact);
+                        #region  add contact in this bucket
+
+                        //search if contact already exists
+                        for (int i = 0; i < contacts.Length; i++)
+                        {
+                            if (contact.Equals(contacts[i]))
+                                return false; //contact already exists
+                        }
+
+                        //try add contact
+                        for (int i = 0; i < contacts.Length; i++)
+                        {
+                            if (contacts[i] == null)
+                            {
+                                contacts[i] = contact;
+                                currentBucket._contactCount++;
+                                currentBucket._lastChanged = DateTime.UtcNow;
+                                return true;
+                            }
+                        }
+
+                        //k-bucket is full so contact was not added
+
+                        //if current contact is not stale then find and replace with any existing stale contact
+                        if (!contact.IsStale())
+                        {
+                            for (int i = 0; i < contacts.Length; i++)
+                            {
+                                if (contacts[i].IsStale())
+                                {
+                                    contacts[i] = contact;
+                                    currentBucket._lastChanged = DateTime.UtcNow;
+                                    return true;
+                                }
+                            }
+                        }
+
+                        //no stale contact in this k-bucket to replace!
+                        if (contacts[0].IsCurrentNode)
+                        {
+                            //split current bucket and add contact!
+                            SplitBucket(currentBucket, contact);
+                            return true;
+                        }
+                        else
+                        {
+                            //k-bucket is full!
+                            return false;
+                        }
+                        #endregion
+                    }
+                }
+
+                if ((leftBucket._bucketID & contact.NodeID) == leftBucket._bucketID)
+                    currentBucket = leftBucket;
+                else
+                    currentBucket = rightBucket;
+            }
+        }
+
+        public bool RemoveContact(NodeContact contact)
+        {
+            KBucket currentBucket = this;
+
+            while (true)
+            {
+                NodeContact[] contacts = currentBucket._contacts;
+                KBucket leftBucket = currentBucket._leftBucket;
+                KBucket rightBucket = currentBucket._rightBucket;
+
+                lock (currentBucket)
+                {
+                    if ((contacts != null) || (leftBucket == null) || (rightBucket == null))
+                    {
+                        #region remove contact from this bucket
+
+                        if (currentBucket._contactCount <= DhtClient.KADEMLIA_K)
+                            return false; //k-bucket is not full and replacement cache is empty
+
+                        bool contactRemoved = false;
+
+                        for (int i = 0; i < contacts.Length; i++)
+                        {
+                            if (contact.Equals(contacts[i]))
+                            {
+                                if (contacts[i].IsStale())
+                                {
+                                    //remove stale contact
+                                    contacts[i] = null;
+                                    currentBucket._contactCount--;
+                                    currentBucket._lastChanged = DateTime.UtcNow;
+                                    contactRemoved = true;
+                                }
+
+                                break;
+                            }
+                        }
+
+                        if (!contactRemoved)
+                            return false; //contact was not found or was not stale
+
+                        //check parent bucket contact count and join the parent bucket
+                        if (currentBucket._parentBucket != null)
+                            JoinBucket(currentBucket._parentBucket);
+
+                        return true;
+
+                        #endregion
+                    }
+                }
+
+                if ((leftBucket._bucketID & contact.NodeID) == leftBucket._bucketID)
+                    currentBucket = leftBucket;
+                else
+                    currentBucket = rightBucket;
+            }
+        }
+
+        public NodeContact[] GetKClosestContacts(BinaryID nodeID)
+        {
+            KBucket currentBucket = this;
+
+            while (true)
+            {
+                NodeContact[] contacts = currentBucket._contacts;
+                KBucket leftBucket = currentBucket._leftBucket;
+                KBucket rightBucket = currentBucket._rightBucket;
+
+                if ((contacts != null) || (leftBucket == null) || (rightBucket == null))
+                {
+                    #region find closest contacts from this bucket
+
+                    KBucket closestBucket = currentBucket;
+                    NodeContact[] closestContacts = null;
+
+                    if (closestBucket._contactCount >= DhtClient.KADEMLIA_K)
+                    {
+                        closestContacts = closestBucket.GetAllContacts(false);
+
+                        if (closestContacts.Length > DhtClient.KADEMLIA_K)
+                            return GetClosestContacts(closestContacts, nodeID, DhtClient.KADEMLIA_K);
+
+                        if (closestContacts.Length == DhtClient.KADEMLIA_K)
+                            return closestContacts;
+
+                        if (closestBucket._parentBucket == null)
+                            return closestContacts;
                     }
 
-                    if (includeReplacementCache)
+                    while (closestBucket._parentBucket != null)
                     {
-                        foreach (NodeContact contact in _replacementContacts.Values)
+                        KBucket parentBucket = closestBucket._parentBucket;
+
+                        closestContacts = parentBucket.GetAllContacts(false);
+
+                        if (closestContacts.Length > DhtClient.KADEMLIA_K)
+                            return GetClosestContacts(closestContacts, nodeID, DhtClient.KADEMLIA_K);
+
+                        if (closestContacts.Length == DhtClient.KADEMLIA_K)
+                            return closestContacts;
+
+                        closestBucket = parentBucket;
+                    }
+
+                    if (closestContacts == null)
+                        closestContacts = closestBucket.GetAllContacts(false);
+
+                    return closestContacts;
+
+                    #endregion
+                }
+
+                if ((leftBucket._bucketID & nodeID) == leftBucket._bucketID)
+                    currentBucket = leftBucket;
+                else
+                    currentBucket = rightBucket;
+            }
+        }
+
+        public NodeContact[] GetAllContacts(bool includeStaleContacts)
+        {
+            List<NodeContact> allContacts = new List<NodeContact>();
+            List<KBucket> allLeafKBuckets = GetAllLeafKBuckets();
+
+            foreach (KBucket kBucket in allLeafKBuckets)
+            {
+                NodeContact[] contacts = kBucket._contacts;
+
+                if (contacts != null)
+                {
+                    foreach (NodeContact contact in contacts)
+                    {
+                        if (contact != null)
                         {
-                            if (!contact.IsStale())
-                                contactsList.Add(contact);
+                            if (includeStaleContacts || !contact.IsStale())
+                                allContacts.Add(contact);
                         }
                     }
-
-                    contacts = contactsList.ToArray();
                 }
+            }
 
-                return contacts;
-            }
-            finally
-            {
-                _lock.ExitReadLock();
-            }
+            return allContacts.ToArray();
         }
 
-        public bool IsCurrentBucketFull(bool includeReplacementCache = false)
+        public NodeContact FindContact(BinaryID nodeID)
         {
-            if (_contacts == null)
-                return false; //node bucket doesnt know if its full
+            KBucket currentBucket = this;
 
-            if (_bucketContainsCurrentNode)
-                return false; //bucket containing current node is never full
-
-            if (includeReplacementCache)
-                return (_totalContacts + _totalReplacementContacts) >= (DhtClient.KADEMLIA_K * 2);
-
-            return _totalContacts >= DhtClient.KADEMLIA_K;
-        }
-
-        public NodeContact FindContactInCurrentBucket(BinaryID nodeID)
-        {
-            if (!_lock.TryEnterReadLock(LOCK_TIMEOUT))
-                throw new Exception("Could not enter read lock.");
-
-            try
+            while (true)
             {
-                if (_contacts == null)
-                    return null;
+                NodeContact[] contacts = currentBucket._contacts;
+                KBucket leftBucket = currentBucket._leftBucket;
+                KBucket rightBucket = currentBucket._rightBucket;
 
-                if (_contacts.ContainsKey(nodeID))
-                    return _contacts[nodeID];
-
-                if (_replacementContacts.ContainsKey(nodeID))
-                    return _replacementContacts[nodeID];
-
-                return null;
-            }
-            finally
-            {
-                _lock.ExitReadLock();
-            }
-        }
-
-        public bool ContactExists(IPEndPoint contactEP)
-        {
-            if (!_lock.TryEnterReadLock(LOCK_TIMEOUT))
-                throw new Exception("Could not enter read lock.");
-
-            try
-            {
-                if (_contacts == null)
+                if ((contacts != null) || (leftBucket == null) || (rightBucket == null))
                 {
-                    if (_leftBucket.ContactExists(contactEP))
-                        return true;
-                    else
-                        return _rightBucket.ContactExists(contactEP);
+                    foreach (NodeContact contact in contacts)
+                    {
+                        if ((contact != null) && contact.NodeID.Equals(nodeID))
+                            return contact;
+                    }
+
+                    return null; //contact not found
                 }
+
+                if ((leftBucket._bucketID & nodeID) == leftBucket._bucketID)
+                    currentBucket = leftBucket;
                 else
-                {
-                    foreach (NodeContact contact in _contacts.Values)
-                    {
-                        if (contact.NodeEP.Equals(contactEP))
-                            return true;
-                    }
-
-                    foreach (NodeContact contact in _replacementContacts.Values)
-                    {
-                        if (contact.NodeEP.Equals(contactEP))
-                            return true;
-                    }
-
-                    return false;
-                }
+                    currentBucket = rightBucket;
             }
-            finally
+        }
+
+        public int GetTotalContacts()
+        {
+            int count = 0;
+            List<KBucket> allLeafKBuckets = GetAllLeafKBuckets();
+
+            foreach (KBucket kBucket in allLeafKBuckets)
             {
-                _lock.ExitReadLock();
+                if (kBucket._contacts != null)
+                    count += kBucket._contactCount;
             }
+
+            return count;
         }
 
         public void CheckContactHealth(DhtClient dhtClient)
         {
-            if (!_lock.TryEnterReadLock(LOCK_TIMEOUT))
-                throw new Exception("Could not enter read lock.");
+            List<KBucket> allLeafKBuckets = GetAllLeafKBuckets();
 
-            try
+            foreach (KBucket kBucket in allLeafKBuckets)
             {
-                if (_contacts == null)
+                NodeContact[] contacts = kBucket._contacts;
+
+                if (contacts != null)
                 {
-                    _leftBucket.CheckContactHealth(dhtClient);
-                    _rightBucket.CheckContactHealth(dhtClient);
-                }
-                else
-                {
-                    foreach (NodeContact contact in _contacts.Values)
+                    foreach (NodeContact contact in contacts)
                     {
-                        if (contact.IsStale())
-                            ThreadPool.QueueUserWorkItem(CheckContactHealthAsync, new object[] { dhtClient, contact });
+                        if ((contact != null) && contact.IsStale())
+                        {
+                            ThreadPool.QueueUserWorkItem(delegate (object state)
+                            {
+                                if (!dhtClient.Ping(contact))
+                                {
+                                    //remove stale node contact
+                                    kBucket.RemoveContact(contact);
+                                }
+                            });
+                        }
                     }
                 }
-            }
-            finally
-            {
-                _lock.ExitReadLock();
             }
         }
 
         public void RefreshBucket(DhtClient dhtClient)
         {
-            if (!_lock.TryEnterReadLock(LOCK_TIMEOUT))
-                throw new Exception("Could not enter read lock.");
+            List<KBucket> allLeafKBuckets = GetAllLeafKBuckets();
 
-            try
+            foreach (KBucket kBucket in allLeafKBuckets)
             {
-                if (_contacts == null)
+                if (kBucket._contacts != null)
                 {
-                    _leftBucket.RefreshBucket(dhtClient);
-                    _rightBucket.RefreshBucket(dhtClient);
+                    if ((DateTime.UtcNow - kBucket._lastChanged).TotalSeconds > BUCKET_STALE_TIMEOUT_SECONDS)
+                    {
+                        ThreadPool.QueueUserWorkItem(delegate (object state)
+                        {
+                            //get random node ID in the bucket range
+                            BinaryID randomNodeID = BinaryID.GenerateRandomID160();
+
+                            if (kBucket._bucketID != null)
+                                randomNodeID = (randomNodeID >> kBucket._bucketDepth) | kBucket._bucketID;
+
+                            //find closest contacts for current node id
+                            NodeContact[] initialContacts = kBucket.GetKClosestContacts(randomNodeID);
+
+                            if (initialContacts.Length > 0)
+                                dhtClient.QueryFindNode(initialContacts, randomNodeID);
+                        });
+                    }
                 }
-                else
-                {
-                    if ((DateTime.UtcNow - _lastChanged).TotalSeconds > BUCKET_STALE_TIMEOUT_SECONDS)
-                        ThreadPool.QueueUserWorkItem(RefreshBucketAsync, dhtClient);
-                }
-            }
-            finally
-            {
-                _lock.ExitReadLock();
             }
         }
-
-        #endregion
-
-        #region properties
-
-        public int TotalContacts
-        { get { return _totalContacts; } }
-
-        public int TotalReplacementContacts
-        { get { return _totalReplacementContacts; } }
 
         #endregion
     }

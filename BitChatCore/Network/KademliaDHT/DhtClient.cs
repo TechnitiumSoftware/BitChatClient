@@ -32,7 +32,7 @@ using TechnitiumLibrary.Net;
  * --------------------
  * 1. Routing table with K-Bucket: K=8, bucket refresh, contact health check, additional "replacement" list of upto K contacts.
  * 2. RPC: TCP based protocol with PING & FIND_NODE implemented. FIND_PEER & ANNOUNCE_PEER implemented similar to BitTorrent DHT implementation.
- * 3. Peer data eviction after 15mins of receiving announcement.
+ * 3. Peer data eviction after 15 mins of receiving announcement.
  * 4. Parallel lookup: FIND_NODE lookup with alpha=3 implemented.
  * 
  * FEATURES NOT IMPLEMENTED
@@ -53,8 +53,8 @@ namespace BitChatCore.Network.KademliaDHT
 
         public const int KADEMLIA_K = 8;
         const int QUERY_TIMEOUT = 5000;
-        const int BUFFER_MAX_SIZE = 1024;
-        const int HEALTH_CHECK_TIMER_INTERVAL = 5 * 60 * 1000; //5 min
+        const int HEALTH_CHECK_TIMER_INITIAL_INTERVAL = 30 * 1000; //30 sec
+        const int HEALTH_CHECK_TIMER_INTERVAL = 15 * 60 * 1000; //15 min
         const int KADEMLIA_ALPHA = 3;
 
         readonly IDhtClientManager _manager;
@@ -68,26 +68,21 @@ namespace BitChatCore.Network.KademliaDHT
 
         #region constructor
 
-        public DhtClient(int localDhtPort, IDhtClientManager manager)
+        public DhtClient(IPEndPoint localNodeEP, IDhtClientManager manager)
         {
             _manager = manager;
 
             //init routing table
-            _currentNode = new CurrentNode(new IPEndPoint(IPAddress.Loopback, localDhtPort));
+            _currentNode = new CurrentNode(localNodeEP);
             _routingTable = new KBucket(_currentNode);
 
             //start health timer
-            _healthTimer = new Timer(HealthTimerCallback, null, QUERY_TIMEOUT, Timeout.Infinite);
+            _healthTimer = new Timer(HealthTimerCallback, null, HEALTH_CHECK_TIMER_INITIAL_INTERVAL, Timeout.Infinite);
         }
 
         #endregion
 
         #region IDisposable
-
-        ~DhtClient()
-        {
-            Dispose(false);
-        }
 
         public void Dispose()
         {
@@ -101,11 +96,11 @@ namespace BitChatCore.Network.KademliaDHT
         {
             if (!_disposed)
             {
-                if (_routingTable != null)
-                    _routingTable.Dispose();
-
-                if (_healthTimer != null)
-                    _healthTimer.Dispose();
+                if (disposing)
+                {
+                    if (_healthTimer != null)
+                        _healthTimer.Dispose();
+                }
 
                 _disposed = true;
             }
@@ -145,13 +140,14 @@ namespace BitChatCore.Network.KademliaDHT
 
         private DhtRpcPacket ProcessQuery(DhtRpcPacket query, IPAddress remoteNodeIP)
         {
+            AddNode(new IPEndPoint(remoteNodeIP, query.SourceNodePort));
+
             switch (query.Type)
             {
                 case DhtRpcType.PING:
                     return DhtRpcPacket.CreatePingPacket(_currentNode);
 
                 case DhtRpcType.FIND_NODE:
-                    AddNode(new IPEndPoint(remoteNodeIP, query.SourceNodePort)); //add node if endpoint doesnt exists
                     return DhtRpcPacket.CreateFindNodePacketResponse(_currentNode, query.NetworkID, _routingTable.GetKClosestContacts(query.NetworkID));
 
                 case DhtRpcType.FIND_PEERS:
@@ -172,6 +168,9 @@ namespace BitChatCore.Network.KademliaDHT
 
         private DhtRpcPacket Query(DhtRpcPacket query, NodeContact contact)
         {
+            if (_currentNode.NodeEP.AddressFamily != contact.NodeEP.AddressFamily)
+                return null;
+
             Stream s = null;
 
             try
@@ -183,7 +182,6 @@ namespace BitChatCore.Network.KademliaDHT
                 s.ReadTimeout = QUERY_TIMEOUT;
 
                 //send query
-                s.WriteByte(0); //send DHT TCP switch
                 query.WriteTo(s);
                 s.Flush();
 
@@ -192,13 +190,17 @@ namespace BitChatCore.Network.KademliaDHT
 
                 //auto add contact or update last seen time
                 {
-                    KBucket closestBucket = _routingTable.FindClosestBucket(contact.NodeID);
-                    NodeContact bucketContact = closestBucket.FindContactInCurrentBucket(contact.NodeID);
+                    NodeContact bucketContact = _routingTable.FindContact(contact.NodeID);
 
                     if (bucketContact == null)
-                        closestBucket.AddContactInCurrentBucket(contact);
+                    {
+                        contact.UpdateLastSeenTime();
+                        _routingTable.AddContact(contact);
+                    }
                     else
+                    {
                         bucketContact.UpdateLastSeenTime();
+                    }
                 }
 
                 return response;
@@ -215,201 +217,147 @@ namespace BitChatCore.Network.KademliaDHT
             }
         }
 
-        private NodeContact[] PickClosestContacts(List<NodeContact> availableContacts, int count)
+        internal bool Ping(NodeContact contact)
         {
-            if (availableContacts.Count < count)
-                count = availableContacts.Count;
-
-            NodeContact[] closestContacts = KBucket.GetClosestContacts(availableContacts, _currentNode.NodeID, count);
-
-            //remove selected contacts from available contacts 
-            foreach (NodeContact closestContact in closestContacts)
-            {
-                availableContacts.Remove(closestContact);
-            }
-
-            return closestContacts;
-        }
-
-        private void QueryFindAsync(object state)
-        {
-            object[] parameters = state as object[];
-
-            object lockObj = parameters[0] as object;
-            DhtRpcType queryType = (DhtRpcType)parameters[1];
-            NodeContact contact = parameters[2] as NodeContact;
-            BinaryID nodeID = parameters[3] as BinaryID;
-            List<NodeContact> availableContacts = parameters[4] as List<NodeContact>;
-            List<NodeContact> respondedContacts = parameters[5] as List<NodeContact>;
-            List<NodeContact> failedContacts = parameters[6] as List<NodeContact>;
-            List<NodeContact> receivedContacts = parameters[7] as List<NodeContact>;
-
-            DhtRpcPacket response;
-
-            if (queryType == DhtRpcType.FIND_NODE)
-                response = Query(DhtRpcPacket.CreateFindNodePacketQuery(_currentNode, nodeID), contact);
-            else
-                response = Query(DhtRpcPacket.CreateFindPeersPacketQuery(_currentNode, nodeID), contact);
-
-            if ((response == null) || (response.Type != queryType))
-            {
-                //time out
-                //add contact to failed contacts
-                lock (failedContacts)
-                {
-                    if (!failedContacts.Contains(contact))
-                        failedContacts.Add(contact);
-                }
-
-                return;
-            }
-
-            //got reply!
-            switch (queryType)
-            {
-                case DhtRpcType.FIND_NODE:
-                    lock (receivedContacts)
-                    {
-                        lock (respondedContacts)
-                        {
-                            //add contact to responded contacts list
-                            if (!respondedContacts.Contains(contact))
-                                respondedContacts.Add(contact);
-
-                            lock (failedContacts)
-                            {
-                                //add received contacts to received contacts list
-                                foreach (NodeContact receivedContact in response.Contacts)
-                                {
-                                    if (!respondedContacts.Contains(receivedContact) && !failedContacts.Contains(receivedContact))
-                                        receivedContacts.Add(receivedContact);
-                                }
-                            }
-                        }
-
-                        //add received contacts to available contacts list
-                        lock (availableContacts)
-                        {
-                            foreach (NodeContact receivedContact in receivedContacts)
-                            {
-                                if (!availableContacts.Contains(receivedContact))
-                                    availableContacts.Add(receivedContact);
-                            }
-                        }
-                    }
-
-                    if (response.Contacts.Length > 0)
-                    {
-                        //pulse only if the contact has sent next level contacts list
-                        lock (lockObj)
-                        {
-                            Monitor.Pulse(lockObj);
-                        }
-                    }
-                    break;
-
-                case DhtRpcType.FIND_PEERS:
-                    if (response.Peers.Length > 0)
-                    {
-                        List<PeerEndPoint> receivedPeers = parameters[8] as List<PeerEndPoint>;
-
-                        lock (receivedPeers)
-                        {
-                            foreach (PeerEndPoint peer in response.Peers)
-                            {
-                                if (!receivedPeers.Contains(peer))
-                                    receivedPeers.Add(peer);
-                            }
-                        }
-
-                        lock (lockObj)
-                        {
-                            Monitor.Pulse(lockObj);
-                        }
-                    }
-                    break;
-            }
+            DhtRpcPacket response = Query(DhtRpcPacket.CreatePingPacket(_currentNode), contact);
+            return (response != null);
         }
 
         private object QueryFind(NodeContact[] initialContacts, BinaryID nodeID, DhtRpcType queryType)
         {
-            List<NodeContact> availableContacts = new List<NodeContact>(initialContacts);
+            if (initialContacts.Length < 1)
+                return null;
+
+            List<NodeContact> seenContacts = new List<NodeContact>(initialContacts);
+            List<NodeContact> learnedNotQueriedContacts = new List<NodeContact>(initialContacts);
             List<NodeContact> respondedContacts = new List<NodeContact>();
-            List<NodeContact> failedContacts = new List<NodeContact>();
-            NodeContact[] alphaContacts;
+            List<PeerEndPoint> receivedPeers = null;
             int alpha = KADEMLIA_ALPHA;
             bool finalRound = false;
+            bool checkTerminationCondition = false;
+
+            if (queryType == DhtRpcType.FIND_PEERS)
+                receivedPeers = new List<PeerEndPoint>();
+
+            NodeContact previousClosestSeenContact = KBucket.GetClosestContacts(seenContacts, nodeID, 1)[0];
 
             while (true)
             {
-                //pick alpha contacts to query from available contacts
-                lock (availableContacts)
+                NodeContact[] alphaContacts;
+
+                //pick alpha contacts to query from learned contacts
+                lock (learnedNotQueriedContacts)
                 {
-                    alphaContacts = PickClosestContacts(availableContacts, alpha);
+                    alphaContacts = KBucket.GetClosestContacts(learnedNotQueriedContacts, nodeID, alpha);
+
+                    //remove selected alpha contacts from learned not queries contacts list
+                    foreach (NodeContact alphaContact in alphaContacts)
+                        learnedNotQueriedContacts.Remove(alphaContact);
                 }
 
                 if (alphaContacts.Length < 1)
                 {
-                    //no contacts available to query further
-
-                    lock (respondedContacts)
-                    {
-                        if (respondedContacts.Count > KADEMLIA_K)
-                            return KBucket.GetClosestContacts(respondedContacts, nodeID, KADEMLIA_K);
-                        else if (respondedContacts.Count > 0)
-                            return respondedContacts.ToArray();
-                    }
-
-                    return null;
+                    checkTerminationCondition = true;
                 }
-
-                object lockObj = new object();
-                List<NodeContact> receivedContacts = new List<NodeContact>();
-                List<PeerEndPoint> receivedPeers = null;
-
-                if (queryType == DhtRpcType.FIND_PEERS)
-                    receivedPeers = new List<PeerEndPoint>();
-
-                lock (lockObj)
+                else
                 {
-                    //query each alpha contact async
-                    foreach (NodeContact alphaContact in alphaContacts)
-                    {
-                        ThreadPool.QueueUserWorkItem(QueryFindAsync, new object[] { lockObj, queryType, alphaContact, nodeID, availableContacts, respondedContacts, failedContacts, receivedContacts, receivedPeers });
-                    }
+                    object lockObj = new object();
 
-                    //wait for any of the contact to return new contacts
-                    if (Monitor.Wait(lockObj, QUERY_TIMEOUT))
+                    lock (lockObj)
                     {
-                        //got reply!
-
-                        if (queryType == DhtRpcType.FIND_PEERS)
+                        //query each alpha contact async
+                        foreach (NodeContact alphaContact in alphaContacts)
                         {
-                            lock (receivedPeers)
+                            Thread t = new Thread(delegate (object state)
                             {
-                                if (receivedPeers.Count > 0)
-                                    return receivedPeers.ToArray();
-                            }
+                                DhtRpcPacket response;
+
+                                if (queryType == DhtRpcType.FIND_NODE)
+                                    response = Query(DhtRpcPacket.CreateFindNodePacketQuery(_currentNode, nodeID), alphaContact);
+                                else
+                                    response = Query(DhtRpcPacket.CreateFindPeersPacketQuery(_currentNode, nodeID), alphaContact);
+
+                                if ((response == null) || (response.Type != queryType))
+                                {
+                                    //time out or error
+                                    //ignore contact by removing from seen contacts list
+                                    lock (seenContacts)
+                                    {
+                                        seenContacts.Remove(alphaContact);
+                                    }
+
+                                    return;
+                                }
+
+                                //got reply!
+                                if ((queryType == DhtRpcType.FIND_PEERS) && (response.Peers.Length > 0))
+                                {
+                                    lock (receivedPeers)
+                                    {
+                                        foreach (PeerEndPoint peer in response.Peers)
+                                        {
+                                            if (!receivedPeers.Contains(peer))
+                                                receivedPeers.Add(peer);
+                                        }
+                                    }
+                                }
+
+                                //add alpha contact to responded contacts list
+                                lock (respondedContacts)
+                                {
+                                    if (!respondedContacts.Contains(alphaContact))
+                                        respondedContacts.Add(alphaContact);
+                                }
+
+                                //add received contacts to learned contacts list
+                                lock (seenContacts)
+                                {
+                                    lock (learnedNotQueriedContacts)
+                                    {
+                                        foreach (NodeContact contact in response.Contacts)
+                                        {
+                                            if (!seenContacts.Contains(contact))
+                                            {
+                                                seenContacts.Add(contact);
+                                                learnedNotQueriedContacts.Add(contact);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                //no pulse for final round to wait for all k contacts to respond. this allows any failed node contact to be removed from seen contacts list during the wait.
+                                lock (lockObj)
+                                {
+                                    Monitor.Pulse(lockObj);
+                                }
+                            });
+
+                            t.IsBackground = true;
+                            t.Start();
                         }
 
-                        lock (receivedContacts)
+                        //wait for any of the node contact to return new contacts
+                        if (Monitor.Wait(lockObj, QUERY_TIMEOUT))
                         {
-                            if (receivedContacts.Count < 1)
-                            {
-                                //current round failed to return any new closer nodes
+                            //got reply or final round!
 
+                            NodeContact currentClosestSeenContact;
+
+                            lock (seenContacts)
+                            {
+                                currentClosestSeenContact = KBucket.GetClosestContacts(seenContacts, nodeID, 1)[0];
+                            }
+
+                            BinaryID previousDistance = nodeID ^ previousClosestSeenContact.NodeID;
+                            BinaryID currentDistance = nodeID ^ currentClosestSeenContact.NodeID;
+
+                            if (previousDistance <= currentDistance)
+                            {
+                                //current round failed to return a node contact any closer than the closest already seen
                                 if (finalRound)
                                 {
-                                    if (queryType == DhtRpcType.FIND_PEERS)
-                                        return null;
-
-                                    lock (respondedContacts)
-                                    {
-                                        if (respondedContacts.Count > KADEMLIA_K)
-                                            return KBucket.GetClosestContacts(respondedContacts, nodeID, KADEMLIA_K);
-                                        else
-                                            return respondedContacts.ToArray();
-                                    }
+                                    //final round over, check for termination condition
+                                    checkTerminationCondition = true;
                                 }
                                 else
                                 {
@@ -420,49 +368,60 @@ namespace BitChatCore.Network.KademliaDHT
                             }
                             else
                             {
+                                //current closest seen contact is closer than previous closest seen contact
+                                previousClosestSeenContact = currentClosestSeenContact;
                                 finalRound = false;
                                 alpha = KADEMLIA_ALPHA;
                             }
                         }
                     }
                 }
-            }
-        }
 
-        private void QueryAnnounceAsync(object state)
-        {
-            object[] parameters = state as object[];
-
-            NodeContact contact = parameters[0] as NodeContact;
-            BinaryID networkID = parameters[1] as BinaryID;
-            List<PeerEndPoint> peers = parameters[2] as List<PeerEndPoint>;
-            ushort servicePort = (ushort)parameters[3];
-
-            DhtRpcPacket response = Query(DhtRpcPacket.CreateAnnouncePeerPacketQuery(_currentNode, networkID, servicePort), contact);
-            if ((response != null) && (response.Type == DhtRpcType.ANNOUNCE_PEER) && (response.Peers.Length > 0))
-            {
-                lock (peers)
+                if (checkTerminationCondition)
                 {
-                    foreach (PeerEndPoint peer in response.Peers)
+                    checkTerminationCondition = false; //reset
+
+                    if (queryType == DhtRpcType.FIND_PEERS)
                     {
-                        if (!peers.Contains(peer))
-                            peers.Add(peer);
+                        //check only in final round to get most peers
+                        lock (receivedPeers)
+                        {
+                            if (receivedPeers.Count > 0)
+                                return receivedPeers.ToArray();
+
+                            return null;
+                        }
                     }
 
-                    //Monitor.Pulse(peers); //removed so that response from multiple nodes is collected till query times out
+                    //lookup terminates when k closest seen contacts have responded
+                    NodeContact[] kClosestSeenContacts;
+
+                    lock (seenContacts)
+                    {
+                        kClosestSeenContacts = KBucket.GetClosestContacts(seenContacts, nodeID, KADEMLIA_K);
+                    }
+
+                    lock (respondedContacts)
+                    {
+                        bool success = true;
+
+                        foreach (NodeContact contact in kClosestSeenContacts)
+                        {
+                            if (!respondedContacts.Contains(contact))
+                            {
+                                success = false;
+                                break;
+                            }
+                        }
+
+                        if (success)
+                            return kClosestSeenContacts;
+
+                        if (alphaContacts.Length < 1)
+                            return KBucket.GetClosestContacts(respondedContacts, nodeID, KADEMLIA_K);
+                    }
                 }
             }
-        }
-
-        internal bool Ping(NodeContact contact)
-        {
-            DhtRpcPacket response = Query(DhtRpcPacket.CreatePingPacket(_currentNode), contact);
-            return (response != null);
-        }
-
-        private void PingAsync(object state)
-        {
-            Query(DhtRpcPacket.CreatePingPacket(_currentNode), new NodeContact(state as IPEndPoint));
         }
 
         internal NodeContact[] QueryFindNode(NodeContact[] initialContacts, BinaryID nodeID)
@@ -489,7 +448,7 @@ namespace BitChatCore.Network.KademliaDHT
         {
             NodeContact[] contacts = QueryFindNode(initialContacts, networkID);
 
-            if (contacts == null)
+            if ((contacts == null) || (contacts.Length == 0))
                 return null;
 
             List<PeerEndPoint> peers = new List<PeerEndPoint>();
@@ -498,12 +457,32 @@ namespace BitChatCore.Network.KademliaDHT
             {
                 foreach (NodeContact contact in contacts)
                 {
-                    ThreadPool.QueueUserWorkItem(QueryAnnounceAsync, new object[] { contact, networkID, peers, servicePort });
+                    Thread t = new Thread(delegate (object state)
+                    {
+                        DhtRpcPacket response = Query(DhtRpcPacket.CreateAnnouncePeerPacketQuery(_currentNode, networkID, servicePort), contact);
+                        if ((response != null) && (response.Type == DhtRpcType.ANNOUNCE_PEER) && (response.Peers.Length > 0))
+                        {
+                            lock (peers)
+                            {
+                                foreach (PeerEndPoint peer in response.Peers)
+                                {
+                                    if (!peers.Contains(peer))
+                                        peers.Add(peer);
+                                }
+
+                                Monitor.Pulse(peers);
+                            }
+                        }
+                    });
+
+                    t.IsBackground = true;
+                    t.Start();
                 }
 
-                Monitor.Wait(peers, QUERY_TIMEOUT);
+                if (Monitor.Wait(peers, QUERY_TIMEOUT))
+                    return peers.ToArray();
 
-                return peers.ToArray();
+                return null;
             }
         }
 
@@ -513,10 +492,9 @@ namespace BitChatCore.Network.KademliaDHT
 
         public void UpdateLocalNodeEP(IPEndPoint localNodeEP)
         {
-            if ((localNodeEP != null) && !_currentNode.NodeEP.Equals(localNodeEP))
+            if ((localNodeEP != null) && (_currentNode.NodeEP.AddressFamily == localNodeEP.AddressFamily) && !_currentNode.NodeEP.Equals(localNodeEP))
             {
                 NodeContact[] existingContacts = _routingTable.GetAllContacts(true);
-                _routingTable.Dispose();
 
                 _currentNode = new CurrentNode(localNodeEP);
                 _routingTable = new KBucket(_currentNode);
@@ -527,6 +505,10 @@ namespace BitChatCore.Network.KademliaDHT
 
         public void AcceptConnection(Stream s, IPAddress remoteNodeIP)
         {
+            //set timeout
+            s.WriteTimeout = QUERY_TIMEOUT;
+            s.ReadTimeout = QUERY_TIMEOUT;
+
             while (true)
             {
                 DhtRpcPacket response = ProcessQuery(new DhtRpcPacket(s), remoteNodeIP);
@@ -541,21 +523,31 @@ namespace BitChatCore.Network.KademliaDHT
         public void AddNode(IEnumerable<NodeContact> contacts)
         {
             foreach (NodeContact contact in contacts)
-                AddNode(contact.NodeEP);
+                AddNode(contact);
         }
 
         public void AddNode(IEnumerable<IPEndPoint> nodeEPs)
         {
             foreach (IPEndPoint nodeEP in nodeEPs)
-                AddNode(nodeEP);
+                AddNode(new NodeContact(nodeEP));
         }
 
         public void AddNode(IPEndPoint nodeEP)
         {
-            if (!NetUtilities.IsPrivateIP(nodeEP.Address))
+            AddNode(new NodeContact(nodeEP));
+        }
+
+        public void AddNode(NodeContact contact)
+        {
+            if (!NetUtilities.IsPrivateIP(contact.NodeEP.Address) && (contact.NodeEP.AddressFamily == _currentNode.NodeEP.AddressFamily))
             {
-                if (!_routingTable.ContactExists(nodeEP))
-                    ThreadPool.QueueUserWorkItem(PingAsync, nodeEP);
+                if (_routingTable.AddContact(contact))
+                {
+                    ThreadPool.QueueUserWorkItem(delegate (object state)
+                    {
+                        Query(DhtRpcPacket.CreatePingPacket(_currentNode), contact);
+                    });
+                }
             }
         }
 
@@ -581,10 +573,10 @@ namespace BitChatCore.Network.KademliaDHT
 
         public int GetTotalNodes()
         {
-            return _routingTable.TotalContacts + _routingTable.TotalReplacementContacts;
+            return _routingTable.GetTotalContacts();
         }
 
-        public IPEndPoint[] GetAllNodes()
+        public IPEndPoint[] GetAllNodeEPs()
         {
             NodeContact[] contacts = _routingTable.GetAllContacts(true);
             IPEndPoint[] nodeEPs = new IPEndPoint[contacts.Length];
@@ -601,6 +593,9 @@ namespace BitChatCore.Network.KademliaDHT
 
         public BinaryID LocalNodeID
         { get { return _currentNode.NodeID; } }
+
+        public IPEndPoint LocalNodeEP
+        { get { return _currentNode.NodeEP; } }
 
         #endregion
 

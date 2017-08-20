@@ -26,7 +26,7 @@ using TechnitiumLibrary.Net;
 
 namespace BitChatCore.Network.KademliaDHT
 {
-    class NodeContact : IWriteStream
+    class NodeContact : IWriteStream, IComparable<NodeContact>
     {
         #region variables
 
@@ -39,7 +39,7 @@ namespace BitChatCore.Network.KademliaDHT
         readonly BinaryID _nodeID;
 
         protected bool _currentNode;
-        DateTime _lastSeen = DateTime.UtcNow;
+        DateTime _lastSeen;
         int _failRpcCount = 0;
 
         #endregion
@@ -66,7 +66,7 @@ namespace BitChatCore.Network.KademliaDHT
         {
             using (HMAC hmac = new HMACSHA1(NODE_ID_SALT))
             {
-                using (MemoryStream mS = new MemoryStream())
+                using (MemoryStream mS = new MemoryStream(20))
                 {
                     IPEndPointParser.WriteTo(nodeEP, mS);
                     mS.Position = 0;
@@ -117,6 +117,11 @@ namespace BitChatCore.Network.KademliaDHT
         public override int GetHashCode()
         {
             return _nodeID.GetHashCode();
+        }
+
+        public int CompareTo(NodeContact other)
+        {
+            return _lastSeen.CompareTo(other._lastSeen);
         }
 
         public override string ToString()
