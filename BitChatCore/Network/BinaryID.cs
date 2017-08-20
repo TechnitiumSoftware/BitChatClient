@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2017  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ using TechnitiumLibrary.IO;
 
 namespace BitChatCore.Network
 {
-    public class BinaryID : IWriteStream, IEquatable<BinaryID>
+    public class BinaryID : IWriteStream, IEquatable<BinaryID>, IComparable<BinaryID>
     {
         #region variables
 
@@ -130,6 +130,23 @@ namespace BitChatCore.Network
                 return 0;
             else
                 return BitConverter.ToInt32(_id, 0);
+        }
+
+        public int CompareTo(BinaryID other)
+        {
+            if (this._id.Length != other._id.Length)
+                throw new ArgumentException("Operand id length not equal.");
+
+            for (int i = 0; i < this._id.Length; i++)
+            {
+                if (this._id[i] > other._id[i])
+                    return 1;
+
+                if (this._id[i] < other._id[i])
+                    return -1;
+            }
+
+            return 0;
         }
 
         public override string ToString()
@@ -257,6 +274,50 @@ namespace BitChatCore.Network
             if (b1._id.Length != b2._id.Length)
                 throw new ArgumentException("Operand id length not equal.");
 
+            bool eq = true;
+
+            for (int i = 0; i < b1._id.Length; i++)
+            {
+                if (b1._id[i] > b2._id[i])
+                    return false;
+
+                if (b1._id[i] != b2._id[i])
+                    eq = false;
+            }
+
+            if (eq)
+                return false;
+
+            return true;
+        }
+
+        public static bool operator >(BinaryID b1, BinaryID b2)
+        {
+            if (b1._id.Length != b2._id.Length)
+                throw new ArgumentException("Operand id length not equal.");
+
+            bool eq = true;
+
+            for (int i = 0; i < b1._id.Length; i++)
+            {
+                if (b1._id[i] < b2._id[i])
+                    return false;
+
+                if (b1._id[i] != b2._id[i])
+                    eq = false;
+            }
+
+            if (eq)
+                return false;
+
+            return true;
+        }
+
+        public static bool operator <=(BinaryID b1, BinaryID b2)
+        {
+            if (b1._id.Length != b2._id.Length)
+                throw new ArgumentException("Operand id length not equal.");
+
             for (int i = 0; i < b1._id.Length; i++)
             {
                 if (b1._id[i] > b2._id[i])
@@ -266,7 +327,7 @@ namespace BitChatCore.Network
             return true;
         }
 
-        public static bool operator >(BinaryID b1, BinaryID b2)
+        public static bool operator >=(BinaryID b1, BinaryID b2)
         {
             if (b1._id.Length != b2._id.Length)
                 throw new ArgumentException("Operand id length not equal.");
