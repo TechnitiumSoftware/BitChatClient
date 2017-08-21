@@ -199,6 +199,48 @@ namespace BitChatCore.Network.Connections
             _ipv6DhtNode = new DhtNode(new IPEndPoint(IPAddress.IPv6Any, _localPort), this);
             _ipv6DhtNode.AddNode(profile.BootstrapDhtNodes);
 
+            //add bootstrap node via DNS
+            ThreadPool.QueueUserWorkItem(delegate (object state)
+            {
+                try
+                {
+                    DnsClient dnsClient = new DnsClient();
+                    dnsClient.Proxy = _profile.Proxy;
+
+                    DnsDatagram response = dnsClient.Resolve(DHT_DNS_BOOTSTRAP_DOMAIN, DnsResourceRecordType.TXT);
+
+                    foreach (DnsResourceRecord answer in response.Answer)
+                    {
+                        if (answer.Name.Equals(DHT_DNS_BOOTSTRAP_DOMAIN) && (answer.Type == DnsResourceRecordType.TXT))
+                        {
+                            DnsTXTRecord txtRecord = (DnsTXTRecord)answer.RDATA;
+
+                            try
+                            {
+                                string[] values = txtRecord.TXTData.Split('|');
+
+                                IPEndPoint nodeEP = new IPEndPoint(IPAddress.Parse(values[0]), int.Parse(values[1]));
+
+                                switch (nodeEP.AddressFamily)
+                                {
+                                    case AddressFamily.InterNetwork:
+                                        _ipv4DhtNode.AddNode(nodeEP);
+                                        break;
+
+                                    case AddressFamily.InterNetworkV6:
+                                        _ipv6DhtNode.AddNode(nodeEP);
+                                        break;
+                                }
+                            }
+                            catch
+                            { }
+                        }
+                    }
+                }
+                catch
+                { }
+            });
+
             //setup dht bootstrap tracker
             _dhtBootstrapTracker = new TrackerManager(_dhtBootstrapTrackerNetworkID, _localPort, null, null, DHT_SEED_TRACKER_UPDATE_INTERVAL);
             _dhtBootstrapTracker.Proxy = _profile.Proxy;
@@ -313,6 +355,9 @@ namespace BitChatCore.Network.Connections
                     IAsyncResult result = socket.BeginConnect(remoteNodeEP, null, null);
                     if (!result.AsyncWaitHandle.WaitOne(SOCKET_CONNECTION_TIMEOUT))
                         throw new SocketException((int)SocketError.TimedOut);
+
+                    if (!socket.Connected)
+                        throw new SocketException((int)SocketError.ConnectionRefused);
                 }
 
                 socket.NoDelay = true;
@@ -1087,39 +1132,10 @@ namespace BitChatCore.Network.Connections
                         _upnpDeviceStatus = newUPnPStatus;
 
                         //do dht bootstrap
-                        int dhtTotalNodes = _ipv4DhtNode.GetTotalNodes();
-
-                        if (dhtTotalNodes < DhtNode.KADEMLIA_K)
-                        {
-                            //add bootstrap node via DNS
-                            try
-                            {
-                                DnsClient dnsClient = new DnsClient();
-                                DnsDatagram response = dnsClient.Resolve(DHT_DNS_BOOTSTRAP_DOMAIN, DnsResourceRecordType.TXT);
-
-                                foreach (DnsResourceRecord answer in response.Answer)
-                                {
-                                    if (answer.Name.Equals(DHT_DNS_BOOTSTRAP_DOMAIN) && (answer.Type == DnsResourceRecordType.TXT))
-                                    {
-                                        DnsTXTRecord txtRecord = (DnsTXTRecord)answer.RDATA;
-
-                                        try
-                                        {
-                                            string[] values = txtRecord.TXTData.Split('|');
-                                            _ipv4DhtNode.AddNode(new IPEndPoint(IPAddress.Parse(values[0]), int.Parse(values[1])));
-                                        }
-                                        catch
-                                        { }
-                                    }
-                                }
-                            }
-                            catch
-                            { }
-                        }
-
                         if (this.IPv4ExternalEndPoint == null)
                         {
                             //if no incoming connection possible
+                            int dhtTotalNodes = _ipv4DhtNode.GetTotalNodes();
 
                             if (dhtTotalNodes < DhtNode.KADEMLIA_K)
                             {
@@ -1240,39 +1256,10 @@ namespace BitChatCore.Network.Connections
                         _ipv6InternetStatus = newInternetStatus;
 
                         //do dht bootstrap
-                        int dhtTotalNodes = _ipv6DhtNode.GetTotalNodes();
-
-                        if (dhtTotalNodes < DhtNode.KADEMLIA_K)
-                        {
-                            //add bootstrap node via DNS
-                            try
-                            {
-                                DnsClient dnsClient = new DnsClient();
-                                DnsDatagram response = dnsClient.Resolve(DHT_DNS_BOOTSTRAP_DOMAIN, DnsResourceRecordType.TXT);
-
-                                foreach (DnsResourceRecord answer in response.Answer)
-                                {
-                                    if (answer.Name.Equals(DHT_DNS_BOOTSTRAP_DOMAIN) && (answer.Type == DnsResourceRecordType.TXT))
-                                    {
-                                        DnsTXTRecord txtRecord = (DnsTXTRecord)answer.RDATA;
-
-                                        try
-                                        {
-                                            string[] values = txtRecord.TXTData.Split('|');
-                                            _ipv6DhtNode.AddNode(new IPEndPoint(IPAddress.Parse(values[0]), int.Parse(values[1])));
-                                        }
-                                        catch
-                                        { }
-                                    }
-                                }
-                            }
-                            catch
-                            { }
-                        }
-
                         if (this.IPv6ExternalEndPoint == null)
                         {
                             //if no incoming connection possible
+                            int dhtTotalNodes = _ipv6DhtNode.GetTotalNodes();
 
                             if (dhtTotalNodes < DhtNode.KADEMLIA_K)
                             {
