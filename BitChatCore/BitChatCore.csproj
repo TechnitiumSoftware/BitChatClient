@@ -80,7 +80,7 @@
     <Compile Include="Network\LocalPeerDiscovery.cs" />
     <Compile Include="Network\Connections\ConnectionManager.cs" />
     <Compile Include="Network\BitChatNetwork.cs" />
-    <Compile Include="BitChatClient.cs" />
+    <Compile Include="BitChatNode.cs" />
     <Compile Include="Network\Connections\Connection.cs" />
     <Compile Include="Network\TcpRelayClient.cs" />
     <Compile Include="Network\TrackerManager.cs" />

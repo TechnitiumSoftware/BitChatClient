@@ -30,10 +30,10 @@ using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore
 {
-    public delegate void InvalidCertificateDetected(BitChatClient client, InvalidCertificateException e);
-    public delegate void BitChatInvitation(BitChatClient client, BitChat chat);
+    public delegate void InvalidCertificateDetected(BitChatNode client, InvalidCertificateException e);
+    public delegate void BitChatInvitation(BitChatNode client, BitChat chat);
 
-    public class BitChatClient : IDisposable
+    public class BitChatNode : IDisposable
     {
         #region events
 
@@ -66,13 +66,13 @@ namespace BitChatCore
 
         #region constructor
 
-        static BitChatClient()
+        static BitChatNode()
         {
             if (ServicePointManager.DefaultConnectionLimit < 100)
                 ServicePointManager.DefaultConnectionLimit = 100;
         }
 
-        public BitChatClient(BitChatProfile profile, Certificate[] trustedRootCertificates, SecureChannelCryptoOptionFlags supportedCryptoOptions)
+        public BitChatNode(BitChatProfile profile, Certificate[] trustedRootCertificates, SecureChannelCryptoOptionFlags supportedCryptoOptions)
         {
             _profile = profile;
             _trustedRootCertificates = trustedRootCertificates;
@@ -88,7 +88,7 @@ namespace BitChatCore
 
         #region IDisposable
 
-        ~BitChatClient()
+        ~BitChatNode()
         {
             Dispose(false);
         }
