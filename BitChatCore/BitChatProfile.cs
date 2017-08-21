@@ -175,6 +175,8 @@ namespace BitChatCore
                 try
                 {
                     DnsClient dns = new DnsClient();
+                    dns.Proxy = _proxy;
+
                     dns.ResolveMX(_localCertStore.Certificate.IssuedTo.EmailAddress);
                 }
                 catch (NameErrorDnsClientException)
@@ -183,9 +185,18 @@ namespace BitChatCore
                 }
                 catch
                 {
-                    DnsDatagram response = DnsClient.ResolveViaRootNameServers(_localCertStore.Certificate.IssuedTo.EmailAddress.Host, DnsResourceRecordType.MX);
-                    if (response.Header.RCODE == DnsResponseCode.NameError)
-                        throw new NameErrorDnsClientException("The domain of your email address '" + _localCertStore.Certificate.IssuedTo.EmailAddress.Host + "' does not exists. Please check if you have entered correct email address.");
+                    try
+                    {
+                        DnsDatagram response = DnsClient.ResolveViaRootNameServers(_localCertStore.Certificate.IssuedTo.EmailAddress.Host, DnsResourceRecordType.MX, _proxy);
+                        if (response.Header.RCODE == DnsResponseCode.NameError)
+                            throw new NameErrorDnsClientException("The domain of your email address '" + _localCertStore.Certificate.IssuedTo.EmailAddress.Host + "' does not exists. Please check if you have entered correct email address.");
+                    }
+                    catch (NameErrorDnsClientException)
+                    {
+                        throw;
+                    }
+                    catch
+                    { }
                 }
             }
 
