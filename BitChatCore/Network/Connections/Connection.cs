@@ -35,12 +35,13 @@ using System.Text;
 using System.Threading;
 using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Net;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.Network.Connections
 {
-    delegate void BitChatNetworkInvitation(BinaryID hashedPeerEmailAddress, IPEndPoint peerEP, string message);
-    delegate void BitChatNetworkChannelRequest(Connection connection, BinaryID channelName, Stream channel);
-    delegate void TcpRelayPeersAvailable(Connection viaConnection, BinaryID channelName, List<IPEndPoint> peerEPs);
+    delegate void BitChatNetworkInvitation(BinaryNumber hashedPeerEmailAddress, IPEndPoint peerEP, string message);
+    delegate void BitChatNetworkChannelRequest(Connection connection, BinaryNumber channelName, Stream channel);
+    delegate void TcpRelayPeersAvailable(Connection viaConnection, BinaryNumber channelName, List<IPEndPoint> peerEPs);
 
     enum SignalType : byte
     {
@@ -79,19 +80,19 @@ namespace BitChatCore.Network.Connections
         const int CONNECTION_FRAME_BUFFER_SIZE = 8 * 1024;
 
         readonly Stream _baseStream;
-        readonly BinaryID _remotePeerID;
+        readonly BinaryNumber _remotePeerID;
         readonly IPEndPoint _remotePeerEP;
         readonly ConnectionManager _connectionManager;
 
-        readonly Dictionary<BinaryID, ChannelStream> _channels = new Dictionary<BinaryID, ChannelStream>();
+        readonly Dictionary<BinaryNumber, ChannelStream> _channels = new Dictionary<BinaryNumber, ChannelStream>();
 
         Thread _readThread;
 
-        readonly Dictionary<BinaryID, object> _peerStatusLockList = new Dictionary<BinaryID, object>();
+        readonly Dictionary<BinaryNumber, object> _peerStatusLockList = new Dictionary<BinaryNumber, object>();
         readonly List<Joint> _proxyTunnelJointList = new List<Joint>();
 
-        readonly Dictionary<BinaryID, object> _tcpRelayRequestLockList = new Dictionary<BinaryID, object>();
-        readonly Dictionary<BinaryID, TcpRelayService> _tcpRelays = new Dictionary<BinaryID, TcpRelayService>();
+        readonly Dictionary<BinaryNumber, object> _tcpRelayRequestLockList = new Dictionary<BinaryNumber, object>();
+        readonly Dictionary<BinaryNumber, TcpRelayService> _tcpRelays = new Dictionary<BinaryNumber, TcpRelayService>();
 
         int _channelWriteTimeout = 30000;
 
@@ -99,7 +100,7 @@ namespace BitChatCore.Network.Connections
 
         #region constructor
 
-        public Connection(Stream baseStream, BinaryID remotePeerID, IPEndPoint remotePeerEP, ConnectionManager connectionManager)
+        public Connection(Stream baseStream, BinaryNumber remotePeerID, IPEndPoint remotePeerEP, ConnectionManager connectionManager)
         {
             _baseStream = baseStream;
             _remotePeerID = remotePeerID;
@@ -135,7 +136,7 @@ namespace BitChatCore.Network.Connections
 
                     lock (_channels)
                     {
-                        foreach (KeyValuePair<BinaryID, ChannelStream> channel in _channels)
+                        foreach (KeyValuePair<BinaryNumber, ChannelStream> channel in _channels)
                             streamList.Add(channel.Value);
                     }
 
@@ -184,7 +185,7 @@ namespace BitChatCore.Network.Connections
 
         #region private
 
-        private void WriteFrame(SignalType signalType, BinaryID channelName, byte[] buffer, int offset, int count)
+        private void WriteFrame(SignalType signalType, BinaryNumber channelName, byte[] buffer, int offset, int count)
         {
             int frameCount = CONNECTION_FRAME_BUFFER_SIZE;
 
@@ -196,7 +197,7 @@ namespace BitChatCore.Network.Connections
                 lock (_baseStream)
                 {
                     _baseStream.WriteByte((byte)signalType); //write frame signal
-                    _baseStream.Write(channelName.ID, 0, 20); //write channel name
+                    _baseStream.Write(channelName.Number, 0, 20); //write channel name
                     _baseStream.Write(BitConverter.GetBytes(Convert.ToUInt16(frameCount)), 0, 2); //write data length
 
                     if (frameCount > 0)
@@ -218,7 +219,7 @@ namespace BitChatCore.Network.Connections
             {
                 //frame parameters
                 int signalType;
-                BinaryID channelName = new BinaryID(new byte[20]);
+                BinaryNumber channelName = new BinaryNumber(new byte[20]);
                 ushort dataLength;
                 byte[] dataLengthBuffer = new byte[2];
 
@@ -232,7 +233,7 @@ namespace BitChatCore.Network.Connections
                         return; //End of stream
 
                     //read channel name
-                    OffsetStream.StreamRead(_baseStream, channelName.ID, 0, 20);
+                    OffsetStream.StreamRead(_baseStream, channelName.Number, 0, 20);
 
                     //read data length
                     OffsetStream.StreamRead(_baseStream, dataLengthBuffer, 0, 2);
@@ -469,11 +470,11 @@ namespace BitChatCore.Network.Connections
                         case SignalType.StartTcpRelay:
                             #region StartTcpRelay
                             {
-                                BinaryID[] networkIDs;
+                                BinaryNumber[] networkIDs;
                                 Uri[] trackerURIs;
 
                                 //read network id list
-                                networkIDs = new BinaryID[dataStream.ReadByte()];
+                                networkIDs = new BinaryNumber[dataStream.ReadByte()];
                                 byte[] XORnetworkID = new byte[20];
 
                                 for (int i = 0; i < networkIDs.Length; i++)
@@ -484,10 +485,10 @@ namespace BitChatCore.Network.Connections
 
                                     for (int j = 0; j < 20; j++)
                                     {
-                                        networkID[j] = (byte)(channelName.ID[j] ^ XORnetworkID[j]);
+                                        networkID[j] = (byte)(channelName.Number[j] ^ XORnetworkID[j]);
                                     }
 
-                                    networkIDs[i] = new BinaryID(networkID);
+                                    networkIDs[i] = new BinaryNumber(networkID);
                                 }
 
                                 //read tracker uri list
@@ -504,7 +505,7 @@ namespace BitChatCore.Network.Connections
 
                                 lock (_tcpRelays)
                                 {
-                                    foreach (BinaryID networkID in networkIDs)
+                                    foreach (BinaryNumber networkID in networkIDs)
                                     {
                                         if (!_tcpRelays.ContainsKey(networkID))
                                         {
@@ -522,10 +523,10 @@ namespace BitChatCore.Network.Connections
                         case SignalType.StopTcpRelay:
                             #region StopTcpRelay
                             {
-                                BinaryID[] networkIDs;
+                                BinaryNumber[] networkIDs;
 
                                 //read network id list
-                                networkIDs = new BinaryID[dataStream.ReadByte()];
+                                networkIDs = new BinaryNumber[dataStream.ReadByte()];
                                 byte[] XORnetworkID = new byte[20];
 
                                 for (int i = 0; i < networkIDs.Length; i++)
@@ -536,15 +537,15 @@ namespace BitChatCore.Network.Connections
 
                                     for (int j = 0; j < 20; j++)
                                     {
-                                        networkID[j] = (byte)(channelName.ID[j] ^ XORnetworkID[j]);
+                                        networkID[j] = (byte)(channelName.Number[j] ^ XORnetworkID[j]);
                                     }
 
-                                    networkIDs[i] = new BinaryID(networkID);
+                                    networkIDs[i] = new BinaryNumber(networkID);
                                 }
 
                                 lock (_tcpRelays)
                                 {
-                                    foreach (BinaryID networkID in networkIDs)
+                                    foreach (BinaryNumber networkID in networkIDs)
                                     {
                                         if (_tcpRelays.ContainsKey(networkID))
                                         {
@@ -638,7 +639,7 @@ namespace BitChatCore.Network.Connections
             }
         }
 
-        private BinaryID ConvertEpToChannelName(IPEndPoint ep)
+        private BinaryNumber ConvertEpToChannelName(IPEndPoint ep)
         {
             byte[] channelName = new byte[20];
 
@@ -662,28 +663,28 @@ namespace BitChatCore.Network.Connections
             Buffer.BlockCopy(address, 0, channelName, 1, address.Length);
             Buffer.BlockCopy(port, 0, channelName, 1 + address.Length, 2);
 
-            return new BinaryID(channelName);
+            return new BinaryNumber(channelName);
         }
 
-        private IPEndPoint ConvertChannelNameToEp(BinaryID channelName)
+        private IPEndPoint ConvertChannelNameToEp(BinaryNumber channelName)
         {
             byte[] address;
             byte[] port;
 
-            switch (channelName.ID[0])
+            switch (channelName.Number[0])
             {
                 case 0:
                     address = new byte[4];
                     port = new byte[2];
-                    Buffer.BlockCopy(channelName.ID, 1, address, 0, 4);
-                    Buffer.BlockCopy(channelName.ID, 1 + 4, port, 0, 2);
+                    Buffer.BlockCopy(channelName.Number, 1, address, 0, 4);
+                    Buffer.BlockCopy(channelName.Number, 1 + 4, port, 0, 2);
                     break;
 
                 case 1:
                     address = new byte[16];
                     port = new byte[2];
-                    Buffer.BlockCopy(channelName.ID, 1, address, 0, 16);
-                    Buffer.BlockCopy(channelName.ID, 1 + 16, port, 0, 2);
+                    Buffer.BlockCopy(channelName.Number, 1, address, 0, 16);
+                    Buffer.BlockCopy(channelName.Number, 1 + 16, port, 0, 2);
                     break;
 
                 default:
@@ -695,7 +696,7 @@ namespace BitChatCore.Network.Connections
 
         private ChannelStream RequestProxyConnection(IPEndPoint forPeerEP)
         {
-            BinaryID channelName = ConvertEpToChannelName(forPeerEP);
+            BinaryNumber channelName = ConvertEpToChannelName(forPeerEP);
             ChannelStream channel;
 
             lock (_channels)
@@ -717,14 +718,14 @@ namespace BitChatCore.Network.Connections
 
         #region static
 
-        public static BinaryID GetChannelName(BinaryID localPeerID, BinaryID remotePeerID, BinaryID networkID)
+        public static BinaryNumber GetChannelName(BinaryNumber localPeerID, BinaryNumber remotePeerID, BinaryNumber networkID)
         {
             // this is done to avoid disclosing networkID to passive network sniffing
             // channelName = hmac( localPeerID XOR remotePeerID, networkID)
 
-            using (HMACSHA1 hmacSHA1 = new HMACSHA1(networkID.ID))
+            using (HMACSHA1 hmacSHA1 = new HMACSHA1(networkID.Number))
             {
-                return new BinaryID(hmacSHA1.ComputeHash((localPeerID ^ remotePeerID).ID));
+                return new BinaryNumber(hmacSHA1.ComputeHash((localPeerID ^ remotePeerID).Number));
             }
         }
 
@@ -747,7 +748,7 @@ namespace BitChatCore.Network.Connections
             }
         }
 
-        public Stream RequestBitChatNetworkChannel(BinaryID channelName)
+        public Stream RequestBitChatNetworkChannel(BinaryNumber channelName)
         {
             ChannelStream channel;
 
@@ -766,7 +767,7 @@ namespace BitChatCore.Network.Connections
             return channel;
         }
 
-        public bool BitChatNetworkChannelExists(BinaryID channelName)
+        public bool BitChatNetworkChannelExists(BinaryNumber channelName)
         {
             lock (_channels)
             {
@@ -776,7 +777,7 @@ namespace BitChatCore.Network.Connections
 
         public bool RequestPeerStatus(IPEndPoint remotePeerEP)
         {
-            BinaryID channelName = ConvertEpToChannelName(remotePeerEP);
+            BinaryNumber channelName = ConvertEpToChannelName(remotePeerEP);
             object lockObject = new object();
 
             lock (_peerStatusLockList)
@@ -804,7 +805,7 @@ namespace BitChatCore.Network.Connections
 
         public Stream RequestProxyTunnel(IPEndPoint remotePeerEP)
         {
-            BinaryID channelName = ConvertEpToChannelName(remotePeerEP);
+            BinaryNumber channelName = ConvertEpToChannelName(remotePeerEP);
             ChannelStream channel;
 
             lock (_channels)
@@ -822,9 +823,9 @@ namespace BitChatCore.Network.Connections
             return channel;
         }
 
-        public bool RequestStartTcpRelay(BinaryID[] networkIDs, Uri[] trackerURIs, int timeout)
+        public bool RequestStartTcpRelay(BinaryNumber[] networkIDs, Uri[] trackerURIs, int timeout)
         {
-            BinaryID channelName = BinaryID.GenerateRandomID160();
+            BinaryNumber channelName = BinaryNumber.GenerateRandomNumber160();
             object lockObject = new object();
 
             lock (_tcpRelayRequestLockList)
@@ -839,14 +840,14 @@ namespace BitChatCore.Network.Connections
                     using (MemoryStream mS = new MemoryStream(1024))
                     {
                         byte[] XORnetworkID = new byte[20];
-                        byte[] randomChannelID = channelName.ID;
+                        byte[] randomChannelID = channelName.Number;
 
                         //write networkid list
                         mS.WriteByte(Convert.ToByte(networkIDs.Length));
 
-                        foreach (BinaryID networkID in networkIDs)
+                        foreach (BinaryNumber networkID in networkIDs)
                         {
-                            byte[] network = networkID.ID;
+                            byte[] network = networkID.Number;
 
                             for (int i = 0; i < 20; i++)
                             {
@@ -883,9 +884,9 @@ namespace BitChatCore.Network.Connections
             }
         }
 
-        public bool RequestStopTcpRelay(BinaryID[] networkIDs, int timeout)
+        public bool RequestStopTcpRelay(BinaryNumber[] networkIDs, int timeout)
         {
-            BinaryID channelName = BinaryID.GenerateRandomID160();
+            BinaryNumber channelName = BinaryNumber.GenerateRandomNumber160();
             object lockObject = new object();
 
             lock (_tcpRelayRequestLockList)
@@ -900,14 +901,14 @@ namespace BitChatCore.Network.Connections
                     using (MemoryStream mS = new MemoryStream(1024))
                     {
                         byte[] XORnetworkID = new byte[20];
-                        byte[] randomChannelID = channelName.ID;
+                        byte[] randomChannelID = channelName.Number;
 
                         //write networkid list
                         mS.WriteByte(Convert.ToByte(networkIDs.Length));
 
-                        foreach (BinaryID networkID in networkIDs)
+                        foreach (BinaryNumber networkID in networkIDs)
                         {
-                            byte[] network = networkID.ID;
+                            byte[] network = networkID.Number;
 
                             for (int i = 0; i < 20; i++)
                             {
@@ -936,12 +937,12 @@ namespace BitChatCore.Network.Connections
 
         public void SendNOOP()
         {
-            WriteFrame(SignalType.NOOP, BinaryID.GenerateRandomID160(), null, 0, 0);
+            WriteFrame(SignalType.NOOP, BinaryNumber.GenerateRandomNumber160(), null, 0, 0);
         }
 
         public void SendBitChatNetworkInvitation(string message)
         {
-            BinaryID hashedEmailAddress = BitChatNetwork.GetHashedEmailAddress(_connectionManager.Profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress);
+            BinaryNumber hashedEmailAddress = BitChatNetwork.GetHashedEmailAddress(_connectionManager.Profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress);
             byte[] buffer = Encoding.UTF8.GetBytes(message);
 
             //send invitation signal with message
@@ -952,10 +953,10 @@ namespace BitChatCore.Network.Connections
 
         #region properties
 
-        public BinaryID LocalPeerID
+        public BinaryNumber LocalPeerID
         { get { return _connectionManager.LocalPeerID; } }
 
-        public BinaryID RemotePeerID
+        public BinaryNumber RemotePeerID
         { get { return _remotePeerID; } }
 
         public IPEndPoint RemotePeerEP
@@ -980,7 +981,7 @@ namespace BitChatCore.Network.Connections
             const int CHANNEL_WRITE_TIMEOUT = 30000; //dummy timeout for write since base channel write timeout will be used
 
             readonly Connection _connection;
-            readonly BinaryID _channelName;
+            readonly BinaryNumber _channelName;
 
             readonly byte[] _readBuffer = new byte[CONNECTION_FRAME_BUFFER_SIZE];
             int _readBufferOffset;
@@ -995,7 +996,7 @@ namespace BitChatCore.Network.Connections
 
             #region constructor
 
-            public ChannelStream(Connection connection, BinaryID channelName)
+            public ChannelStream(Connection connection, BinaryNumber channelName)
             {
                 _connection = connection;
                 _channelName = channelName;
@@ -1199,7 +1200,7 @@ namespace BitChatCore.Network.Connections
 
             #region properties
 
-            public BinaryID ChannelName
+            public BinaryNumber ChannelName
             { get { return _channelName; } }
 
             #endregion

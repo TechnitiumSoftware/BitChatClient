@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using System;
 using System.IO;
 using TechnitiumLibrary.IO;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.Network.KademliaDHT
 {
@@ -38,7 +39,7 @@ namespace BitChatCore.Network.KademliaDHT
         readonly ushort _sourceNodePort;
         readonly DhtRpcType _type;
 
-        readonly BinaryID _networkID;
+        readonly BinaryNumber _networkID;
         readonly NodeContact[] _contacts;
         readonly PeerEndPoint[] _peers;
         readonly ushort _servicePort;
@@ -72,7 +73,7 @@ namespace BitChatCore.Network.KademliaDHT
                         case DhtRpcType.FIND_NODE:
                             {
                                 OffsetStream.StreamRead(s, buffer, 0, 20);
-                                _networkID = BinaryID.Clone(buffer, 0, 20);
+                                _networkID = BinaryNumber.Clone(buffer, 0, 20);
 
                                 int count = s.ReadByte();
                                 _contacts = new NodeContact[count];
@@ -85,7 +86,7 @@ namespace BitChatCore.Network.KademliaDHT
                         case DhtRpcType.FIND_PEERS:
                             {
                                 OffsetStream.StreamRead(s, buffer, 0, 20);
-                                _networkID = BinaryID.Clone(buffer, 0, 20);
+                                _networkID = BinaryNumber.Clone(buffer, 0, 20);
 
                                 int count = s.ReadByte();
                                 _contacts = new NodeContact[count];
@@ -104,7 +105,7 @@ namespace BitChatCore.Network.KademliaDHT
                         case DhtRpcType.ANNOUNCE_PEER:
                             {
                                 OffsetStream.StreamRead(s, buffer, 0, 20);
-                                _networkID = BinaryID.Clone(buffer, 0, 20);
+                                _networkID = BinaryNumber.Clone(buffer, 0, 20);
 
                                 OffsetStream.StreamRead(s, buffer, 0, 2);
                                 _servicePort = BitConverter.ToUInt16(buffer, 0);
@@ -128,7 +129,7 @@ namespace BitChatCore.Network.KademliaDHT
             }
         }
 
-        private DhtRpcPacket(ushort sourceNodePort, DhtRpcType type, BinaryID networkID, NodeContact[] contacts, PeerEndPoint[] peers, ushort servicePort)
+        private DhtRpcPacket(ushort sourceNodePort, DhtRpcType type, BinaryNumber networkID, NodeContact[] contacts, PeerEndPoint[] peers, ushort servicePort)
         {
             _sourceNodePort = sourceNodePort;
             _type = type;
@@ -148,32 +149,32 @@ namespace BitChatCore.Network.KademliaDHT
             return new DhtRpcPacket(Convert.ToUInt16(sourceNode.NodeEP.Port), DhtRpcType.PING, null, null, null, 0);
         }
 
-        public static DhtRpcPacket CreateFindNodePacketQuery(NodeContact sourceNode, BinaryID networkID)
+        public static DhtRpcPacket CreateFindNodePacketQuery(NodeContact sourceNode, BinaryNumber networkID)
         {
             return new DhtRpcPacket(Convert.ToUInt16(sourceNode.NodeEP.Port), DhtRpcType.FIND_NODE, networkID, null, null, 0);
         }
 
-        public static DhtRpcPacket CreateFindNodePacketResponse(NodeContact sourceNode, BinaryID networkID, NodeContact[] contacts)
+        public static DhtRpcPacket CreateFindNodePacketResponse(NodeContact sourceNode, BinaryNumber networkID, NodeContact[] contacts)
         {
             return new DhtRpcPacket(Convert.ToUInt16(sourceNode.NodeEP.Port), DhtRpcType.FIND_NODE, networkID, contacts, null, 0);
         }
 
-        public static DhtRpcPacket CreateFindPeersPacketQuery(NodeContact sourceNode, BinaryID networkID)
+        public static DhtRpcPacket CreateFindPeersPacketQuery(NodeContact sourceNode, BinaryNumber networkID)
         {
             return new DhtRpcPacket(Convert.ToUInt16(sourceNode.NodeEP.Port), DhtRpcType.FIND_PEERS, networkID, null, null, 0);
         }
 
-        public static DhtRpcPacket CreateFindPeersPacketResponse(NodeContact sourceNode, BinaryID networkID, NodeContact[] contacts, PeerEndPoint[] peers)
+        public static DhtRpcPacket CreateFindPeersPacketResponse(NodeContact sourceNode, BinaryNumber networkID, NodeContact[] contacts, PeerEndPoint[] peers)
         {
             return new DhtRpcPacket(Convert.ToUInt16(sourceNode.NodeEP.Port), DhtRpcType.FIND_PEERS, networkID, contacts, peers, 0);
         }
 
-        public static DhtRpcPacket CreateAnnouncePeerPacketQuery(NodeContact sourceNode, BinaryID networkID, ushort servicePort)
+        public static DhtRpcPacket CreateAnnouncePeerPacketQuery(NodeContact sourceNode, BinaryNumber networkID, ushort servicePort)
         {
             return new DhtRpcPacket(Convert.ToUInt16(sourceNode.NodeEP.Port), DhtRpcType.ANNOUNCE_PEER, networkID, null, null, servicePort);
         }
 
-        public static DhtRpcPacket CreateAnnouncePeerPacketResponse(NodeContact sourceNode, BinaryID networkID, PeerEndPoint[] peers)
+        public static DhtRpcPacket CreateAnnouncePeerPacketResponse(NodeContact sourceNode, BinaryNumber networkID, PeerEndPoint[] peers)
         {
             return new DhtRpcPacket(Convert.ToUInt16(sourceNode.NodeEP.Port), DhtRpcType.ANNOUNCE_PEER, networkID, null, peers, 0);
         }
@@ -191,7 +192,7 @@ namespace BitChatCore.Network.KademliaDHT
             switch (_type)
             {
                 case DhtRpcType.FIND_NODE:
-                    s.Write(_networkID.ID, 0, 20);
+                    s.Write(_networkID.Number, 0, 20);
 
                     if (_contacts == null)
                     {
@@ -208,7 +209,7 @@ namespace BitChatCore.Network.KademliaDHT
                     break;
 
                 case DhtRpcType.FIND_PEERS:
-                    s.Write(_networkID.ID, 0, 20);
+                    s.Write(_networkID.Number, 0, 20);
 
                     if (_contacts == null)
                     {
@@ -236,7 +237,7 @@ namespace BitChatCore.Network.KademliaDHT
                     break;
 
                 case DhtRpcType.ANNOUNCE_PEER:
-                    s.Write(_networkID.ID, 0, 20);
+                    s.Write(_networkID.Number, 0, 20);
 
                     s.Write(BitConverter.GetBytes(_servicePort), 0, 2);
 
@@ -265,7 +266,7 @@ namespace BitChatCore.Network.KademliaDHT
         public DhtRpcType Type
         { get { return _type; } }
 
-        public BinaryID NetworkID
+        public BinaryNumber NetworkID
         { get { return _networkID; } }
 
         public NodeContact[] Contacts

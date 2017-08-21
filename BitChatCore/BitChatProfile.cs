@@ -684,9 +684,9 @@ namespace BitChatCore
             readonly BitChatNetworkType _type = BitChatNetworkType.GroupChat;
             readonly string _networkNameOrPeerEmailAddress;
             readonly string _sharedSecret;
-            readonly BinaryID _hashedPeerEmailAddress;
-            readonly BinaryID _networkID;
-            readonly BinaryID _networkSecret;
+            readonly BinaryNumber _hashedPeerEmailAddress;
+            readonly BinaryNumber _networkID;
+            readonly BinaryNumber _networkSecret;
             readonly string _messageStoreID;
             readonly byte[] _messageStoreKey;
             readonly long _groupImageDateModified = -1;
@@ -705,7 +705,7 @@ namespace BitChatCore
 
             #region constructor
 
-            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryID hashedPeerEmailAddress, BinaryID networkID, BinaryID networkSecret, string messageStoreID, byte[] messageStoreKey, long groupImageDateModified, byte[] groupImage, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, bool sendInvitation, string invitationSender, string invitationMessage, BitChatNetworkStatus networkStatus, bool mute)
+            public BitChatInfo(BitChatNetworkType type, string networkNameOrPeerEmailAddress, string sharedSecret, BinaryNumber hashedPeerEmailAddress, BinaryNumber networkID, BinaryNumber networkSecret, string messageStoreID, byte[] messageStoreKey, long groupImageDateModified, byte[] groupImage, Certificate[] peerCerts, SharedFileInfo[] sharedFiles, Uri[] trackerURIs, bool enableTracking, bool sendInvitation, string invitationSender, string invitationMessage, BitChatNetworkStatus networkStatus, bool mute)
             {
                 _type = type;
                 _networkNameOrPeerEmailAddress = networkNameOrPeerEmailAddress;
@@ -776,15 +776,15 @@ namespace BitChatCore
                             break;
 
                         case "hashed_peer_email_address":
-                            _hashedPeerEmailAddress = new BinaryID(pair.Value.Value);
+                            _hashedPeerEmailAddress = new BinaryNumber(pair.Value.Value);
                             break;
 
                         case "network_id":
-                            _networkID = new BinaryID(pair.Value.Value);
+                            _networkID = new BinaryNumber(pair.Value.Value);
                             break;
 
                         case "network_secret":
-                            _networkSecret = new BinaryID(pair.Value.Value);
+                            _networkSecret = new BinaryNumber(pair.Value.Value);
                             break;
 
                         case "message_store_id":
@@ -874,13 +874,13 @@ namespace BitChatCore
                 encoder.Encode("network_status", (byte)_networkStatus);
 
                 if (_hashedPeerEmailAddress != null)
-                    encoder.Encode("hashed_peer_email_address", _hashedPeerEmailAddress.ID);
+                    encoder.Encode("hashed_peer_email_address", _hashedPeerEmailAddress.Number);
 
                 if (_networkID != null)
-                    encoder.Encode("network_id", _networkID.ID);
+                    encoder.Encode("network_id", _networkID.Number);
 
                 if (_networkSecret != null)
-                    encoder.Encode("network_secret", _networkSecret.ID);
+                    encoder.Encode("network_secret", _networkSecret.Number);
 
                 encoder.Encode("message_store_id", _messageStoreID);
                 encoder.Encode("message_store_key", _messageStoreKey);
@@ -931,13 +931,13 @@ namespace BitChatCore
             public string SharedSecret
             { get { return _sharedSecret; } }
 
-            public BinaryID HashedPeerEmailAddress
+            public BinaryNumber HashedPeerEmailAddress
             { get { return _hashedPeerEmailAddress; } }
 
-            public BinaryID NetworkID
+            public BinaryNumber NetworkID
             { get { return _networkID; } }
 
-            public BinaryID NetworkSecret
+            public BinaryNumber NetworkSecret
             { get { return _networkSecret; } }
 
             public string MessageStoreID

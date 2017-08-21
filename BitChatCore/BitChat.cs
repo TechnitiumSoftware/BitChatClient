@@ -88,7 +88,7 @@ namespace BitChatCore
         readonly List<Peer> _peers = new List<Peer>();
 
         readonly ReaderWriterLockSlim _sharedFilesLock = new ReaderWriterLockSlim();
-        readonly Dictionary<BinaryID, SharedFile> _sharedFiles = new Dictionary<BinaryID, SharedFile>();
+        readonly Dictionary<BinaryNumber, SharedFile> _sharedFiles = new Dictionary<BinaryNumber, SharedFile>();
 
         //tracker
         readonly TrackerManager _trackerManager;
@@ -284,7 +284,7 @@ namespace BitChatCore
                 _sharedFilesLock.EnterWriteLock();
                 try
                 {
-                    foreach (KeyValuePair<BinaryID, SharedFile> sharedFile in _sharedFiles)
+                    foreach (KeyValuePair<BinaryNumber, SharedFile> sharedFile in _sharedFiles)
                         sharedFile.Value.RemoveChat(this);
 
                     _sharedFiles.Clear();
@@ -750,7 +750,7 @@ namespace BitChatCore
             _sharedFilesLock.EnterReadLock();
             try
             {
-                foreach (KeyValuePair<BinaryID, SharedFile> sharedFile in _sharedFiles)
+                foreach (KeyValuePair<BinaryNumber, SharedFile> sharedFile in _sharedFiles)
                 {
                     sharedFileInfo.Add(sharedFile.Value.GetSharedFileInfo());
                 }
@@ -1273,7 +1273,7 @@ namespace BitChatCore
         public BitChatProfile Profile
         { get { return _network.ConnectionManager.Profile; } }
 
-        public BinaryID NetworkID
+        public BinaryNumber NetworkID
         { get { return _network.NetworkID; } }
 
         public BitChatNetworkType NetworkType
@@ -1459,7 +1459,7 @@ namespace BitChatCore
                     _bitChat._sharedFilesLock.EnterReadLock();
                     try
                     {
-                        foreach (KeyValuePair<BinaryID, SharedFile> item in _bitChat._sharedFiles)
+                        foreach (KeyValuePair<BinaryNumber, SharedFile> item in _bitChat._sharedFiles)
                         {
                             item.Value.RemovePeerOrSeeder(peerSession);
                         }
@@ -1616,7 +1616,7 @@ namespace BitChatCore
                     case BitChatMessageType.FileShareParticipate:
                         #region FileShareParticipate
                         {
-                            BinaryID fileID = new BinaryID(messageDataStream);
+                            BinaryNumber fileID = new BinaryNumber(messageDataStream);
                             SharedFile sharedFile;
 
                             _bitChat._sharedFilesLock.EnterReadLock();
@@ -1637,7 +1637,7 @@ namespace BitChatCore
                     case BitChatMessageType.FileShareUnparticipate:
                         #region FileShareUnparticipate
                         {
-                            BinaryID fileID = new BinaryID(messageDataStream);
+                            BinaryNumber fileID = new BinaryNumber(messageDataStream);
                             SharedFile sharedFile;
 
                             _bitChat._sharedFilesLock.EnterReadLock();
@@ -1658,7 +1658,7 @@ namespace BitChatCore
                     case BitChatMessageType.FileBlockWanted:
                         #region FileBlockWanted
                         {
-                            BinaryID fileID = new BinaryID(messageDataStream);
+                            BinaryNumber fileID = new BinaryNumber(messageDataStream);
                             int blockNumber = BitChatMessage.ReadInt32(messageDataStream);
                             SharedFile sharedFile;
 
@@ -1690,7 +1690,7 @@ namespace BitChatCore
                     case BitChatMessageType.FileBlockAvailable:
                         #region FileBlockAvailable
                         {
-                            BinaryID fileID = new BinaryID(messageDataStream);
+                            BinaryNumber fileID = new BinaryNumber(messageDataStream);
                             int blockNumber = BitChatMessage.ReadInt32(messageDataStream);
                             SharedFile sharedFile;
 
@@ -1721,7 +1721,7 @@ namespace BitChatCore
                     case BitChatMessageType.FileBlockRequest:
                         #region FileBlockRequest
                         {
-                            BinaryID fileID = new BinaryID(messageDataStream);
+                            BinaryNumber fileID = new BinaryNumber(messageDataStream);
                             int blockNumber = BitChatMessage.ReadInt32(messageDataStream);
                             ushort port = BitChatMessage.ReadUInt16(messageDataStream);
                             SharedFile sharedFile;
@@ -1875,7 +1875,7 @@ namespace BitChatCore
                 _bitChat._sharedFilesLock.EnterReadLock();
                 try
                 {
-                    foreach (KeyValuePair<BinaryID, SharedFile> sharedFile in _bitChat._sharedFiles)
+                    foreach (KeyValuePair<BinaryNumber, SharedFile> sharedFile in _bitChat._sharedFiles)
                     {
                         if (sharedFile.Value.State == SharedFileState.Sharing)
                         {

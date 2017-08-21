@@ -17,13 +17,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatCore.Network;
 using System;
 using System.IO;
 using System.Net.Mime;
 using System.Security.Cryptography;
 using System.Text;
 using TechnitiumLibrary.IO;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.FileSharing
 {
@@ -43,7 +43,7 @@ namespace BitChatCore.FileSharing
         string _hashAlgo;
         byte[][] _blockHash;
 
-        BinaryID _fileID;
+        BinaryNumber _fileID;
 
         #endregion
 
@@ -117,7 +117,7 @@ namespace BitChatCore.FileSharing
 
         #region private
 
-        private BinaryID ComputeFileID()
+        private BinaryNumber ComputeFileID()
         {
             using (MemoryStream mS = new MemoryStream(_blockHash[0].Length * _blockHash.Length))
             {
@@ -128,7 +128,7 @@ namespace BitChatCore.FileSharing
 
                 using (HashAlgorithm hash = HashAlgorithm.Create(_hashAlgo))
                 {
-                    return new BinaryID(hash.ComputeHash(mS));
+                    return new BinaryNumber(hash.ComputeHash(mS));
                 }
             }
         }
@@ -199,7 +199,7 @@ namespace BitChatCore.FileSharing
         public byte[][] BlockHash
         { get { return _blockHash; } }
 
-        public BinaryID FileID
+        public BinaryNumber FileID
         { get { return _fileID; } }
 
         #endregion

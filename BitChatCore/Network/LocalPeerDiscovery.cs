@@ -27,6 +27,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Net;
+using TechnitiumLibrary.Security.Cryptography;
 
 /*
  
@@ -49,7 +50,7 @@ using TechnitiumLibrary.Net;
 
 namespace BitChatCore.Network
 {
-    delegate void DiscoveredPeerInfo(LocalPeerDiscovery sender, IPEndPoint peerEP, BinaryID networkID);
+    delegate void DiscoveredPeerInfo(LocalPeerDiscovery sender, IPEndPoint peerEP, BinaryNumber networkID);
 
     class LocalPeerDiscovery : IDisposable
     {
@@ -76,8 +77,8 @@ namespace BitChatCore.Network
 
         Timer _announcementTimer;
 
-        List<BinaryID> _trackedNetworkIDs = new List<BinaryID>(5);
-        List<BinaryID> _announceNetworkIDs = new List<BinaryID>(5);
+        List<BinaryNumber> _trackedNetworkIDs = new List<BinaryNumber>(5);
+        List<BinaryNumber> _announceNetworkIDs = new List<BinaryNumber>(5);
 
         List<DiscoveryPacket> _queryPacketCache = new List<DiscoveryPacket>(5);
         List<PeerInfo> _peerInfoCache = new List<PeerInfo>(5);
@@ -153,7 +154,7 @@ namespace BitChatCore.Network
 
         #region public
 
-        public void StartTracking(BinaryID networkID)
+        public void StartTracking(BinaryNumber networkID)
         {
             lock (_trackedNetworkIDs)
             {
@@ -162,7 +163,7 @@ namespace BitChatCore.Network
             }
         }
 
-        public void StopTracking(BinaryID networkID)
+        public void StopTracking(BinaryNumber networkID)
         {
             lock (_trackedNetworkIDs)
             {
@@ -170,7 +171,7 @@ namespace BitChatCore.Network
             }
         }
 
-        public void StartAnnouncement(BinaryID networkID)
+        public void StartAnnouncement(BinaryNumber networkID)
         {
             lock (_announceNetworkIDs)
             {
@@ -178,12 +179,12 @@ namespace BitChatCore.Network
                 {
                     _announceNetworkIDs.Add(networkID);
 
-                    AnnounceAsync(new BinaryID[] { networkID }, null, ANNOUNCEMENT_RETRY_COUNT);
+                    AnnounceAsync(new BinaryNumber[] { networkID }, null, ANNOUNCEMENT_RETRY_COUNT);
                 }
             }
         }
 
-        public void StopAnnouncement(BinaryID networkID)
+        public void StopAnnouncement(BinaryNumber networkID)
         {
             lock (_announceNetworkIDs)
             {
@@ -230,7 +231,7 @@ namespace BitChatCore.Network
             }
         }
 
-        private void AnnounceAsync(BinaryID[] networkIDs, NetworkInfo[] networks, int times)
+        private void AnnounceAsync(BinaryNumber[] networkIDs, NetworkInfo[] networks, int times)
         {
             ThreadPool.QueueUserWorkItem(AnnounceAsync, new object[] { networkIDs, networks, times });
         }
@@ -241,7 +242,7 @@ namespace BitChatCore.Network
             {
                 object[] parameters = state as object[];
 
-                BinaryID[] networkIDs = parameters[0] as BinaryID[];
+                BinaryNumber[] networkIDs = parameters[0] as BinaryNumber[];
                 NetworkInfo[] networks = parameters[1] as NetworkInfo[];
                 int times = (int)parameters[2];
 
@@ -251,11 +252,11 @@ namespace BitChatCore.Network
             { }
         }
 
-        private void Announce(BinaryID[] networkIDs, NetworkInfo[] networks, int times)
+        private void Announce(BinaryNumber[] networkIDs, NetworkInfo[] networks, int times)
         {
             for (int i = 0; i < times; i++)
             {
-                foreach (BinaryID networkID in networkIDs)
+                foreach (BinaryNumber networkID in networkIDs)
                 {
                     DiscoveryPacket queryPacket = DiscoveryPacket.CreateQueryPacket();
 
@@ -284,7 +285,7 @@ namespace BitChatCore.Network
             }
         }
 
-        private void SendResponse(DiscoveryPacket receivedQueryPacket, BinaryID networkID, IPAddress remotePeerIP)
+        private void SendResponse(DiscoveryPacket receivedQueryPacket, BinaryNumber networkID, IPAddress remotePeerIP)
         {
             NetworkInfo network = NetUtilities.GetNetworkInfo(remotePeerIP);
 
@@ -300,7 +301,7 @@ namespace BitChatCore.Network
             {
                 ClearCache(); //periodic cache clearing
 
-                BinaryID[] networkIDs;
+                BinaryNumber[] networkIDs;
 
                 lock (_announceNetworkIDs)
                 {
@@ -323,7 +324,7 @@ namespace BitChatCore.Network
         {
             try
             {
-                BinaryID[] networkIDs;
+                BinaryNumber[] networkIDs;
 
                 lock (_trackedNetworkIDs)
                 {
@@ -354,11 +355,11 @@ namespace BitChatCore.Network
                         return;
                 }
 
-                BinaryID foundNetworkID = null;
+                BinaryNumber foundNetworkID = null;
 
                 lock (_announceNetworkIDs)
                 {
-                    foreach (BinaryID networkID in _announceNetworkIDs)
+                    foreach (BinaryNumber networkID in _announceNetworkIDs)
                     {
                         if (packet.IsResponseValid(networkID, remotePeerIP))
                         {
@@ -414,11 +415,11 @@ namespace BitChatCore.Network
             {
                 #region query process
 
-                BinaryID foundNetworkID = null;
+                BinaryNumber foundNetworkID = null;
 
                 lock (_trackedNetworkIDs)
                 {
-                    foreach (BinaryID networkID in _trackedNetworkIDs)
+                    foreach (BinaryNumber networkID in _trackedNetworkIDs)
                     {
                         if (packet.IsThisNetwork(networkID))
                         {
@@ -762,7 +763,7 @@ namespace BitChatCore.Network
             #region variables
 
             IPEndPoint _peerEP;
-            BinaryID _networkID;
+            BinaryNumber _networkID;
 
             DateTime _dateCreated;
 
@@ -770,7 +771,7 @@ namespace BitChatCore.Network
 
             #region constructor
 
-            public PeerInfo(IPEndPoint peerEP, BinaryID networkID)
+            public PeerInfo(IPEndPoint peerEP, BinaryNumber networkID)
             {
                 _peerEP = peerEP;
                 _networkID = networkID;
@@ -823,8 +824,8 @@ namespace BitChatCore.Network
 
             bool _isResponse;
             ushort _servicePort;
-            BinaryID _challenge;
-            BinaryID _hmac;
+            BinaryNumber _challenge;
+            BinaryNumber _hmac;
 
             DateTime _dateCreated;
 
@@ -832,7 +833,7 @@ namespace BitChatCore.Network
 
             #region constructor
 
-            private DiscoveryPacket(bool isResponse, ushort servicePort, BinaryID challenge)
+            private DiscoveryPacket(bool isResponse, ushort servicePort, BinaryNumber challenge)
             {
                 _isResponse = isResponse;
                 _servicePort = servicePort;
@@ -854,8 +855,8 @@ namespace BitChatCore.Network
                             OffsetStream.StreamRead(s, bufferHmac, 0, 32);
 
                             _isResponse = false;
-                            _challenge = new BinaryID(bufferChallenge);
-                            _hmac = new BinaryID(bufferHmac);
+                            _challenge = new BinaryNumber(bufferChallenge);
+                            _hmac = new BinaryNumber(bufferHmac);
                         }
                         break;
 
@@ -871,8 +872,8 @@ namespace BitChatCore.Network
 
                             _isResponse = true;
                             _servicePort = BitConverter.ToUInt16(bufferServicePort, 0);
-                            _challenge = new BinaryID(bufferChallenge);
-                            _hmac = new BinaryID(bufferHmac);
+                            _challenge = new BinaryNumber(bufferChallenge);
+                            _hmac = new BinaryNumber(bufferHmac);
                         }
                         break;
 
@@ -890,10 +891,10 @@ namespace BitChatCore.Network
 
             public static DiscoveryPacket CreateQueryPacket()
             {
-                return new DiscoveryPacket(false, 0, BinaryID.GenerateRandomID256());
+                return new DiscoveryPacket(false, 0, BinaryNumber.GenerateRandomNumber256());
             }
 
-            public static DiscoveryPacket CreateResponsePacket(ushort servicePort, BinaryID challenge)
+            public static DiscoveryPacket CreateResponsePacket(ushort servicePort, BinaryNumber challenge)
             {
                 return new DiscoveryPacket(true, servicePort, challenge);
             }
@@ -902,34 +903,34 @@ namespace BitChatCore.Network
 
             #region public
 
-            public bool IsThisNetwork(BinaryID networkID)
+            public bool IsThisNetwork(BinaryNumber networkID)
             {
                 if (_isResponse)
                     throw new Exception("Packet is not a query.");
 
-                BinaryID computedHmac;
+                BinaryNumber computedHmac;
 
-                using (HMACSHA256 hmacSHA256 = new HMACSHA256(networkID.ID))
+                using (HMACSHA256 hmacSHA256 = new HMACSHA256(networkID.Number))
                 {
-                    computedHmac = new BinaryID(hmacSHA256.ComputeHash(_challenge.ID)); //computed hmac
+                    computedHmac = new BinaryNumber(hmacSHA256.ComputeHash(_challenge.Number)); //computed hmac
                 }
 
                 return _hmac.Equals(computedHmac);
             }
 
-            public bool IsResponseValid(BinaryID networkID, IPAddress remotePeerIP)
+            public bool IsResponseValid(BinaryNumber networkID, IPAddress remotePeerIP)
             {
                 if (!_isResponse)
                     throw new Exception("Packet is not a response.");
 
                 byte[] servicePort = BitConverter.GetBytes(_servicePort);
-                BinaryID computedHmac;
+                BinaryNumber computedHmac;
 
-                using (HMACSHA256 hmacSHA256 = new HMACSHA256(networkID.ID))
+                using (HMACSHA256 hmacSHA256 = new HMACSHA256(networkID.Number))
                 {
                     using (MemoryStream mS2 = new MemoryStream(50))
                     {
-                        mS2.Write(_challenge.ID, 0, 32); //query_challenge
+                        mS2.Write(_challenge.Number, 0, 32); //query_challenge
 
                         byte[] ipAddr = remotePeerIP.GetAddressBytes();
                         mS2.Write(ipAddr, 0, ipAddr.Length); //peer_ip_address
@@ -937,14 +938,14 @@ namespace BitChatCore.Network
                         mS2.Write(servicePort, 0, 2); //service_port
 
                         mS2.Position = 0;
-                        computedHmac = new BinaryID(hmacSHA256.ComputeHash(mS2)); //computed hmac
+                        computedHmac = new BinaryNumber(hmacSHA256.ComputeHash(mS2)); //computed hmac
                     }
                 }
 
                 return _hmac.Equals(computedHmac);
             }
 
-            public byte[] ToArray(BinaryID networkID, IPAddress senderPeerIP = null)
+            public byte[] ToArray(BinaryNumber networkID, IPAddress senderPeerIP = null)
             {
                 using (MemoryStream mS = new MemoryStream(BUFFER_MAX_SIZE))
                 {
@@ -954,13 +955,13 @@ namespace BitChatCore.Network
 
                         mS.WriteByte(6); //version
                         mS.Write(servicePort, 0, 2); //service_port
-                        mS.Write(_challenge.ID, 0, 32); //query_challenge
+                        mS.Write(_challenge.Number, 0, 32); //query_challenge
 
-                        using (HMACSHA256 hmacSHA256 = new HMACSHA256(networkID.ID))
+                        using (HMACSHA256 hmacSHA256 = new HMACSHA256(networkID.Number))
                         {
                             using (MemoryStream mS2 = new MemoryStream(50))
                             {
-                                mS2.Write(_challenge.ID, 0, 32); //query_challenge
+                                mS2.Write(_challenge.Number, 0, 32); //query_challenge
 
                                 byte[] ipAddr = senderPeerIP.GetAddressBytes();
                                 mS2.Write(ipAddr, 0, ipAddr.Length); //peer_ip_address
@@ -975,11 +976,11 @@ namespace BitChatCore.Network
                     else
                     {
                         mS.WriteByte(5); //version
-                        mS.Write(_challenge.ID, 0, 32); //challenge
+                        mS.Write(_challenge.Number, 0, 32); //challenge
 
-                        using (HMACSHA256 hmacSHA256 = new HMACSHA256(networkID.ID))
+                        using (HMACSHA256 hmacSHA256 = new HMACSHA256(networkID.Number))
                         {
-                            mS.Write(hmacSHA256.ComputeHash(_challenge.ID), 0, 32); //hmac
+                            mS.Write(hmacSHA256.ComputeHash(_challenge.Number), 0, 32); //hmac
                         }
                     }
 
@@ -1026,7 +1027,7 @@ namespace BitChatCore.Network
             public ushort ServicePort
             { get { return _servicePort; } }
 
-            public BinaryID Challenge
+            public BinaryNumber Challenge
             { get { return _challenge; } }
 
             #endregion

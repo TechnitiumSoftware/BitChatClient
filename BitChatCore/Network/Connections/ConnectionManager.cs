@@ -29,6 +29,7 @@ using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Net;
 using TechnitiumLibrary.Net.Proxy;
 using TechnitiumLibrary.Net.UPnP.Networking;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.Network.Connections
 {
@@ -87,13 +88,13 @@ namespace BitChatCore.Network.Connections
 
         readonly BitChatProfile _profile;
 
-        readonly BinaryID _localPeerID;
+        readonly BinaryNumber _localPeerID;
 
         readonly Dictionary<IPEndPoint, object> _makeConnectionList = new Dictionary<IPEndPoint, object>();
         readonly Dictionary<IPEndPoint, object> _makeVirtualConnectionList = new Dictionary<IPEndPoint, object>();
 
         readonly Dictionary<IPEndPoint, Connection> _connectionListByConnectionID = new Dictionary<IPEndPoint, Connection>();
-        readonly Dictionary<BinaryID, Connection> _connectionListByPeerID = new Dictionary<BinaryID, Connection>();
+        readonly Dictionary<BinaryNumber, Connection> _connectionListByPeerID = new Dictionary<BinaryNumber, Connection>();
 
         //tcp listener
         readonly Socket _tcpListener;
@@ -101,7 +102,7 @@ namespace BitChatCore.Network.Connections
 
         //dht
         const string DHT_DNS_BOOTSTRAP_DOMAIN = "dht.bitchat.im";
-        readonly BinaryID _dhtBootstrapTrackerNetworkID = new BinaryID(new byte[] { 0xfa, 0x20, 0xf3, 0x45, 0xe6, 0xbe, 0x43, 0x68, 0xcb, 0x1e, 0x2a, 0xfb, 0xc0, 0x08, 0x0d, 0x95, 0xf1, 0xd1, 0xe6, 0x5b });
+        readonly BinaryNumber _dhtBootstrapTrackerNetworkID = new BinaryNumber(new byte[] { 0xfa, 0x20, 0xf3, 0x45, 0xe6, 0xbe, 0x43, 0x68, 0xcb, 0x1e, 0x2a, 0xfb, 0xc0, 0x08, 0x0d, 0x95, 0xf1, 0xd1, 0xe6, 0x5b });
         readonly TrackerManager _dhtBootstrapTracker;
         readonly DhtNode _ipv4DhtNode;
         readonly DhtNode _ipv6DhtNode;
@@ -189,7 +190,7 @@ namespace BitChatCore.Network.Connections
             _profile = profile;
 
             _localPort = (_tcpListener.LocalEndPoint as IPEndPoint).Port;
-            _localPeerID = BinaryID.GenerateRandomID160();
+            _localPeerID = BinaryNumber.GenerateRandomNumber160();
 
             //start ipv4 dht
             _ipv4DhtNode = new DhtNode(new IPEndPoint(IPAddress.Any, _localPort), this);
@@ -421,7 +422,7 @@ namespace BitChatCore.Network.Connections
             { }
         }
 
-        private Connection AddConnection(Stream s, BinaryID remotePeerID, IPEndPoint remotePeerEP)
+        private Connection AddConnection(Stream s, BinaryNumber remotePeerID, IPEndPoint remotePeerEP)
         {
             if ((remotePeerEP.AddressFamily == AddressFamily.InterNetworkV6) && (remotePeerEP.Address.ScopeId != 0))
                 remotePeerEP = new IPEndPoint(new IPAddress(remotePeerEP.Address.GetAddressBytes()), remotePeerEP.Port);
@@ -504,7 +505,7 @@ namespace BitChatCore.Network.Connections
             }
         }
 
-        private void Connection_BitChatNetworkInvitation(BinaryID hashedEmailAddress, IPEndPoint peerEP, string message)
+        private void Connection_BitChatNetworkInvitation(BinaryNumber hashedEmailAddress, IPEndPoint peerEP, string message)
         {
             //this method is called async by the event
             //this mechanism prevents multiple invitations events from same peerEP
@@ -764,7 +765,7 @@ namespace BitChatCore.Network.Connections
                     //read peer id
                     byte[] peerID = new byte[20];
                     OffsetStream.StreamRead(s, peerID, 0, 20);
-                    BinaryID remotePeerID = new BinaryID(peerID);
+                    BinaryNumber remotePeerID = new BinaryNumber(peerID);
 
                     //read service port
                     byte[] remoteServicePort = new byte[2];
@@ -777,7 +778,7 @@ namespace BitChatCore.Network.Connections
                     {
                         //send ok
                         s.WriteByte(0); //signal ok
-                        s.Write(_localPeerID.ID, 0, 20); //peer id
+                        s.Write(_localPeerID.Number, 0, 20); //peer id
                         s.Flush();
 
                         //set stream timeout
@@ -806,7 +807,7 @@ namespace BitChatCore.Network.Connections
             {
                 //send request
                 s.WriteByte(1); //version
-                s.Write(_localPeerID.ID, 0, 20); //peer id
+                s.Write(_localPeerID.Number, 0, 20); //peer id
                 s.Write(BitConverter.GetBytes(Convert.ToUInt16(_localPort)), 0, 2); //service port
                 s.Flush();
 
@@ -820,7 +821,7 @@ namespace BitChatCore.Network.Connections
                     case 0:
                         byte[] buffer = new byte[20];
                         OffsetStream.StreamRead(s, buffer, 0, 20);
-                        BinaryID remotePeerID = new BinaryID(buffer);
+                        BinaryNumber remotePeerID = new BinaryNumber(buffer);
 
                         Connection connection = AddConnection(s, remotePeerID, remotePeerEP);
                         if (connection == null)
@@ -1486,7 +1487,7 @@ namespace BitChatCore.Network.Connections
 
         #region properties
 
-        public BinaryID LocalPeerID
+        public BinaryNumber LocalPeerID
         { get { return _localPeerID; } }
 
         public int LocalPort

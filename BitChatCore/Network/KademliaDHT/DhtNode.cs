@@ -23,6 +23,7 @@ using System.IO;
 using System.Net;
 using System.Threading;
 using TechnitiumLibrary.Net;
+using TechnitiumLibrary.Security.Cryptography;
 
 /*
  * Kademlia based Distributed Hash Table (DHT) Implementation For Bit Chat
@@ -223,7 +224,7 @@ namespace BitChatCore.Network.KademliaDHT
             return (response != null);
         }
 
-        private object QueryFind(NodeContact[] initialContacts, BinaryID nodeID, DhtRpcType queryType)
+        private object QueryFind(NodeContact[] initialContacts, BinaryNumber nodeID, DhtRpcType queryType)
         {
             if (initialContacts.Length < 1)
                 return null;
@@ -348,8 +349,8 @@ namespace BitChatCore.Network.KademliaDHT
                                 currentClosestSeenContact = KBucket.GetClosestContacts(seenContacts, nodeID, 1)[0];
                             }
 
-                            BinaryID previousDistance = nodeID ^ previousClosestSeenContact.NodeID;
-                            BinaryID currentDistance = nodeID ^ currentClosestSeenContact.NodeID;
+                            BinaryNumber previousDistance = nodeID ^ previousClosestSeenContact.NodeID;
+                            BinaryNumber currentDistance = nodeID ^ currentClosestSeenContact.NodeID;
 
                             if (previousDistance <= currentDistance)
                             {
@@ -424,7 +425,7 @@ namespace BitChatCore.Network.KademliaDHT
             }
         }
 
-        internal NodeContact[] QueryFindNode(NodeContact[] initialContacts, BinaryID nodeID)
+        internal NodeContact[] QueryFindNode(NodeContact[] initialContacts, BinaryNumber nodeID)
         {
             object contacts = QueryFind(initialContacts, nodeID, DhtRpcType.FIND_NODE);
 
@@ -434,7 +435,7 @@ namespace BitChatCore.Network.KademliaDHT
             return contacts as NodeContact[];
         }
 
-        private PeerEndPoint[] QueryFindPeers(NodeContact[] initialContacts, BinaryID networkID)
+        private PeerEndPoint[] QueryFindPeers(NodeContact[] initialContacts, BinaryNumber networkID)
         {
             object peers = QueryFind(initialContacts, networkID, DhtRpcType.FIND_PEERS);
 
@@ -444,7 +445,7 @@ namespace BitChatCore.Network.KademliaDHT
             return peers as PeerEndPoint[];
         }
 
-        private PeerEndPoint[] QueryAnnounce(NodeContact[] initialContacts, BinaryID networkID, ushort servicePort)
+        private PeerEndPoint[] QueryAnnounce(NodeContact[] initialContacts, BinaryNumber networkID, ushort servicePort)
         {
             NodeContact[] contacts = QueryFindNode(initialContacts, networkID);
 
@@ -551,7 +552,7 @@ namespace BitChatCore.Network.KademliaDHT
             }
         }
 
-        public IPEndPoint[] FindPeers(BinaryID networkID)
+        public IPEndPoint[] FindPeers(BinaryNumber networkID)
         {
             NodeContact[] initialContacts = _routingTable.GetKClosestContacts(networkID);
 
@@ -561,7 +562,7 @@ namespace BitChatCore.Network.KademliaDHT
             return QueryFindPeers(initialContacts, networkID);
         }
 
-        public IPEndPoint[] Announce(BinaryID networkID, int servicePort)
+        public IPEndPoint[] Announce(BinaryNumber networkID, int servicePort)
         {
             NodeContact[] initialContacts = _routingTable.GetKClosestContacts(networkID);
 
@@ -591,7 +592,7 @@ namespace BitChatCore.Network.KademliaDHT
 
         #region properties
 
-        public BinaryID LocalNodeID
+        public BinaryNumber LocalNodeID
         { get { return _currentNode.NodeID; } }
 
         public IPEndPoint LocalNodeEP
@@ -605,7 +606,7 @@ namespace BitChatCore.Network.KademliaDHT
 
             const int MAX_PEERS_TO_RETURN = 30;
 
-            readonly Dictionary<BinaryID, List<PeerEndPoint>> _data = new Dictionary<BinaryID, List<PeerEndPoint>>();
+            readonly Dictionary<BinaryNumber, List<PeerEndPoint>> _data = new Dictionary<BinaryNumber, List<PeerEndPoint>>();
 
             #endregion
 
@@ -621,7 +622,7 @@ namespace BitChatCore.Network.KademliaDHT
 
             #region public
 
-            public void StorePeer(BinaryID networkID, PeerEndPoint peerEP)
+            public void StorePeer(BinaryNumber networkID, PeerEndPoint peerEP)
             {
                 lock (_data)
                 {
@@ -650,7 +651,7 @@ namespace BitChatCore.Network.KademliaDHT
                 }
             }
 
-            public PeerEndPoint[] GetPeers(BinaryID networkID)
+            public PeerEndPoint[] GetPeers(BinaryNumber networkID)
             {
                 lock (_data)
                 {

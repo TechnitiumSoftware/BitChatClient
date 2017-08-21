@@ -23,6 +23,7 @@ using System.Net;
 using System.Security.Cryptography;
 using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Net;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.Network.KademliaDHT
 {
@@ -36,7 +37,7 @@ namespace BitChatCore.Network.KademliaDHT
         static readonly byte[] NODE_ID_SALT = new byte[] { 0xF4, 0xC7, 0x56, 0x9A, 0xA3, 0xAD, 0xC9, 0xA7, 0x13, 0x0E, 0xCA, 0x56, 0x56, 0xA3, 0x52, 0x8F, 0xFE, 0x6E, 0x9C, 0x72 };
 
         readonly IPEndPoint _nodeEP;
-        readonly BinaryID _nodeID;
+        readonly BinaryNumber _nodeID;
 
         protected bool _currentNode;
         DateTime _lastSeen;
@@ -62,7 +63,7 @@ namespace BitChatCore.Network.KademliaDHT
 
         #region static
 
-        public static BinaryID GetNodeID(IPEndPoint nodeEP)
+        public static BinaryNumber GetNodeID(IPEndPoint nodeEP)
         {
             using (HMAC hmac = new HMACSHA1(NODE_ID_SALT))
             {
@@ -71,7 +72,7 @@ namespace BitChatCore.Network.KademliaDHT
                     IPEndPointParser.WriteTo(nodeEP, mS);
                     mS.Position = 0;
 
-                    return new BinaryID(hmac.ComputeHash(mS));
+                    return new BinaryNumber(hmac.ComputeHash(mS));
                 }
             }
         }
@@ -133,7 +134,7 @@ namespace BitChatCore.Network.KademliaDHT
 
         #region properties
 
-        public BinaryID NodeID
+        public BinaryNumber NodeID
         { get { return _nodeID; } }
 
         public IPEndPoint NodeEP

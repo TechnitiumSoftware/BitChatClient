@@ -266,14 +266,14 @@ namespace BitChatCore
                         byte[] aeHmac = decoder.DecodeNext().Value;
 
                         //verify hmac
-                        BinaryID computedAeHmac;
+                        BinaryNumber computedAeHmac;
 
                         using (HMAC hmac = new HMACSHA256(_key))
                         {
-                            computedAeHmac = new BinaryID(hmac.ComputeHash(encryptedData));
+                            computedAeHmac = new BinaryNumber(hmac.ComputeHash(encryptedData));
                         }
 
-                        if (!computedAeHmac.Equals(new BinaryID(aeHmac)))
+                        if (!computedAeHmac.Equals(new BinaryNumber(aeHmac)))
                             throw new CryptoException("Cannot read message from message store: message is corrupt or tampered.");
 
                         break;

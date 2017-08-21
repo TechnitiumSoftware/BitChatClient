@@ -25,6 +25,7 @@ using System.Security.Cryptography;
 using System.Threading;
 using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Net;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.FileSharing
 {
@@ -52,7 +53,7 @@ namespace BitChatCore.FileSharing
 
         #region variables
 
-        readonly static Dictionary<BinaryID, SharedFile> _sharedFiles = new Dictionary<BinaryID, SharedFile>();
+        readonly static Dictionary<BinaryNumber, SharedFile> _sharedFiles = new Dictionary<BinaryNumber, SharedFile>();
 
         const int BUFFER_SIZE = 63488; //62kb data transfer buffer size
         const int FILE_BLOCK_DOWNLOAD_THREADS = 3; //total downloading threads per file
@@ -899,7 +900,7 @@ namespace BitChatCore.FileSharing
             }
         }
 
-        private void SendAnnouncementBlockWanted(BinaryID fileID, int blockNumber)
+        private void SendAnnouncementBlockWanted(BinaryNumber fileID, int blockNumber)
         {
             byte[] packetData = BitChatMessage.CreateFileBlockWanted(fileID, blockNumber);
 

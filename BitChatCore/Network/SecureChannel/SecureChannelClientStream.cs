@@ -134,7 +134,7 @@ namespace BitChatCore.Network.SecureChannel
             #region 1. hello handshake
 
             //send client hello
-            SecureChannelHandshakeHello clientHello = new SecureChannelHandshakeHello(BinaryID.GenerateRandomID256(), _supportedOptions);
+            SecureChannelHandshakeHello clientHello = new SecureChannelHandshakeHello(BinaryNumber.GenerateRandomNumber256(), _supportedOptions);
             clientHello.WriteTo(bufferedStream);
             bufferedStream.Flush();
 
@@ -199,8 +199,8 @@ namespace BitChatCore.Network.SecureChannel
                 case SymmetricEncryptionAlgorithm.Rijndael:
                     //using MD5 for generating AES IV of 128bit block size
                     HashAlgorithm md5Hash = HashAlgorithm.Create("MD5");
-                    byte[] eIV = md5Hash.ComputeHash(clientHello.Nonce.ID);
-                    byte[] dIV = md5Hash.ComputeHash(serverHello.Nonce.ID);
+                    byte[] eIV = md5Hash.ComputeHash(clientHello.Nonce.Number);
+                    byte[] dIV = md5Hash.ComputeHash(serverHello.Nonce.Number);
 
                     //create encryption and decryption objects
                     SymmetricCryptoKey encryptionKey = new SymmetricCryptoKey(SymmetricEncryptionAlgorithm.Rijndael, masterKey, eIV, PaddingMode.None);

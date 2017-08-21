@@ -24,6 +24,7 @@ using System.Net;
 using System.Threading;
 using TechnitiumLibrary.Net.BitTorrent;
 using TechnitiumLibrary.Net.Proxy;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.Network
 {
@@ -45,7 +46,7 @@ namespace BitChatCore.Network
         const int TRACKER_RETRY_UPDATE_INTERVAL_SECONDS = 30; //30 sec
         const int TRACKER_FAILED_UPDATE_INTERVAL_SECONDS = 30 * 60; //30 mins
 
-        readonly BinaryID _networkID;
+        readonly BinaryNumber _networkID;
         readonly int _servicePort;
         readonly DhtNode _ipv4DhtNode;
         readonly DhtNode _ipv6DhtNode;
@@ -65,7 +66,7 @@ namespace BitChatCore.Network
 
         #region constructor
 
-        public TrackerManager(BinaryID networkID, int servicePort, DhtNode ipv4DhtNode, DhtNode ipv6DhtNode, int customUpdateInterval, bool lookupOnly = false)
+        public TrackerManager(BinaryNumber networkID, int servicePort, DhtNode ipv4DhtNode, DhtNode ipv6DhtNode, int customUpdateInterval, bool lookupOnly = false)
         {
             _networkID = networkID;
             _servicePort = servicePort;
@@ -249,7 +250,7 @@ namespace BitChatCore.Network
 
                     foreach (Uri trackerURI in trackerURIs)
                     {
-                        TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID(), _customUpdateInterval);
+                        TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.Number, TrackerClientID.CreateDefaultID(), _customUpdateInterval);
                         tracker.Proxy = _proxy;
 
                         _trackers.Add(tracker);
@@ -332,7 +333,7 @@ namespace BitChatCore.Network
                 }
 
                 {
-                    TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID(), _customUpdateInterval);
+                    TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.Number, TrackerClientID.CreateDefaultID(), _customUpdateInterval);
                     tracker.Proxy = _proxy;
 
                     _trackers.Add(tracker);
@@ -360,7 +361,7 @@ namespace BitChatCore.Network
 
                     if (!trackerExists)
                     {
-                        TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.ID, TrackerClientID.CreateDefaultID(), _customUpdateInterval);
+                        TrackerClient tracker = TrackerClient.Create(trackerURI, _networkID.Number, TrackerClientID.CreateDefaultID(), _customUpdateInterval);
                         tracker.Proxy = _proxy;
 
                         _trackers.Add(tracker);
@@ -406,7 +407,7 @@ namespace BitChatCore.Network
 
         #region properties
 
-        public BinaryID NetworkID
+        public BinaryNumber NetworkID
         { get { return _networkID; } }
 
         public bool IsTrackerRunning

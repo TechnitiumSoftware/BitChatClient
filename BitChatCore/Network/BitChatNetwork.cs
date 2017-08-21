@@ -31,7 +31,7 @@ using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.Network
 {
-    delegate void NetworkChanged(BitChatNetwork network, BinaryID newNetworkID);
+    delegate void NetworkChanged(BitChatNetwork network, BinaryNumber newNetworkID);
     delegate void VirtualPeerAdded(BitChatNetwork network, BitChatNetwork.VirtualPeer virtualPeer);
     delegate void VirtualPeerHasRevokedCertificate(BitChatNetwork network, InvalidCertificateException ex);
     delegate void VirtualPeerSecureChannelException(BitChatNetwork network, SecureChannelException ex);
@@ -80,17 +80,17 @@ namespace BitChatCore.Network
         readonly Certificate[] _trustedRootCertificates;
         readonly SecureChannelCryptoOptionFlags _supportedCryptoOptions;
         MailAddress _peerEmailAddress;
-        BinaryID _hashedPeerEmailAddress;
+        BinaryNumber _hashedPeerEmailAddress;
         readonly string _networkName;
         string _sharedSecret;
-        BinaryID _networkID;
+        BinaryNumber _networkID;
         BitChatNetworkStatus _status;
         readonly string _invitationSender;
         readonly string _invitationMessage;
 
         string _peerName;
-        BinaryID _maskedPeerEmailAddress;
-        BinaryID _networkSecret;
+        BinaryNumber _maskedPeerEmailAddress;
+        BinaryNumber _networkSecret;
 
         VirtualPeer _selfPeer;
         readonly Dictionary<string, VirtualPeer> _virtualPeers = new Dictionary<string, VirtualPeer>();
@@ -100,7 +100,7 @@ namespace BitChatCore.Network
 
         #region constructor
 
-        public BitChatNetwork(ConnectionManager connectionManager, Certificate[] trustedRootCertificates, SecureChannelCryptoOptionFlags supportedCryptoOptions, BinaryID hashedPeerEmailAddress, BinaryID networkID, BinaryID networkSecret, BitChatNetworkStatus status, string invitationSender, string invitationMessage)
+        public BitChatNetwork(ConnectionManager connectionManager, Certificate[] trustedRootCertificates, SecureChannelCryptoOptionFlags supportedCryptoOptions, BinaryNumber hashedPeerEmailAddress, BinaryNumber networkID, BinaryNumber networkSecret, BitChatNetworkStatus status, string invitationSender, string invitationMessage)
         {
             _type = BitChatNetworkType.PrivateChat;
             _connectionManager = connectionManager;
@@ -117,7 +117,7 @@ namespace BitChatCore.Network
             LoadKnownPeers(new Certificate[] { });
         }
 
-        public BitChatNetwork(ConnectionManager connectionManager, Certificate[] trustedRootCertificates, SecureChannelCryptoOptionFlags supportedCryptoOptions, MailAddress peerEmailAddress, string sharedSecret, BinaryID networkID, BinaryID networkSecret, Certificate[] knownPeerCerts, BitChatNetworkStatus status, string invitationSender, string invitationMessage)
+        public BitChatNetwork(ConnectionManager connectionManager, Certificate[] trustedRootCertificates, SecureChannelCryptoOptionFlags supportedCryptoOptions, MailAddress peerEmailAddress, string sharedSecret, BinaryNumber networkID, BinaryNumber networkSecret, Certificate[] knownPeerCerts, BitChatNetworkStatus status, string invitationSender, string invitationMessage)
         {
             _type = BitChatNetworkType.PrivateChat;
             _connectionManager = connectionManager;
@@ -140,7 +140,7 @@ namespace BitChatCore.Network
             LoadKnownPeers(knownPeerCerts);
         }
 
-        public BitChatNetwork(ConnectionManager connectionManager, Certificate[] trustedRootCertificates, SecureChannelCryptoOptionFlags supportedCryptoOptions, string networkName, string sharedSecret, BinaryID networkID, BinaryID networkSecret, Certificate[] knownPeerCerts, BitChatNetworkStatus status)
+        public BitChatNetwork(ConnectionManager connectionManager, Certificate[] trustedRootCertificates, SecureChannelCryptoOptionFlags supportedCryptoOptions, string networkName, string sharedSecret, BinaryNumber networkID, BinaryNumber networkSecret, Certificate[] knownPeerCerts, BitChatNetworkStatus status)
         {
             _type = BitChatNetworkType.GroupChat;
             _connectionManager = connectionManager;
@@ -218,84 +218,84 @@ namespace BitChatCore.Network
 
         #region static
 
-        private static BinaryID GetNetworkID(string networkName, string sharedSecret)
+        private static BinaryNumber GetNetworkID(string networkName, string sharedSecret)
         {
             using (PBKDF2 hash = PBKDF2.CreateHMACSHA256((sharedSecret == null ? "" : sharedSecret), Encoding.UTF8.GetBytes(networkName.ToLower()), 10000))
             {
-                return new BinaryID(hash.GetBytes(20));
+                return new BinaryNumber(hash.GetBytes(20));
             }
         }
 
-        private static BinaryID GetNetworkID(MailAddress emailAddress1, MailAddress emailAddress2, string sharedSecret)
+        private static BinaryNumber GetNetworkID(MailAddress emailAddress1, MailAddress emailAddress2, string sharedSecret)
         {
-            BinaryID salt = GetHashedEmailAddress(emailAddress1) ^ GetHashedEmailAddress(emailAddress2);
+            BinaryNumber salt = GetHashedEmailAddress(emailAddress1) ^ GetHashedEmailAddress(emailAddress2);
 
-            using (PBKDF2 hash = PBKDF2.CreateHMACSHA256((sharedSecret == null ? "" : sharedSecret), salt.ID, 10000))
+            using (PBKDF2 hash = PBKDF2.CreateHMACSHA256((sharedSecret == null ? "" : sharedSecret), salt.Number, 10000))
             {
-                return new BinaryID(hash.GetBytes(20));
+                return new BinaryNumber(hash.GetBytes(20));
             }
         }
 
-        public static BinaryID GetNetworkID(MailAddress emailAddress1, BinaryID hashedEmailAddress2)
+        public static BinaryNumber GetNetworkID(MailAddress emailAddress1, BinaryNumber hashedEmailAddress2)
         {
-            BinaryID salt = GetHashedEmailAddress(emailAddress1) ^ hashedEmailAddress2;
+            BinaryNumber salt = GetHashedEmailAddress(emailAddress1) ^ hashedEmailAddress2;
 
-            using (PBKDF2 hash = PBKDF2.CreateHMACSHA256("", salt.ID, 10000))
+            using (PBKDF2 hash = PBKDF2.CreateHMACSHA256("", salt.Number, 10000))
             {
-                return new BinaryID(hash.GetBytes(20));
+                return new BinaryNumber(hash.GetBytes(20));
             }
         }
 
-        private static BinaryID GetNetworkSecret(string networkName, string sharedSecret)
+        private static BinaryNumber GetNetworkSecret(string networkName, string sharedSecret)
         {
             using (PBKDF2 hash1 = PBKDF2.CreateHMACSHA256(networkName.ToLower(), NETWORK_SECRET_HASH_SALT, 10000))
             {
                 using (PBKDF2 hash2 = PBKDF2.CreateHMACSHA256((sharedSecret == null ? "" : sharedSecret), hash1.GetBytes(20), 10000))
                 {
-                    return new BinaryID(hash2.GetBytes(20));
+                    return new BinaryNumber(hash2.GetBytes(20));
                 }
             }
         }
 
-        private static BinaryID GetNetworkSecret(MailAddress emailAddress1, MailAddress emailAddress2, string sharedSecret)
+        private static BinaryNumber GetNetworkSecret(MailAddress emailAddress1, MailAddress emailAddress2, string sharedSecret)
         {
-            BinaryID salt = GetHashedEmailAddress(emailAddress1) ^ GetHashedEmailAddress(emailAddress2);
+            BinaryNumber salt = GetHashedEmailAddress(emailAddress1) ^ GetHashedEmailAddress(emailAddress2);
 
-            using (PBKDF2 hash1 = PBKDF2.CreateHMACSHA256(salt.ID, NETWORK_SECRET_HASH_SALT, 10000))
+            using (PBKDF2 hash1 = PBKDF2.CreateHMACSHA256(salt.Number, NETWORK_SECRET_HASH_SALT, 10000))
             {
                 using (PBKDF2 hash2 = PBKDF2.CreateHMACSHA256((sharedSecret == null ? "" : sharedSecret), hash1.GetBytes(20), 10000))
                 {
-                    return new BinaryID(hash2.GetBytes(20));
+                    return new BinaryNumber(hash2.GetBytes(20));
                 }
             }
         }
 
-        private static BinaryID GetNetworkSecret(MailAddress emailAddress1, BinaryID hashedEmailAddress2)
+        private static BinaryNumber GetNetworkSecret(MailAddress emailAddress1, BinaryNumber hashedEmailAddress2)
         {
-            BinaryID salt = GetHashedEmailAddress(emailAddress1) ^ hashedEmailAddress2;
+            BinaryNumber salt = GetHashedEmailAddress(emailAddress1) ^ hashedEmailAddress2;
 
-            using (PBKDF2 hash1 = PBKDF2.CreateHMACSHA256(salt.ID, NETWORK_SECRET_HASH_SALT, 10000))
+            using (PBKDF2 hash1 = PBKDF2.CreateHMACSHA256(salt.Number, NETWORK_SECRET_HASH_SALT, 10000))
             {
                 using (PBKDF2 hash2 = PBKDF2.CreateHMACSHA256("", hash1.GetBytes(20), 10000))
                 {
-                    return new BinaryID(hash2.GetBytes(20));
+                    return new BinaryNumber(hash2.GetBytes(20));
                 }
             }
         }
 
-        public static BinaryID GetHashedEmailAddress(MailAddress emailAddress)
+        public static BinaryNumber GetHashedEmailAddress(MailAddress emailAddress)
         {
             using (PBKDF2 hash = PBKDF2.CreateHMACSHA256(emailAddress.Address.ToLower(), EMAIL_ADDRESS_HASH_SALT, 10000))
             {
-                return new BinaryID(hash.GetBytes(20));
+                return new BinaryNumber(hash.GetBytes(20));
             }
         }
 
-        public static BinaryID GetMaskedEmailAddress(MailAddress emailAddress)
+        public static BinaryNumber GetMaskedEmailAddress(MailAddress emailAddress)
         {
             using (PBKDF2 hash = PBKDF2.CreateHMACSHA256(emailAddress.Address.ToLower(), EMAIL_ADDRESS_MASK_SALT, 10000))
             {
-                return new BinaryID(hash.GetBytes(20));
+                return new BinaryNumber(hash.GetBytes(20));
             }
         }
 
@@ -365,7 +365,7 @@ namespace BitChatCore.Network
 
         private void EstablishSecureChannelAndJoinNetwork(Connection connection)
         {
-            BinaryID channelName = GetChannelName(connection.LocalPeerID, connection.RemotePeerID);
+            BinaryNumber channelName = GetChannelName(connection.LocalPeerID, connection.RemotePeerID);
 
             //check if channel exists
             if (connection.BitChatNetworkChannelExists(channelName))
@@ -377,7 +377,7 @@ namespace BitChatCore.Network
             try
             {
                 //get secure channel
-                SecureChannelStream secureChannel = new SecureChannelClientStream(channel, connection.RemotePeerEP, _connectionManager.Profile.LocalCertificateStore, _trustedRootCertificates, _connectionManager.Profile, _supportedCryptoOptions, RE_NEGOTIATE_AFTER_BYTES_SENT, RE_NEGOTIATE_AFTER_SECONDS, this.NetworkSecret.ID);
+                SecureChannelStream secureChannel = new SecureChannelClientStream(channel, connection.RemotePeerEP, _connectionManager.Profile.LocalCertificateStore, _trustedRootCertificates, _connectionManager.Profile, _supportedCryptoOptions, RE_NEGOTIATE_AFTER_BYTES_SENT, RE_NEGOTIATE_AFTER_SECONDS, this.NetworkSecret.Number);
 
                 //join network
                 JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel);
@@ -410,7 +410,7 @@ namespace BitChatCore.Network
                 {
                     if (_peerEmailAddress == null)
                     {
-                        BinaryID computedNetworkID = GetNetworkID(selfEmail, remotePeerEmail, _sharedSecret);
+                        BinaryNumber computedNetworkID = GetNetworkID(selfEmail, remotePeerEmail, _sharedSecret);
 
                         if (!computedNetworkID.Equals(_networkID))
                             throw new BitChatException("User with email address '" + remotePeerEmail.Address + " [" + channel.RemotePeerEP.Address.ToString() + "]' is trying to join this private chat.");
@@ -516,7 +516,7 @@ namespace BitChatCore.Network
 
         #region public
 
-        public BinaryID GetChannelName(BinaryID localPeerID, BinaryID remotePeerID)
+        public BinaryNumber GetChannelName(BinaryNumber localPeerID, BinaryNumber remotePeerID)
         {
             return Connection.GetChannelName(localPeerID, remotePeerID, _networkID);
         }
@@ -592,7 +592,7 @@ namespace BitChatCore.Network
             try
             {
                 //get secure channel
-                SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _connectionManager.Profile.LocalCertificateStore, _trustedRootCertificates, _connectionManager.Profile, _supportedCryptoOptions, RE_NEGOTIATE_AFTER_BYTES_SENT, RE_NEGOTIATE_AFTER_SECONDS, this.NetworkSecret.ID);
+                SecureChannelStream secureChannel = new SecureChannelServerStream(channel, connection.RemotePeerEP, _connectionManager.Profile.LocalCertificateStore, _trustedRootCertificates, _connectionManager.Profile, _supportedCryptoOptions, RE_NEGOTIATE_AFTER_BYTES_SENT, RE_NEGOTIATE_AFTER_SECONDS, this.NetworkSecret.Number);
 
                 //join network
                 JoinNetwork(secureChannel.RemotePeerCertificate.IssuedTo.EmailAddress.Address, secureChannel);
@@ -694,7 +694,7 @@ namespace BitChatCore.Network
         public ConnectionManager ConnectionManager
         { get { return _connectionManager; } }
 
-        public BinaryID MaskedPeerEmailAddress
+        public BinaryNumber MaskedPeerEmailAddress
         {
             get
             {
@@ -705,7 +705,7 @@ namespace BitChatCore.Network
             }
         }
 
-        public BinaryID HashedPeerEmailAddress
+        public BinaryNumber HashedPeerEmailAddress
         { get { return _hashedPeerEmailAddress; } }
 
         public string NetworkName
@@ -771,7 +771,7 @@ namespace BitChatCore.Network
             get { return _sharedSecret; }
             set
             {
-                BinaryID newNetworkID;
+                BinaryNumber newNetworkID;
 
                 switch (_type)
                 {
@@ -801,10 +801,10 @@ namespace BitChatCore.Network
             }
         }
 
-        public BinaryID NetworkID
+        public BinaryNumber NetworkID
         { get { return _networkID; } }
 
-        public BinaryID NetworkSecret
+        public BinaryNumber NetworkSecret
         {
             get
             {

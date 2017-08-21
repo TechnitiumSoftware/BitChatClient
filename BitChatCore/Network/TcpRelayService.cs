@@ -23,6 +23,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.Network
 {
@@ -33,10 +34,10 @@ namespace BitChatCore.Network
         const int BIT_CHAT_TRACKER_UPDATE_INTERVAL = 120;
         const int TCP_RELAY_KEEP_ALIVE_INTERVAL = 30000; //30 sec
 
-        static Dictionary<BinaryID, TcpRelayService> _relays = new Dictionary<BinaryID, TcpRelayService>(2);
+        static Dictionary<BinaryNumber, TcpRelayService> _relays = new Dictionary<BinaryNumber, TcpRelayService>(2);
 
         TrackerManager _trackerManager;
-        Dictionary<BinaryID, Connection> _relayConnections = new Dictionary<BinaryID, Connection>(2);
+        Dictionary<BinaryNumber, Connection> _relayConnections = new Dictionary<BinaryNumber, Connection>(2);
 
         Timer _tcpRelayConnectionKeepAliveTimer;
 
@@ -44,7 +45,7 @@ namespace BitChatCore.Network
 
         #region constructor
 
-        private TcpRelayService(BinaryID networkID, int servicePort, DhtNode ipv4DhtNode)
+        private TcpRelayService(BinaryNumber networkID, int servicePort, DhtNode ipv4DhtNode)
         {
             _trackerManager = new TrackerManager(networkID, servicePort, ipv4DhtNode, null, BIT_CHAT_TRACKER_UPDATE_INTERVAL);
 
@@ -125,7 +126,7 @@ namespace BitChatCore.Network
 
         #region static
 
-        public static TcpRelayService StartTcpRelay(BinaryID networkID, Connection connection, int servicePort, DhtNode dhtNode, Uri[] tracketURIs)
+        public static TcpRelayService StartTcpRelay(BinaryNumber networkID, Connection connection, int servicePort, DhtNode dhtNode, Uri[] tracketURIs)
         {
             TcpRelayService relay;
 
@@ -153,25 +154,25 @@ namespace BitChatCore.Network
             return relay;
         }
 
-        public static List<IPEndPoint> GetPeerEPs(BinaryID channelName, Connection requestingConnection)
+        public static List<IPEndPoint> GetPeerEPs(BinaryNumber channelName, Connection requestingConnection)
         {
-            BinaryID localPeerID = requestingConnection.LocalPeerID;
-            BinaryID remotePeerID = requestingConnection.RemotePeerID;
+            BinaryNumber localPeerID = requestingConnection.LocalPeerID;
+            BinaryNumber remotePeerID = requestingConnection.RemotePeerID;
 
             lock (_relays)
             {
-                foreach (KeyValuePair<BinaryID, TcpRelayService> itemRelay in _relays)
+                foreach (KeyValuePair<BinaryNumber, TcpRelayService> itemRelay in _relays)
                 {
-                    BinaryID computedChannelName = Connection.GetChannelName(localPeerID, remotePeerID, itemRelay.Key);
+                    BinaryNumber computedChannelName = Connection.GetChannelName(localPeerID, remotePeerID, itemRelay.Key);
 
                     if (computedChannelName.Equals(channelName))
                     {
-                        Dictionary<BinaryID, Connection> relayConnections = itemRelay.Value._relayConnections;
+                        Dictionary<BinaryNumber, Connection> relayConnections = itemRelay.Value._relayConnections;
                         List<IPEndPoint> peerEPs = new List<IPEndPoint>(relayConnections.Count);
 
                         lock (relayConnections)
                         {
-                            foreach (KeyValuePair<BinaryID, Connection> itemProxyConnection in relayConnections)
+                            foreach (KeyValuePair<BinaryNumber, Connection> itemProxyConnection in relayConnections)
                             {
                                 peerEPs.Add(itemProxyConnection.Value.RemotePeerEP);
                             }
@@ -237,7 +238,7 @@ namespace BitChatCore.Network
 
         #region properties
 
-        public BinaryID NetworkID
+        public BinaryNumber NetworkID
         { get { return _trackerManager.NetworkID; } }
 
         #endregion

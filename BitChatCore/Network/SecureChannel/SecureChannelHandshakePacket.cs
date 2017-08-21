@@ -75,14 +75,14 @@ namespace BitChatCore.Network.SecureChannel
     {
         #region variables
 
-        readonly BinaryID _nonce;
+        readonly BinaryNumber _nonce;
         readonly SecureChannelCryptoOptionFlags _cryptoOptions;
 
         #endregion
 
         #region constructor
 
-        public SecureChannelHandshakeHello(BinaryID nonce, SecureChannelCryptoOptionFlags cryptoOptions)
+        public SecureChannelHandshakeHello(BinaryNumber nonce, SecureChannelCryptoOptionFlags cryptoOptions)
             : base(SecureChannelCode.None)
         {
             _nonce = nonce;
@@ -92,7 +92,7 @@ namespace BitChatCore.Network.SecureChannel
         public SecureChannelHandshakeHello(Stream s)
             : base(s)
         {
-            _nonce = new BinaryID(s);
+            _nonce = new BinaryNumber(s);
             _cryptoOptions = (SecureChannelCryptoOptionFlags)s.ReadByte();
         }
 
@@ -112,7 +112,7 @@ namespace BitChatCore.Network.SecureChannel
 
         #region properties
 
-        public BinaryID Nonce
+        public BinaryNumber Nonce
         { get { return _nonce; } }
 
         public SecureChannelCryptoOptionFlags CryptoOptions
@@ -190,7 +190,7 @@ namespace BitChatCore.Network.SecureChannel
     {
         #region variables
 
-        readonly BinaryID _hmac;
+        readonly BinaryNumber _hmac;
 
         #endregion
 
@@ -204,14 +204,14 @@ namespace BitChatCore.Network.SecureChannel
                 hello.WriteTo(mS);
                 mS.Position = 0;
 
-                _hmac = new BinaryID((new HMACSHA256(masterKey)).ComputeHash(mS));
+                _hmac = new BinaryNumber((new HMACSHA256(masterKey)).ComputeHash(mS));
             }
         }
 
         public SecureChannelHandshakeAuthentication(Stream s)
             : base(s)
         {
-            _hmac = new BinaryID(s);
+            _hmac = new BinaryNumber(s);
         }
 
         #endregion
@@ -225,7 +225,7 @@ namespace BitChatCore.Network.SecureChannel
                 hello.WriteTo(mS);
                 mS.Position = 0;
 
-                BinaryID computedHmac = new BinaryID((new HMACSHA256(masterKey)).ComputeHash(mS));
+                BinaryNumber computedHmac = new BinaryNumber((new HMACSHA256(masterKey)).ComputeHash(mS));
                 return _hmac.Equals(computedHmac);
             }
         }

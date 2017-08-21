@@ -23,6 +23,7 @@ using System.Collections.Generic;
 using System.Net;
 using System.Threading;
 using TechnitiumLibrary.Net;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.Network
 {
@@ -36,7 +37,7 @@ namespace BitChatCore.Network
 
         ConnectionManager _connectionManager;
 
-        Dictionary<BinaryID, Uri[]> _networks = new Dictionary<BinaryID, Uri[]>(10);
+        Dictionary<BinaryNumber, Uri[]> _networks = new Dictionary<BinaryNumber, Uri[]>(10);
         Dictionary<IPEndPoint, Connection> _tcpRelayConnections = new Dictionary<IPEndPoint, Connection>(TCP_RELAY_MAX_CONNECTIONS);
         Timer _tcpRelayConnectionKeepAliveTimer;
 
@@ -78,11 +79,11 @@ namespace BitChatCore.Network
                     _tcpRelayConnectionKeepAliveTimer = null;
 
                     //remove all networks from all tcp relay connections
-                    BinaryID[] networkIDs;
+                    BinaryNumber[] networkIDs;
 
                     lock (_networks)
                     {
-                        networkIDs = new BinaryID[_networks.Keys.Count];
+                        networkIDs = new BinaryNumber[_networks.Keys.Count];
                         _networks.Keys.CopyTo(networkIDs, 0);
                     }
 
@@ -177,7 +178,7 @@ namespace BitChatCore.Network
                 //setup all networks on tcp relay
                 lock (_networks)
                 {
-                    foreach (KeyValuePair<BinaryID, Uri[]> network in _networks)
+                    foreach (KeyValuePair<BinaryNumber, Uri[]> network in _networks)
                         ThreadPool.QueueUserWorkItem(SetupTcpRelayOnConnectionAsync, new object[] { relayConnection, network.Key, network.Value });
                 }
             }
@@ -219,10 +220,10 @@ namespace BitChatCore.Network
                 object[] parameters = state as object[];
 
                 Connection relayConnection = parameters[0] as Connection;
-                BinaryID networkID = parameters[1] as BinaryID;
+                BinaryNumber networkID = parameters[1] as BinaryNumber;
                 Uri[] trackerURIs = parameters[2] as Uri[];
 
-                bool success = relayConnection.RequestStartTcpRelay(new BinaryID[] { networkID }, trackerURIs, TCP_RELAY_REQUEST_TIMEOUT);
+                bool success = relayConnection.RequestStartTcpRelay(new BinaryNumber[] { networkID }, trackerURIs, TCP_RELAY_REQUEST_TIMEOUT);
                 if (!success)
                 {
                     //remove failed relay
@@ -243,7 +244,7 @@ namespace BitChatCore.Network
                 object[] parameters = state as object[];
 
                 Connection relayConnection = parameters[0] as Connection;
-                BinaryID[] networkIDs = parameters[1] as BinaryID[];
+                BinaryNumber[] networkIDs = parameters[1] as BinaryNumber[];
 
                 bool success = relayConnection.RequestStopTcpRelay(networkIDs, TCP_RELAY_REQUEST_TIMEOUT);
                 if (!success)
@@ -263,7 +264,7 @@ namespace BitChatCore.Network
 
         #region public
 
-        public void AddNetwork(BinaryID networkID, Uri[] trackerURIs)
+        public void AddNetwork(BinaryNumber networkID, Uri[] trackerURIs)
         {
             lock (_networks)
             {
@@ -280,7 +281,7 @@ namespace BitChatCore.Network
             }
         }
 
-        public void RemoveNetwork(BinaryID networkID)
+        public void RemoveNetwork(BinaryNumber networkID)
         {
             lock (_networks)
             {
@@ -292,7 +293,7 @@ namespace BitChatCore.Network
             lock (_tcpRelayConnections)
             {
                 foreach (Connection relayConnection in _tcpRelayConnections.Values)
-                    ThreadPool.QueueUserWorkItem(RemoveTcpRelayFromConnectionAsync, new object[] { relayConnection, new BinaryID[] { networkID } });
+                    ThreadPool.QueueUserWorkItem(RemoveTcpRelayFromConnectionAsync, new object[] { relayConnection, new BinaryNumber[] { networkID } });
             }
         }
 

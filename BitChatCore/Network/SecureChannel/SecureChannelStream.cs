@@ -515,11 +515,11 @@ namespace BitChatCore.Network.SecureChannel
             }
 
             //read auth hmac
-            BinaryID authHMAC = new BinaryID(new byte[_authHMACSize]);
-            OffsetStream.StreamRead(_baseStream, authHMAC.ID, 0, _authHMACSize);
+            BinaryNumber authHMAC = new BinaryNumber(new byte[_authHMACSize]);
+            OffsetStream.StreamRead(_baseStream, authHMAC.Number, 0, _authHMACSize);
 
             //verify auth hmac with computed hmac
-            BinaryID computedAuthHMAC = new BinaryID(_authHMACDecrypt.ComputeHash(_readEncryptedData, 0, _readBufferPosition));
+            BinaryNumber computedAuthHMAC = new BinaryNumber(_authHMACDecrypt.ComputeHash(_readEncryptedData, 0, _readBufferPosition));
 
             if (!computedAuthHMAC.Equals(authHMAC))
                 throw new SecureChannelException(SecureChannelCode.InvalidMessageHMACReceived, _remotePeerEP, _remotePeerCert);

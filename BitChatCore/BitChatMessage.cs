@@ -24,6 +24,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using TechnitiumLibrary.IO;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore
 {
@@ -143,9 +144,9 @@ namespace BitChatCore
             }
         }
 
-        public static byte[] CreateFileParticipate(BinaryID fileID)
+        public static byte[] CreateFileParticipate(BinaryNumber fileID)
         {
-            using (MemoryStream mS = new MemoryStream(fileID.ID.Length + 1 + 1))
+            using (MemoryStream mS = new MemoryStream(fileID.Number.Length + 1 + 1))
             {
                 mS.WriteByte((byte)BitChatMessageType.FileShareParticipate); //1 byte
                 fileID.WriteTo(mS);
@@ -154,9 +155,9 @@ namespace BitChatCore
             }
         }
 
-        public static byte[] CreateFileUnparticipate(BinaryID fileID)
+        public static byte[] CreateFileUnparticipate(BinaryNumber fileID)
         {
-            using (MemoryStream mS = new MemoryStream(fileID.ID.Length + 1 + 1))
+            using (MemoryStream mS = new MemoryStream(fileID.Number.Length + 1 + 1))
             {
                 mS.WriteByte((byte)BitChatMessageType.FileShareUnparticipate); //1 byte
                 fileID.WriteTo(mS);
@@ -165,9 +166,9 @@ namespace BitChatCore
             }
         }
 
-        public static byte[] CreateFileBlockWanted(BinaryID fileID, int blockNumber)
+        public static byte[] CreateFileBlockWanted(BinaryNumber fileID, int blockNumber)
         {
-            using (MemoryStream mS = new MemoryStream(fileID.ID.Length + 1 + 1 + 4))
+            using (MemoryStream mS = new MemoryStream(fileID.Number.Length + 1 + 1 + 4))
             {
                 mS.WriteByte((byte)BitChatMessageType.FileBlockWanted); //1 byte
                 fileID.WriteTo(mS);
@@ -177,9 +178,9 @@ namespace BitChatCore
             }
         }
 
-        public static byte[] CreateFileBlockAvailable(BinaryID fileID, int blockNumber)
+        public static byte[] CreateFileBlockAvailable(BinaryNumber fileID, int blockNumber)
         {
-            using (MemoryStream mS = new MemoryStream(fileID.ID.Length + 1 + 1 + 4))
+            using (MemoryStream mS = new MemoryStream(fileID.Number.Length + 1 + 1 + 4))
             {
                 mS.WriteByte((byte)BitChatMessageType.FileBlockAvailable); //1 byte
                 fileID.WriteTo(mS);
@@ -189,9 +190,9 @@ namespace BitChatCore
             }
         }
 
-        public static byte[] CreateFileBlockRequest(BinaryID fileID, int blockNumber, ushort dataPort)
+        public static byte[] CreateFileBlockRequest(BinaryNumber fileID, int blockNumber, ushort dataPort)
         {
-            using (MemoryStream mS = new MemoryStream(fileID.ID.Length + 1 + 1 + 4 + 2))
+            using (MemoryStream mS = new MemoryStream(fileID.Number.Length + 1 + 1 + 4 + 2))
             {
                 mS.WriteByte((byte)BitChatMessageType.FileBlockRequest); //1 byte
                 fileID.WriteTo(mS);

@@ -59,7 +59,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Network\BinaryID.cs" />
     <Compile Include="BitChat.cs" />
     <Compile Include="BitChatMessage.cs" />
     <Compile Include="BitChatProfile.cs" />

@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.Network.KademliaDHT
 {
@@ -29,7 +30,7 @@ namespace BitChatCore.Network.KademliaDHT
 
         const int BUCKET_STALE_TIMEOUT_SECONDS = 900; //15 mins timeout before declaring node stale
 
-        readonly BinaryID _bucketID;
+        readonly BinaryNumber _bucketID;
         readonly int _bucketDepth;
         DateTime _lastChanged;
 
@@ -66,17 +67,17 @@ namespace BitChatCore.Network.KademliaDHT
 
             if (parentBucket._bucketID == null)
             {
-                _bucketID = new BinaryID(new byte[20]);
+                _bucketID = new BinaryNumber(new byte[20]);
 
                 if (left)
-                    _bucketID.ID[0] = 0x80;
+                    _bucketID.Number[0] = 0x80;
             }
             else
             {
                 if (left)
                 {
-                    _bucketID = new BinaryID(new byte[20]);
-                    _bucketID.ID[0] = 0x80;
+                    _bucketID = new BinaryNumber(new byte[20]);
+                    _bucketID.Number[0] = 0x80;
 
                     _bucketID = parentBucket._bucketID | (_bucketID >> (_bucketDepth - 1));
                 }
@@ -93,17 +94,17 @@ namespace BitChatCore.Network.KademliaDHT
 
         #region static
 
-        public static NodeContact[] GetClosestContacts(ICollection<NodeContact> contacts, BinaryID nodeID, int count)
+        public static NodeContact[] GetClosestContacts(ICollection<NodeContact> contacts, BinaryNumber nodeID, int count)
         {
             if (contacts.Count < count)
                 count = contacts.Count;
 
             NodeContact[] closestContacts = new NodeContact[count];
-            BinaryID[] closestContactDistances = new BinaryID[count];
+            BinaryNumber[] closestContactDistances = new BinaryNumber[count];
 
             foreach (NodeContact contact in contacts)
             {
-                BinaryID distance = nodeID ^ contact.NodeID;
+                BinaryNumber distance = nodeID ^ contact.NodeID;
 
                 for (int i = 0; i < count; i++)
                 {
@@ -402,7 +403,7 @@ namespace BitChatCore.Network.KademliaDHT
             }
         }
 
-        public NodeContact[] GetKClosestContacts(BinaryID nodeID)
+        public NodeContact[] GetKClosestContacts(BinaryNumber nodeID)
         {
             KBucket currentBucket = this;
 
@@ -488,7 +489,7 @@ namespace BitChatCore.Network.KademliaDHT
             return allContacts.ToArray();
         }
 
-        public NodeContact FindContact(BinaryID nodeID)
+        public NodeContact FindContact(BinaryNumber nodeID)
         {
             KBucket currentBucket = this;
 
@@ -571,7 +572,7 @@ namespace BitChatCore.Network.KademliaDHT
                         ThreadPool.QueueUserWorkItem(delegate (object state)
                         {
                             //get random node ID in the bucket range
-                            BinaryID randomNodeID = BinaryID.GenerateRandomID160();
+                            BinaryNumber randomNodeID = BinaryNumber.GenerateRandomNumber160();
 
                             if (kBucket._bucketID != null)
                                 randomNodeID = (randomNodeID >> kBucket._bucketDepth) | kBucket._bucketID;
