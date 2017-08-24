@@ -26,6 +26,7 @@ using System.IO;
 using System.Net;
 using System.Net.Mail;
 using System.Threading;
+using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore

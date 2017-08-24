@@ -25,7 +25,6 @@ using System.Security.Cryptography;
 using System.Threading;
 using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Net;
-using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.FileSharing
 {

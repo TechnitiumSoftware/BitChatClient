@@ -23,7 +23,6 @@ using System.Net.Mime;
 using System.Security.Cryptography;
 using System.Text;
 using TechnitiumLibrary.IO;
-using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.FileSharing
 {

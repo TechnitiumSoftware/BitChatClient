@@ -23,7 +23,7 @@ using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Threading;
-using TechnitiumLibrary.Security.Cryptography;
+using TechnitiumLibrary.IO;
 
 namespace BitChatCore.Network
 {

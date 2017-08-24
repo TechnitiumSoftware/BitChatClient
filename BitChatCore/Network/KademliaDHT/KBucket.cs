@@ -20,7 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 using System;
 using System.Collections.Generic;
 using System.Threading;
-using TechnitiumLibrary.Security.Cryptography;
+using TechnitiumLibrary.IO;
 
 namespace BitChatCore.Network.KademliaDHT
 {

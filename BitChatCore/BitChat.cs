@@ -26,6 +26,7 @@ using System.IO;
 using System.Net;
 using System.Text;
 using System.Threading;
+using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Net.BitTorrent;
 using TechnitiumLibrary.Security.Cryptography;
 

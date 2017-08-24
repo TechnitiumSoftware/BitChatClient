@@ -22,8 +22,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Threading;
+using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Net;
-using TechnitiumLibrary.Security.Cryptography;
 
 /*
  * Kademlia based Distributed Hash Table (DHT) Implementation For Bit Chat

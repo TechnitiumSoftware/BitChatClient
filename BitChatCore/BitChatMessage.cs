@@ -24,7 +24,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using TechnitiumLibrary.IO;
-using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore
 {

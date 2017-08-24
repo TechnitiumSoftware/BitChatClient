@@ -29,7 +29,6 @@ using TechnitiumLibrary.IO;
 using TechnitiumLibrary.Net;
 using TechnitiumLibrary.Net.Proxy;
 using TechnitiumLibrary.Net.UPnP.Networking;
-using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatCore.Network.Connections
 {
