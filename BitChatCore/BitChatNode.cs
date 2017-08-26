@@ -585,8 +585,8 @@ namespace BitChatCore
 
             List<IPEndPoint> bootstrapDhtNodes = new List<IPEndPoint>();
 
-            bootstrapDhtNodes.AddRange(_connectionManager.IPv4DhtNode.GetAllNodeEPs());
-            bootstrapDhtNodes.AddRange(_connectionManager.IPv6DhtNode.GetAllNodeEPs());
+            bootstrapDhtNodes.AddRange(_connectionManager.IPv4DhtNode.GetAllNodeEPs(true));
+            bootstrapDhtNodes.AddRange(_connectionManager.IPv6DhtNode.GetAllNodeEPs(true));
 
             if (bootstrapDhtNodes.Count > 0)
                 _profile.BootstrapDhtNodes = bootstrapDhtNodes.ToArray();
@@ -597,6 +597,16 @@ namespace BitChatCore
         public void ReCheckConnectivity()
         {
             _connectionManager.ReCheckConnectivity();
+        }
+
+        public IPEndPoint[] GetIPv4DhtNodes()
+        {
+            return _connectionManager.IPv4DhtNode.GetAllNodeEPs(false);
+        }
+
+        public IPEndPoint[] GetIPv6DhtNodes()
+        {
+            return _connectionManager.IPv6DhtNode.GetAllNodeEPs(false);
         }
 
         #endregion

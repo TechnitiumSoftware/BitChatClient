@@ -577,9 +577,20 @@ namespace BitChatCore.Network.KademliaDHT
             return _routingTable.GetTotalContacts();
         }
 
-        public IPEndPoint[] GetAllNodeEPs()
+        public IPEndPoint[] GetAllNodeEPs(bool includeStaleContacts)
         {
-            NodeContact[] contacts = _routingTable.GetAllContacts(true);
+            NodeContact[] contacts = _routingTable.GetAllContacts(includeStaleContacts);
+            IPEndPoint[] nodeEPs = new IPEndPoint[contacts.Length];
+
+            for (int i = 0; i < contacts.Length; i++)
+                nodeEPs[i] = contacts[i].NodeEP;
+
+            return nodeEPs;
+        }
+
+        public IPEndPoint[] GetKClosestRandomNodeEPs()
+        {
+            NodeContact[] contacts = _routingTable.GetKClosestContacts(BinaryNumber.GenerateRandomNumber160());
             IPEndPoint[] nodeEPs = new IPEndPoint[contacts.Length];
 
             for (int i = 0; i < contacts.Length; i++)
