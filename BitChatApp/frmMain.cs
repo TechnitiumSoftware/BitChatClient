@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2017  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -45,7 +45,7 @@ namespace BitChatApp
         FileStream _debugFile;
         StreamWriter _debugWriter;
 
-        BitChatClient _client;
+        BitChatNode _node;
 
         AutomaticUpdateClient _updateClient;
         DateTime _lastUpdateCheckedOn;
@@ -84,12 +84,12 @@ namespace BitChatApp
             }
 
             //start bitchat client
-            _client = new BitChatClient(profile, Program.TRUSTED_CERTIFICATES, cryptoOptions);
+            _node = new BitChatNode(profile, Program.TRUSTED_CERTIFICATES, cryptoOptions);
 
-            _client.InvalidCertificateDetected += Client_InvalidCertificateDetected;
-            _client.BitChatInvitationReceived += Client_BitChatInvitationReceived;
+            _node.InvalidCertificateDetected += BitChatNode_InvalidCertificateDetected;
+            _node.BitChatInvitationReceived += BitChatNode_BitChatInvitationReceived;
 
-            _client.Start();
+            _node.Start();
         }
 
         #endregion
@@ -101,7 +101,7 @@ namespace BitChatApp
             //load chats and ui views
             lblUserName.Text = _profile.LocalCertificateStore.Certificate.IssuedTo.Name;
 
-            foreach (BitChat chat in _client.GetBitChatList())
+            foreach (BitChat chat in _node.GetBitChatList())
                 AddChatView(chat);
 
             lstChats.SelectItem(lstChats.GetFirstItem());
@@ -178,7 +178,7 @@ namespace BitChatApp
             }
 
             _updateClient.Dispose();
-            _client.Dispose();
+            _node.Dispose();
         }
 
         private void frmMain_FormClosing(object sender, FormClosingEventArgs e)
@@ -387,7 +387,7 @@ namespace BitChatApp
         {
             SharedFile sharedFile = sender as SharedFile;
 
-            using (frmShareFileSelection frm = new frmShareFileSelection(_client, sharedFile))
+            using (frmShareFileSelection frm = new frmShareFileSelection(_node, sharedFile))
             {
                 if (frm.ShowDialog(this) == DialogResult.OK)
                 {
@@ -407,7 +407,7 @@ namespace BitChatApp
                 {
                     try
                     {
-                        BitChat chat = _client.CreatePrivateChat(new System.Net.Mail.MailAddress(frm.NetworkNameOrPeerEmailAddress.ToLower()), frm.SharedSecret, !frm.OnlyLanChat, frm.DhtOnlyTracking, frm.InvitationMessage);
+                        BitChat chat = _node.CreatePrivateChat(new System.Net.Mail.MailAddress(frm.NetworkNameOrPeerEmailAddress.ToLower()), frm.SharedSecret, !frm.OnlyLanChat, frm.DhtOnlyTracking, frm.InvitationMessage);
 
                         lstChats.SelectItem(AddChatView(chat));
                         ShowSelectedChatView();
@@ -435,7 +435,7 @@ namespace BitChatApp
                 {
                     try
                     {
-                        BitChat chat = _client.CreateGroupChat(frm.NetworkNameOrPeerEmailAddress, frm.SharedSecret, !frm.OnlyLanChat, frm.DhtOnlyTracking);
+                        BitChat chat = _node.CreateGroupChat(frm.NetworkNameOrPeerEmailAddress, frm.SharedSecret, !frm.OnlyLanChat, frm.DhtOnlyTracking);
 
                         lstChats.SelectItem(AddChatView(chat));
                         ShowSelectedChatView();
@@ -459,7 +459,7 @@ namespace BitChatApp
 
         private void mnuProfileSettings_Click(object sender, EventArgs e)
         {
-            using (frmSettings frm = new frmSettings(_client.Profile))
+            using (frmSettings frm = new frmSettings(_node.Profile))
             {
                 if (frm.ShowDialog(this) == DialogResult.OK)
                 {
@@ -500,7 +500,7 @@ namespace BitChatApp
 
         private void networkInfoToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            using (frmNetworkInfo frm = new frmNetworkInfo(_client))
+            using (frmNetworkInfo frm = new frmNetworkInfo(_node))
             {
                 frm.ShowDialog(this);
             }
@@ -626,7 +626,7 @@ namespace BitChatApp
 
         #region private
 
-        private void Client_InvalidCertificateDetected(BitChatClient client, InvalidCertificateException e)
+        private void BitChatNode_InvalidCertificateDetected(BitChatNode node, InvalidCertificateException e)
         {
             MessageBox.Show(e.Message + "\r\n\r\nClick OK to logout from this Bit Chat profile.", "Invalid Certificate Detected", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
@@ -636,7 +636,7 @@ namespace BitChatApp
             this.Close();
         }
 
-        private void Client_BitChatInvitationReceived(BitChatClient client, BitChat chat)
+        private void BitChatNode_BitChatInvitationReceived(BitChatNode node, BitChat chat)
         {
             AddChatView(chat);
 
@@ -854,7 +854,7 @@ namespace BitChatApp
             //write profile in tmp file
             using (FileStream fS = new FileStream(_profileFilePath + ".tmp", FileMode.Create, FileAccess.ReadWrite, FileShare.None))
             {
-                _client.UpdateProfile();
+                _node.UpdateProfile();
                 _profile.ClientData = SaveProfileSettings();
                 _profile.WriteTo(fS);
             }

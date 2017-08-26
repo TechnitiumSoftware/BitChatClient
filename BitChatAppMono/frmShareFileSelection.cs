@@ -29,13 +29,13 @@ namespace BitChatApp
     {
         List<BitChat> _selectedChats;
 
-        public frmShareFileSelection(BitChatClient client, SharedFile sharedFile)
+        public frmShareFileSelection(BitChatNode node, SharedFile sharedFile)
         {
             InitializeComponent();
 
             BitChat[] sharedChats = sharedFile.GetChatList();
 
-            foreach (BitChat chat in client.GetBitChatList())
+            foreach (BitChat chat in node.GetBitChatList())
             {
                 bool found = false;
 

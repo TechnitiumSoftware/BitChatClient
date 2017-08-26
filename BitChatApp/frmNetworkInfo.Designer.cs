@@ -50,10 +50,11 @@
             this.listView1.Location = new System.Drawing.Point(12, 12);
             this.listView1.MultiSelect = false;
             this.listView1.Name = "listView1";
-            this.listView1.Size = new System.Drawing.Size(460, 238);
+            this.listView1.Size = new System.Drawing.Size(460, 288);
             this.listView1.TabIndex = 0;
             this.listView1.UseCompatibleStateImageBehavior = false;
             this.listView1.View = System.Windows.Forms.View.Details;
+            this.listView1.DoubleClick += new System.EventHandler(this.listView1_DoubleClick);
             // 
             // columnHeader1
             // 
@@ -69,7 +70,7 @@
             // 
             this.btnClose.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnClose.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-            this.btnClose.Location = new System.Drawing.Point(397, 260);
+            this.btnClose.Location = new System.Drawing.Point(397, 310);
             this.btnClose.Name = "btnClose";
             this.btnClose.Size = new System.Drawing.Size(75, 23);
             this.btnClose.TabIndex = 2;
@@ -79,7 +80,7 @@
             // btnRecheck
             // 
             this.btnRecheck.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-            this.btnRecheck.Location = new System.Drawing.Point(12, 260);
+            this.btnRecheck.Location = new System.Drawing.Point(12, 310);
             this.btnRecheck.Name = "btnRecheck";
             this.btnRecheck.Size = new System.Drawing.Size(75, 23);
             this.btnRecheck.TabIndex = 1;
@@ -94,7 +95,7 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
             this.CancelButton = this.btnClose;
-            this.ClientSize = new System.Drawing.Size(484, 291);
+            this.ClientSize = new System.Drawing.Size(484, 341);
             this.Controls.Add(this.btnRecheck);
             this.Controls.Add(this.btnClose);
             this.Controls.Add(this.listView1);
