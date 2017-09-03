@@ -94,7 +94,7 @@ namespace BitChatCore.Network.KademliaDHT
 
         #region static
 
-        public static NodeContact[] GetClosestContacts(ICollection<NodeContact> contacts, BinaryNumber nodeID, int count)
+        public static NodeContact[] SelectClosestContacts(ICollection<NodeContact> contacts, BinaryNumber nodeID, int count)
         {
             if (contacts.Count < count)
                 count = contacts.Count;
@@ -141,10 +141,13 @@ namespace BitChatCore.Network.KademliaDHT
 
             foreach (NodeContact contact in bucket._contacts)
             {
-                if ((leftBucket._bucketID & contact.NodeID) == leftBucket._bucketID)
-                    leftBucket._contacts[leftBucket._contactCount++] = contact;
-                else
-                    rightBucket._contacts[rightBucket._contactCount++] = contact;
+                if (contact != null)
+                {
+                    if ((leftBucket._bucketID & contact.NodeID) == leftBucket._bucketID)
+                        leftBucket._contacts[leftBucket._contactCount++] = contact;
+                    else
+                        rightBucket._contacts[rightBucket._contactCount++] = contact;
+                }
             }
 
             KBucket selectedBucket;
@@ -162,64 +165,6 @@ namespace BitChatCore.Network.KademliaDHT
             bucket._contacts = null;
             bucket._leftBucket = leftBucket;
             bucket._rightBucket = rightBucket;
-        }
-
-        private static void JoinBucket(KBucket parentBucket)
-        {
-            lock (parentBucket)
-            {
-                KBucket leftBucket = parentBucket._leftBucket;
-                KBucket rightBucket = parentBucket._rightBucket;
-
-                if ((leftBucket == null) || (rightBucket == null))
-                    return;
-
-                lock (leftBucket)
-                {
-                    lock (rightBucket)
-                    {
-                        if ((leftBucket._contactCount + rightBucket._contactCount) > DhtNode.KADEMLIA_K * 2)
-                            return; //child k-buckets have more contacts then parent can accomodate
-
-                        NodeContact[] contacts = new NodeContact[DhtNode.KADEMLIA_K * 2];
-                        int contactCount = 0;
-
-                        if ((leftBucket._contacts[0] != null) && leftBucket._contacts[0].IsCurrentNode)
-                        {
-                            foreach (NodeContact contact in leftBucket._contacts)
-                            {
-                                if (contact != null)
-                                    contacts[contactCount++] = contact;
-                            }
-
-                            foreach (NodeContact contact in rightBucket._contacts)
-                            {
-                                if (contact != null)
-                                    contacts[contactCount++] = contact;
-                            }
-                        }
-                        else
-                        {
-                            foreach (NodeContact contact in rightBucket._contacts)
-                            {
-                                if (contact != null)
-                                    contacts[contactCount++] = contact;
-                            }
-
-                            foreach (NodeContact contact in leftBucket._contacts)
-                            {
-                                if (contact != null)
-                                    contacts[contactCount++] = contact;
-                            }
-                        }
-
-                        parentBucket._contacts = contacts;
-                        parentBucket._contactCount = contactCount;
-                        parentBucket._leftBucket = null;
-                        parentBucket._rightBucket = null;
-                    }
-                }
-            }
         }
 
         #endregion
@@ -242,9 +187,12 @@ namespace BitChatCore.Network.KademliaDHT
                 {
                     allLeafKBuckets.Add(currentBucket);
 
-                    while (currentBucket._parentBucket != null)
+                    while (true)
                     {
-                        if (ReferenceEquals(currentBucket, currentBucket._parentBucket._leftBucket))
+                        if (currentBucket == this)
+                            return allLeafKBuckets;
+
+                        if (currentBucket == currentBucket._parentBucket._leftBucket)
                         {
                             currentBucket = currentBucket._parentBucket._rightBucket;
                             break;
@@ -259,12 +207,7 @@ namespace BitChatCore.Network.KademliaDHT
                 {
                     currentBucket = leftBucket;
                 }
-
-                if (currentBucket._parentBucket == null)
-                    break;
             }
-
-            return allLeafKBuckets;
         }
 
         #endregion
@@ -273,10 +216,14 @@ namespace BitChatCore.Network.KademliaDHT
 
         public bool AddContact(NodeContact contact)
         {
+            List<KBucket> parentBuckets = new List<KBucket>();
+
             KBucket currentBucket = this;
 
             while (true)
             {
+                parentBuckets.Add(currentBucket);
+
                 NodeContact[] contacts = currentBucket._contacts;
                 KBucket leftBucket = currentBucket._leftBucket;
                 KBucket rightBucket = currentBucket._rightBucket;
@@ -285,7 +232,7 @@ namespace BitChatCore.Network.KademliaDHT
                 {
                     if ((contacts != null) || (leftBucket == null) || (rightBucket == null))
                     {
-                        #region  add contact in this bucket
+                        #region add contact in this bucket
 
                         //search if contact already exists
                         for (int i = 0; i < contacts.Length; i++)
@@ -300,8 +247,11 @@ namespace BitChatCore.Network.KademliaDHT
                             if (contacts[i] == null)
                             {
                                 contacts[i] = contact;
-                                currentBucket._contactCount++;
                                 currentBucket._lastChanged = DateTime.UtcNow;
+
+                                foreach (KBucket bucket in parentBuckets)
+                                    Interlocked.Increment(ref bucket._contactCount);
+
                                 return true;
                             }
                         }
@@ -317,6 +267,11 @@ namespace BitChatCore.Network.KademliaDHT
                                 {
                                     contacts[i] = contact;
                                     currentBucket._lastChanged = DateTime.UtcNow;
+                                    currentBucket._contactCount--;
+
+                                    foreach (KBucket bucket in parentBuckets)
+                                        Interlocked.Increment(ref bucket._contactCount);
+
                                     return true;
                                 }
                             }
@@ -327,6 +282,10 @@ namespace BitChatCore.Network.KademliaDHT
                         {
                             //split current bucket and add contact!
                             SplitBucket(currentBucket, contact);
+
+                            foreach (KBucket bucket in parentBuckets)
+                                Interlocked.Increment(ref bucket._contactCount);
+
                             return true;
                         }
                         else
@@ -347,10 +306,14 @@ namespace BitChatCore.Network.KademliaDHT
 
         public bool RemoveContact(NodeContact contact)
         {
+            List<KBucket> parentBuckets = new List<KBucket>();
+
             KBucket currentBucket = this;
 
             while (true)
             {
+                parentBuckets.Add(currentBucket);
+
                 NodeContact[] contacts = currentBucket._contacts;
                 KBucket leftBucket = currentBucket._leftBucket;
                 KBucket rightBucket = currentBucket._rightBucket;
@@ -364,8 +327,6 @@ namespace BitChatCore.Network.KademliaDHT
                         if (currentBucket._contactCount <= DhtNode.KADEMLIA_K)
                             return false; //k-bucket is not full and replacement cache is empty
 
-                        bool contactRemoved = false;
-
                         for (int i = 0; i < contacts.Length; i++)
                         {
                             if (contact.Equals(contacts[i]))
@@ -374,23 +335,19 @@ namespace BitChatCore.Network.KademliaDHT
                                 {
                                     //remove stale contact
                                     contacts[i] = null;
-                                    currentBucket._contactCount--;
                                     currentBucket._lastChanged = DateTime.UtcNow;
-                                    contactRemoved = true;
+
+                                    foreach (KBucket bucket in parentBuckets)
+                                        Interlocked.Decrement(ref bucket._contactCount);
+
+                                    return true;
                                 }
 
                                 break;
                             }
                         }
 
-                        if (!contactRemoved)
-                            return false; //contact was not found or was not stale
-
-                        //check parent bucket contact count and join the parent bucket
-                        if (currentBucket._parentBucket != null)
-                            JoinBucket(currentBucket._parentBucket);
-
-                        return true;
+                        return false; //contact was not found or was not stale
 
                         #endregion
                     }
@@ -425,7 +382,7 @@ namespace BitChatCore.Network.KademliaDHT
                         closestContacts = closestBucket.GetAllContacts(false);
 
                         if (closestContacts.Length > DhtNode.KADEMLIA_K)
-                            return GetClosestContacts(closestContacts, nodeID, DhtNode.KADEMLIA_K);
+                            return SelectClosestContacts(closestContacts, nodeID, DhtNode.KADEMLIA_K);
 
                         if (closestContacts.Length == DhtNode.KADEMLIA_K)
                             return closestContacts;
@@ -441,7 +398,7 @@ namespace BitChatCore.Network.KademliaDHT
                         closestContacts = parentBucket.GetAllContacts(false);
 
                         if (closestContacts.Length > DhtNode.KADEMLIA_K)
-                            return GetClosestContacts(closestContacts, nodeID, DhtNode.KADEMLIA_K);
+                            return SelectClosestContacts(closestContacts, nodeID, DhtNode.KADEMLIA_K);
 
                         if (closestContacts.Length == DhtNode.KADEMLIA_K)
                             return closestContacts;
@@ -517,21 +474,7 @@ namespace BitChatCore.Network.KademliaDHT
             }
         }
 
-        public int GetTotalContacts()
-        {
-            int count = 0;
-            List<KBucket> allLeafKBuckets = GetAllLeafKBuckets();
-
-            foreach (KBucket kBucket in allLeafKBuckets)
-            {
-                if (kBucket._contacts != null)
-                    count += kBucket._contactCount;
-            }
-
-            return count;
-        }
-
-        public void CheckContactHealth(DhtNode dhtNode)
+        internal void CheckContactHealth(DhtNode dhtNode)
         {
             List<KBucket> allLeafKBuckets = GetAllLeafKBuckets();
 
@@ -559,7 +502,7 @@ namespace BitChatCore.Network.KademliaDHT
             }
         }
 
-        public void RefreshBucket(DhtNode dhtNode)
+        internal void RefreshBucket(DhtNode dhtNode)
         {
             List<KBucket> allLeafKBuckets = GetAllLeafKBuckets();
 
@@ -587,6 +530,13 @@ namespace BitChatCore.Network.KademliaDHT
                 }
             }
         }
+
+        #endregion
+
+        #region properties
+
+        public int TotalContacts
+        { get { return _contactCount; } }
 
         #endregion
     }
