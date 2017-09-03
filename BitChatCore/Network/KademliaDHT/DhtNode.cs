@@ -240,7 +240,7 @@ namespace BitChatCore.Network.KademliaDHT
             if (queryType == DhtRpcType.FIND_PEERS)
                 receivedPeers = new List<PeerEndPoint>();
 
-            NodeContact previousClosestSeenContact = KBucket.GetClosestContacts(seenContacts, nodeID, 1)[0];
+            NodeContact previousClosestSeenContact = KBucket.SelectClosestContacts(seenContacts, nodeID, 1)[0];
 
             while (true)
             {
@@ -249,7 +249,7 @@ namespace BitChatCore.Network.KademliaDHT
                 //pick alpha contacts to query from learned contacts
                 lock (learnedNotQueriedContacts)
                 {
-                    alphaContacts = KBucket.GetClosestContacts(learnedNotQueriedContacts, nodeID, alpha);
+                    alphaContacts = KBucket.SelectClosestContacts(learnedNotQueriedContacts, nodeID, alpha);
 
                     //remove selected alpha contacts from learned not queries contacts list
                     foreach (NodeContact alphaContact in alphaContacts)
@@ -346,7 +346,7 @@ namespace BitChatCore.Network.KademliaDHT
 
                             lock (seenContacts)
                             {
-                                currentClosestSeenContact = KBucket.GetClosestContacts(seenContacts, nodeID, 1)[0];
+                                currentClosestSeenContact = KBucket.SelectClosestContacts(seenContacts, nodeID, 1)[0];
                             }
 
                             BinaryNumber previousDistance = nodeID ^ previousClosestSeenContact.NodeID;
@@ -399,7 +399,7 @@ namespace BitChatCore.Network.KademliaDHT
 
                     lock (seenContacts)
                     {
-                        kClosestSeenContacts = KBucket.GetClosestContacts(seenContacts, nodeID, KADEMLIA_K);
+                        kClosestSeenContacts = KBucket.SelectClosestContacts(seenContacts, nodeID, KADEMLIA_K);
                     }
 
                     lock (respondedContacts)
@@ -419,7 +419,7 @@ namespace BitChatCore.Network.KademliaDHT
                             return kClosestSeenContacts;
 
                         if (alphaContacts.Length < 1)
-                            return KBucket.GetClosestContacts(respondedContacts, nodeID, KADEMLIA_K);
+                            return KBucket.SelectClosestContacts(respondedContacts, nodeID, KADEMLIA_K);
                     }
                 }
             }
@@ -572,11 +572,6 @@ namespace BitChatCore.Network.KademliaDHT
             return QueryAnnounce(initialContacts, networkID, Convert.ToUInt16(servicePort));
         }
 
-        public int GetTotalNodes()
-        {
-            return _routingTable.GetTotalContacts();
-        }
-
         public IPEndPoint[] GetAllNodeEPs(bool includeStaleContacts)
         {
             NodeContact[] contacts = _routingTable.GetAllContacts(includeStaleContacts);
@@ -608,6 +603,9 @@ namespace BitChatCore.Network.KademliaDHT
 
         public IPEndPoint LocalNodeEP
         { get { return _currentNode.NodeEP; } }
+
+        public int TotalNodes
+        { get { return _routingTable.TotalContacts; } }
 
         #endregion
 
