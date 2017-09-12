@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2017  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -496,6 +496,7 @@ namespace BitChatCore.Network
                 }
 
                 _udpListener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
+                _udpListener.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
 
                 if (_udpListener.AddressFamily == AddressFamily.InterNetwork)
                 {
@@ -625,23 +626,6 @@ namespace BitChatCore.Network
 
                             if (NetUtilities.IsIPv4MappedIPv6Address(peerIP))
                                 peerIP = NetUtilities.ConvertFromIPv4MappedIPv6Address(peerIP);
-
-                            bool isSelf = false;
-
-                            lock (_networks)
-                            {
-                                foreach (NetworkInfo network in _networks)
-                                {
-                                    if (network.LocalIP.Equals(peerIP))
-                                    {
-                                        isSelf = true;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if (isSelf)
-                                continue;
 
                             dataRecv.Position = 0;
                             dataRecv.SetLength(bytesRecv);
