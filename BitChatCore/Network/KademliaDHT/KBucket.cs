@@ -158,9 +158,15 @@ namespace BitChatCore.Network.KademliaDHT
                 selectedBucket = rightBucket;
 
             if (selectedBucket._contactCount == selectedBucket._contacts.Length)
+            {
                 SplitBucket(selectedBucket, newContact);
+
+                selectedBucket._contactCount++;
+            }
             else
+            {
                 selectedBucket._contacts[selectedBucket._contactCount++] = newContact;
+            }
 
             bucket._contacts = null;
             bucket._leftBucket = leftBucket;
@@ -183,7 +189,7 @@ namespace BitChatCore.Network.KademliaDHT
                 KBucket leftBucket = currentBucket._leftBucket;
                 KBucket rightBucket = currentBucket._rightBucket;
 
-                if ((contacts != null) || (leftBucket == null) || (rightBucket == null))
+                if (contacts != null)
                 {
                     allLeafKBuckets.Add(currentBucket);
 
@@ -216,21 +222,21 @@ namespace BitChatCore.Network.KademliaDHT
 
         public bool AddContact(NodeContact contact)
         {
-            List<KBucket> parentBuckets = new List<KBucket>();
-
             KBucket currentBucket = this;
 
             while (true)
             {
-                parentBuckets.Add(currentBucket);
-
-                NodeContact[] contacts = currentBucket._contacts;
-                KBucket leftBucket = currentBucket._leftBucket;
-                KBucket rightBucket = currentBucket._rightBucket;
+                NodeContact[] contacts;
+                KBucket leftBucket;
+                KBucket rightBucket;
 
                 lock (currentBucket)
                 {
-                    if ((contacts != null) || (leftBucket == null) || (rightBucket == null))
+                    contacts = currentBucket._contacts;
+                    leftBucket = currentBucket._leftBucket;
+                    rightBucket = currentBucket._rightBucket;
+
+                    if (contacts != null)
                     {
                         #region add contact in this bucket
 
@@ -249,8 +255,13 @@ namespace BitChatCore.Network.KademliaDHT
                                 contacts[i] = contact;
                                 currentBucket._lastChanged = DateTime.UtcNow;
 
-                                foreach (KBucket bucket in parentBuckets)
+                                KBucket bucket = currentBucket;
+                                do
+                                {
                                     Interlocked.Increment(ref bucket._contactCount);
+                                    bucket = bucket._parentBucket;
+                                }
+                                while (bucket != null);
 
                                 return true;
                             }
@@ -267,10 +278,14 @@ namespace BitChatCore.Network.KademliaDHT
                                 {
                                     contacts[i] = contact;
                                     currentBucket._lastChanged = DateTime.UtcNow;
-                                    currentBucket._contactCount--;
 
-                                    foreach (KBucket bucket in parentBuckets)
+                                    KBucket bucket = currentBucket;
+                                    do
+                                    {
                                         Interlocked.Increment(ref bucket._contactCount);
+                                        bucket = bucket._parentBucket;
+                                    }
+                                    while (bucket != null);
 
                                     return true;
                                 }
@@ -283,16 +298,20 @@ namespace BitChatCore.Network.KademliaDHT
                             //split current bucket and add contact!
                             SplitBucket(currentBucket, contact);
 
-                            foreach (KBucket bucket in parentBuckets)
+                            KBucket bucket = currentBucket;
+                            do
+                            {
                                 Interlocked.Increment(ref bucket._contactCount);
+                                bucket = bucket._parentBucket;
+                            }
+                            while (bucket != null);
 
                             return true;
                         }
-                        else
-                        {
-                            //k-bucket is full!
-                            return false;
-                        }
+
+                        //k-bucket is full!
+                        return false;
+
                         #endregion
                     }
                 }
@@ -306,21 +325,21 @@ namespace BitChatCore.Network.KademliaDHT
 
         public bool RemoveContact(NodeContact contact)
         {
-            List<KBucket> parentBuckets = new List<KBucket>();
-
             KBucket currentBucket = this;
 
             while (true)
             {
-                parentBuckets.Add(currentBucket);
-
-                NodeContact[] contacts = currentBucket._contacts;
-                KBucket leftBucket = currentBucket._leftBucket;
-                KBucket rightBucket = currentBucket._rightBucket;
+                NodeContact[] contacts;
+                KBucket leftBucket;
+                KBucket rightBucket;
 
                 lock (currentBucket)
                 {
-                    if ((contacts != null) || (leftBucket == null) || (rightBucket == null))
+                    contacts = currentBucket._contacts;
+                    leftBucket = currentBucket._leftBucket;
+                    rightBucket = currentBucket._rightBucket;
+
+                    if (contacts != null)
                     {
                         #region remove contact from this bucket
 
@@ -337,8 +356,13 @@ namespace BitChatCore.Network.KademliaDHT
                                     contacts[i] = null;
                                     currentBucket._lastChanged = DateTime.UtcNow;
 
-                                    foreach (KBucket bucket in parentBuckets)
+                                    KBucket bucket = currentBucket;
+                                    do
+                                    {
                                         Interlocked.Decrement(ref bucket._contactCount);
+                                        bucket = bucket._parentBucket;
+                                    }
+                                    while (bucket != null);
 
                                     return true;
                                 }
@@ -370,7 +394,7 @@ namespace BitChatCore.Network.KademliaDHT
                 KBucket leftBucket = currentBucket._leftBucket;
                 KBucket rightBucket = currentBucket._rightBucket;
 
-                if ((contacts != null) || (leftBucket == null) || (rightBucket == null))
+                if (contacts != null)
                 {
                     #region find closest contacts from this bucket
 
@@ -456,7 +480,7 @@ namespace BitChatCore.Network.KademliaDHT
                 KBucket leftBucket = currentBucket._leftBucket;
                 KBucket rightBucket = currentBucket._rightBucket;
 
-                if ((contacts != null) || (leftBucket == null) || (rightBucket == null))
+                if (contacts != null)
                 {
                     foreach (NodeContact contact in contacts)
                     {
