@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using BitChatCore;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Mail;
@@ -370,7 +371,14 @@ namespace BitChatApp
                 selfSignedCert.SelfSign("SHA256", privateKey, null);
 
                 if (_profile == null)
-                    _profile = new BitChatProfile((new Random(DateTime.UtcNow.Millisecond)).Next(1024, 65535), GetDownloadsPath(), BitChatProfile.DefaultTrackerURIs, _isPortableApp, _profileFolder);
+                {
+                    List<Uri> trackerURIs = new List<Uri>();
+
+                    trackerURIs.AddRange(BitChatProfile.IPv4DefaultTrackerURIs);
+                    trackerURIs.AddRange(BitChatProfile.IPv6DefaultTrackerURIs);
+
+                    _profile = new BitChatProfile((new Random(DateTime.UtcNow.Millisecond)).Next(1024, 65535), GetDownloadsPath(), trackerURIs.ToArray(), _isPortableApp, _profileFolder);
+                }
 
                 if (_enableProxy)
                     _profile.ConfigureProxy(_proxyType, _proxyAddress, _proxyPort, _proxyCredentials);
