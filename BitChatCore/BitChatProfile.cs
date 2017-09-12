@@ -44,7 +44,7 @@ namespace BitChatCore
 
         #region variables
 
-        public readonly static Uri[] DefaultTrackerURIs
+        public readonly static Uri[] IPv4DefaultTrackerURIs
             = new Uri[]
             {
                 new Uri("udp://tracker1.bitchat.im:6969"),
@@ -55,6 +55,11 @@ namespace BitChatCore
                 new Uri("http://opensharing.org:2710/announce"),
                 new Uri("http://bt.careland.com.cn:6969/announce"),
                 new Uri("http://tracker.ex.ua/announce"),
+            };
+
+        public readonly static Uri[] IPv6DefaultTrackerURIs
+            = new Uri[]
+            {
                 new Uri("udp://ipv6.tracker.harry.lu:80/announce"),
                 new Uri("http://ipv6.tracker.harry.lu:80/announce")
             };

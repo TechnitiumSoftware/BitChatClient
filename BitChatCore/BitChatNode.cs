@@ -629,10 +629,10 @@ namespace BitChatCore
         { get { return _connectionManager.IPv6DhtNode.LocalNodeID; } }
 
         public int IPv4DhtTotalNodes
-        { get { return _connectionManager.IPv4DhtNode.GetTotalNodes(); } }
+        { get { return _connectionManager.IPv4DhtNode.TotalNodes; } }
 
         public int IPv6DhtTotalNodes
-        { get { return _connectionManager.IPv6DhtNode.GetTotalNodes(); } }
+        { get { return _connectionManager.IPv6DhtNode.TotalNodes; } }
 
         public InternetConnectivityStatus IPv4InternetStatus
         { get { return _connectionManager.IPv4InternetStatus; } }
