@@ -63,7 +63,7 @@ namespace BitChatCore.Network.KademliaDHT
         CurrentNode _currentNode;
         KBucket _routingTable;
 
-        readonly Timer _healthTimer;
+        Timer _healthTimer;
 
         #endregion
 
@@ -100,7 +100,10 @@ namespace BitChatCore.Network.KademliaDHT
                 if (disposing)
                 {
                     if (_healthTimer != null)
+                    {
                         _healthTimer.Dispose();
+                        _healthTimer = null;
+                    }
                 }
 
                 _disposed = true;
@@ -491,7 +494,7 @@ namespace BitChatCore.Network.KademliaDHT
 
         #region public
 
-        public void UpdateLocalNodeEP(IPEndPoint localNodeEP)
+        public bool UpdateLocalNodeEP(IPEndPoint localNodeEP)
         {
             if ((localNodeEP != null) && (_currentNode.NodeEP.AddressFamily == localNodeEP.AddressFamily) && !_currentNode.NodeEP.Equals(localNodeEP))
             {
@@ -501,7 +504,10 @@ namespace BitChatCore.Network.KademliaDHT
                 _routingTable = new KBucket(_currentNode);
 
                 AddNode(existingContacts);
+                return true;
             }
+
+            return false;
         }
 
         public void AcceptConnection(Stream s, IPAddress remoteNodeIP)
@@ -592,6 +598,12 @@ namespace BitChatCore.Network.KademliaDHT
                 nodeEPs[i] = contacts[i].NodeEP;
 
             return nodeEPs;
+        }
+
+        public void ForceHealthCheck()
+        {
+            if (_healthTimer != null)
+                _healthTimer.Change(1000, Timeout.Infinite);
         }
 
         #endregion
