@@ -133,9 +133,6 @@ namespace BitChatCore.Network.KademliaDHT
             if (bucket._contacts == null)
                 return;
 
-            if (!bucket._contacts[0].IsCurrentNode)
-                throw new ArgumentException("Cannot split this k-bucket: must contain current node to split.");
-
             KBucket leftBucket = new KBucket(bucket, true);
             KBucket rightBucket = new KBucket(bucket, false);
 
@@ -293,7 +290,7 @@ namespace BitChatCore.Network.KademliaDHT
                         }
 
                         //no stale contact in this k-bucket to replace!
-                        if (contacts[0].IsCurrentNode)
+                        if (contacts[0].IsCurrentNode || (currentBucket._bucketDepth < (DhtNode.KADEMLIA_B - 1)))
                         {
                             //split current bucket and add contact!
                             SplitBucket(currentBucket, contact);

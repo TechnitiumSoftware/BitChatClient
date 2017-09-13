@@ -53,6 +53,7 @@ namespace BitChatCore.Network.KademliaDHT
         #region variables
 
         public const int KADEMLIA_K = 8;
+        internal const int KADEMLIA_B = 5;
         const int QUERY_TIMEOUT = 5000;
         const int HEALTH_CHECK_TIMER_INITIAL_INTERVAL = 30 * 1000; //30 sec
         const int HEALTH_CHECK_TIMER_INTERVAL = 15 * 60 * 1000; //15 min
