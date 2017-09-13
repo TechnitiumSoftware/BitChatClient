@@ -1014,6 +1014,8 @@ namespace BitChatCore.Network.Connections
                                 InternetGatewayDevice[] upnpDevices = InternetGatewayDevice.Discover(defaultNetworkInfo.LocalIP, gateway.Address);
                                 if (upnpDevices.Length > 0)
                                     _upnpDevice = upnpDevices[0];
+                                else
+                                    _upnpDevice = null;
                             }
                             catch (Exception ex)
                             {

@@ -89,11 +89,6 @@ namespace BitChatCore
 
         #region IDisposable
 
-        ~BitChatNode()
-        {
-            Dispose(false);
-        }
-
         public void Dispose()
         {
             Dispose(true);
