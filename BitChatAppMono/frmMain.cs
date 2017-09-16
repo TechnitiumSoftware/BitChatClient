@@ -21,6 +21,7 @@ using AutomaticUpdate.Client;
 using BitChatApp.UserControls;
 using BitChatCore;
 using BitChatCore.FileSharing;
+using BitChatCore.Network.Connections;
 using BitChatCore.Network.SecureChannel;
 using System;
 using System.Drawing;
@@ -52,6 +53,8 @@ namespace BitChatApp
         SoundPlayer _sndMessageNotification = new SoundPlayer(Properties.Resources.MessageNotification);
 
         BitChatPanel _currentChatPanel;
+        Timer _updateTimer;
+        bool _upnpNoticeShown = false;
 
         #endregion
 
@@ -140,6 +143,11 @@ namespace BitChatApp
             _updateClient.UpdateAvailable += _updateClient_UpdateAvailable;
             _updateClient.NoUpdateAvailable += _updateClient_NoUpdateAvailable;
             _updateClient.UpdateError += _updateClient_UpdateError;
+
+            _updateTimer = new Timer();
+            _updateTimer.Interval = 10000;
+            _updateTimer.Tick += updateTimer_Tick;
+            _updateTimer.Start();
         }
 
         private void frmMain_KeyDown(object sender, KeyEventArgs e)
@@ -175,6 +183,7 @@ namespace BitChatApp
                 }
             }
 
+            _updateTimer.Dispose();
             _updateClient.Dispose();
             _node.Dispose();
         }
@@ -404,6 +413,94 @@ namespace BitChatApp
                     }
                 }
             }
+        }
+
+        private void updateTimer_Tick(object sender, EventArgs e)
+        {
+            string title = "Technitium Bit Chat";
+
+            switch (_node.IPv4InternetStatus)
+            {
+                case InternetConnectivityStatus.NoInternetConnection:
+                case InternetConnectivityStatus.NoProxyInternetConnection:
+                    switch (_node.IPv6InternetStatus)
+                    {
+                        case InternetConnectivityStatus.NoInternetConnection:
+                        case InternetConnectivityStatus.NoProxyInternetConnection:
+                            this.Text = title + " [No Internet]";
+                            return;
+
+                        case InternetConnectivityStatus.FirewalledInternetConnection:
+                            this.Text = title + " [Firewalled IPv6 Only Internet]";
+                            return;
+
+                        case InternetConnectivityStatus.HttpProxyInternetConnection:
+                            this.Text = title + " [IPv6 HTTP Proxy Internet]";
+                            return;
+
+                        case InternetConnectivityStatus.Socks5ProxyInternetConnection:
+                            this.Text = title + " [IPv6 SOCKS5 Proxy Internet]";
+                            return;
+
+                        case InternetConnectivityStatus.ProxyConnectionFailed:
+                            this.Text = title + " [IPv6 Proxy Failed]";
+                            return;
+
+                        default:
+                            this.Text = title + " [IPv6 Only Internet]";
+                            return;
+                    }
+
+                case InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter:
+                    switch (_node.UPnPStatus)
+                    {
+                        case UPnPDeviceStatus.ExternalIpPrivate:
+                            this.Text = title + " [UPnP: No Public IP Detected]";
+                            return;
+
+                        case UPnPDeviceStatus.PortForwardedNotAccessible:
+                            this.Text = title + " [UPnP: Port Not Accessible From Internet]";
+                            return;
+
+                        case UPnPDeviceStatus.PortForwardingFailed:
+                            this.Text = title + " [UPnP: Port Forwarding Failed]";
+                            return;
+                    }
+
+                    break;
+
+                case InternetConnectivityStatus.NatOrFirewalledInternetConnection:
+                case InternetConnectivityStatus.FirewalledInternetConnection:
+                    if (_node.IPv4ExternalEndPoint == null)
+                    {
+                        this.Text = title + " [NAT or Firewalled Internet]";
+
+                        if ((_node.UPnPStatus == UPnPDeviceStatus.DeviceNotFound) && !_upnpNoticeShown)
+                        {
+                            _upnpNoticeShown = true;
+
+                            MessageBox.Show("Bit Chat has detected that your Internet access is either firewalled or you have a NAT enabled router or access point.\r\n\r\nSince, Bit Chat works using peer-to-peer (p2p) technology, NAT or firewall prevents other Bit Chat peers from directly connect to you over the Internet. This may affect your ability to chat with your peers and hence this should be fixed.\r\n\r\nTo fix this, you should either enable UPnP feature or configure port forwarding manually in your router or access point. If you are not sure, you can refer to the user manual that came with your device or search online for the user manual.", "Enable UPnP/Port Forwarding On Your Router", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                        }
+
+                        return;
+                    }
+
+                    break;
+
+                case InternetConnectivityStatus.HttpProxyInternetConnection:
+                    this.Text = title + " [HTTP Proxy Internet]";
+                    return;
+
+                case InternetConnectivityStatus.Socks5ProxyInternetConnection:
+                    this.Text = title + " [SOCKS5 Proxy Internet]";
+                    return;
+
+                case InternetConnectivityStatus.ProxyConnectionFailed:
+                    this.Text = title + " [Proxy Failed]";
+                    return;
+            }
+
+            this.Text = title;
         }
 
         #region menus

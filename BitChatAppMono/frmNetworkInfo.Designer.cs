@@ -38,8 +38,8 @@
             // 
             // listView1
             // 
-            this.listView1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
-            | System.Windows.Forms.AnchorStyles.Left) 
+            this.listView1.Anchor = ((System.Windows.Forms.AnchorStyles)((((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom)
+            | System.Windows.Forms.AnchorStyles.Left)
             | System.Windows.Forms.AnchorStyles.Right)));
             this.listView1.Columns.AddRange(new System.Windows.Forms.ColumnHeader[] {
             this.columnHeader1,
@@ -107,7 +107,8 @@
             this.ShowInTaskbar = false;
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterParent;
             this.Text = "Network Info";
-            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.frmNetworkInfo_FormClosed);
+            this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.frmNetworkInfo_FormClosing);
+            this.Load += new System.EventHandler(this.frmNetworkInfo_Load);
             this.ResumeLayout(false);
 
         }

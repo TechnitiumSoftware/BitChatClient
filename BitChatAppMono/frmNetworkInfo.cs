@@ -35,7 +35,10 @@ namespace BitChatApp
             InitializeComponent();
 
             _node = node;
+        }
 
+        private void frmNetworkInfo_Load(object sender, EventArgs e)
+        {
             listView1.Items.Add("Local Peer ID").SubItems.Add("Loading...");
             listView1.Items.Add("Local Port").SubItems.Add("Loading...");
 
@@ -80,15 +83,18 @@ namespace BitChatApp
 
             listView1.Items[8].SubItems[1].Text = _node.UPnPStatus.ToString();
 
-            if (_node.UPnPExternalIP == null)
+            IPAddress upnpExternalIP = _node.UPnPExternalIP;
+            IPAddress upnpDeviceIP = _node.UPnPDeviceIP;
+
+            if ((upnpExternalIP == null) || (upnpDeviceIP == null))
                 listView1.Items[9].SubItems[1].Text = "";
             else
-                listView1.Items[9].SubItems[1].Text = _node.UPnPDeviceIP.ToString();
+                listView1.Items[9].SubItems[1].Text = upnpDeviceIP.ToString();
 
-            if (_node.UPnPExternalIP == null)
+            if (upnpExternalIP == null)
                 listView1.Items[10].SubItems[1].Text = "";
             else
-                listView1.Items[10].SubItems[1].Text = _node.UPnPExternalIP.ToString();
+                listView1.Items[10].SubItems[1].Text = upnpExternalIP.ToString();
 
             switch (_node.IPv4InternetStatus)
             {
@@ -107,10 +113,13 @@ namespace BitChatApp
                 default:
                     listView1.Items[11].SubItems[1].Text = "";
 
-                    if (_node.IPv4ExternalEndPoint == null)
+                    IPEndPoint ep = _node.IPv4ExternalEndPoint;
+
+                    if (ep == null)
                         listView1.Items[12].SubItems[1].Text = "Incoming connections blocked by NAT/Firewall";
                     else
-                        listView1.Items[12].SubItems[1].Text = _node.IPv4ExternalEndPoint.ToString();
+                        listView1.Items[12].SubItems[1].Text = ep.ToString();
+
                     break;
             }
 
@@ -131,10 +140,13 @@ namespace BitChatApp
                 default:
                     listView1.Items[11].SubItems[1].Text = "";
 
-                    if (_node.IPv6ExternalEndPoint == null)
+                    IPEndPoint ep = _node.IPv6ExternalEndPoint;
+
+                    if (ep == null)
                         listView1.Items[13].SubItems[1].Text = "Incoming connections blocked by NAT/Firewall";
                     else
-                        listView1.Items[13].SubItems[1].Text = _node.IPv6ExternalEndPoint.ToString();
+                        listView1.Items[13].SubItems[1].Text = ep.ToString();
+
                     break;
             }
 
@@ -153,7 +165,7 @@ namespace BitChatApp
             }
         }
 
-        private void frmNetworkInfo_FormClosed(object sender, FormClosedEventArgs e)
+        private void frmNetworkInfo_FormClosing(object sender, FormClosingEventArgs e)
         {
             _updateTimer.Stop();
         }
