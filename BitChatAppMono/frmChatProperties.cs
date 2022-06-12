@@ -17,31 +17,55 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient;
-using TechnitiumLibrary.Net.BitTorrent;
+using BitChatCore;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
 using System.Net;
-using System.Text;
 using System.Windows.Forms;
+using TechnitiumLibrary.Net.BitTorrent;
 
-namespace BitChatAppMono
+namespace BitChatApp
 {
     public partial class frmChatProperties : Form
     {
+        #region variables
+
         BitChat _chat;
+        BitChatProfile _profile;
 
         Timer _timer;
 
-        public frmChatProperties(BitChat chat)
+        #endregion
+
+        #region constructor
+
+        public frmChatProperties(BitChat chat, BitChatProfile profile)
         {
             InitializeComponent();
 
+            _chat = chat;
+            _profile = profile;
+
+            this.Text = _chat.NetworkDisplayName + " - Properties";
+
+            chkLANChat.Checked = !_chat.EnableTracking;
+            chkLANChat.CheckedChanged += chkLANChat_CheckedChanged;
+
             txtNetwork.Text = chat.NetworkName;
 
-            _chat = chat;
+            if (chat.NetworkName == null)
+                txtSecret.ReadOnly = true;
+
+            txtSecret.Text = _chat.SharedSecret;
+
+            if (_chat.NetworkType == BitChatCore.Network.BitChatNetworkType.PrivateChat)
+                label1.Text = "Peer's Email Address";
+
+            ListViewItem dhtItem = lstTrackerInfo.Items.Add("DHT");
+
+            dhtItem.SubItems.Add("");
+            dhtItem.SubItems.Add("");
+            dhtItem.SubItems.Add("");
 
             foreach (TrackerClient tracker in _chat.GetTrackers())
             {
@@ -55,36 +79,67 @@ namespace BitChatAppMono
 
             _timer = new Timer();
             _timer.Interval = 1000;
-            _timer.Tick += _timer_Tick;
+            _timer.Tick += timer_Tick;
             _timer.Start();
         }
 
-        private void _timer_Tick(object sender, EventArgs e)
+        #endregion
+
+        #region form code
+
+        private void timer_Tick(object sender, EventArgs e)
         {
             lock (lstTrackerInfo.Items)
             {
+                bool tracking = _chat.IsTrackerRunning;
+
                 foreach (ListViewItem item in lstTrackerInfo.Items)
                 {
-                    TrackerClient tracker = item.Tag as TrackerClient;
-
-                    string strUpdateIn = "updating...";
-                    TimeSpan updateIn = tracker.NextUpdateIn();
-
-                    if (updateIn.TotalSeconds > 1)
+                    if (tracking)
                     {
-                        strUpdateIn = "";
-                        if (updateIn.Hours > 0)
-                            strUpdateIn = updateIn.Hours + "h ";
+                        TrackerClient tracker = item.Tag as TrackerClient;
 
-                        if (updateIn.Minutes > 0)
-                            strUpdateIn += updateIn.Minutes + "m ";
+                        TimeSpan updateIn;
+                        Exception lastException;
+                        int peerCount;
 
-                        strUpdateIn += updateIn.Seconds + "s";
+                        if (tracker == null)
+                        {
+                            updateIn = _chat.DhtNextUpdateIn();
+                            lastException = _chat.DhtLastException();
+                            peerCount = _chat.DhtGetTotalPeers();
+                        }
+                        else
+                        {
+                            updateIn = tracker.NextUpdateIn();
+                            lastException = tracker.LastException;
+                            peerCount = tracker.Peers.Count;
+                        }
+
+                        string strUpdateIn = "updating...";
+
+                        if (updateIn.TotalSeconds > 1)
+                        {
+                            strUpdateIn = "";
+                            if (updateIn.Hours > 0)
+                                strUpdateIn = updateIn.Hours + "h ";
+
+                            if (updateIn.Minutes > 0)
+                                strUpdateIn += updateIn.Minutes + "m ";
+
+                            strUpdateIn += updateIn.Seconds + "s";
+                        }
+
+                        item.SubItems[1].Text = lastException == null ? "working" : "[" + tracker.RetriesDone + "] " + lastException.Message;
+                        item.SubItems[2].Text = strUpdateIn;
+                        item.SubItems[3].Text = peerCount.ToString();
                     }
-
-                    item.SubItems[1].Text = tracker.LastException == null ? "working" : tracker.LastException.Message;
-                    item.SubItems[2].Text = strUpdateIn;
-                    item.SubItems[3].Text = tracker.Peers.Count.ToString();
+                    else
+                    {
+                        item.SubItems[1].Text = "not tracking";
+                        item.SubItems[2].Text = "";
+                        item.SubItems[3].Text = "";
+                    }
                 }
             }
         }
@@ -94,24 +149,17 @@ namespace BitChatAppMono
             showPeersToolStripMenuItem_Click(null, null);
         }
 
-        private void btnClose_Click(object sender, EventArgs e)
-        {
-            this.Close();
-        }
-
         private void lstTrackerInfo_MouseUp(object sender, MouseEventArgs e)
         {
             showPeersToolStripMenuItem.Enabled = (lstTrackerInfo.SelectedItems.Count == 1);
 
-            if (lstTrackerInfo.SelectedItems.Count > 0)
+            if ((lstTrackerInfo.SelectedItems.Count > 0) && (lstTrackerInfo.SelectedItems[0].Text != "DHT"))
             {
-                updateTrackerToolStripMenuItem.Enabled = true;
                 removeTrackerToolStripMenuItem.Enabled = true;
                 copyTrackerToolStripMenuItem.Enabled = true;
             }
             else
             {
-                updateTrackerToolStripMenuItem.Enabled = false;
                 removeTrackerToolStripMenuItem.Enabled = false;
                 copyTrackerToolStripMenuItem.Enabled = false;
             }
@@ -123,21 +171,24 @@ namespace BitChatAppMono
             {
                 TrackerClient tracker = lstTrackerInfo.SelectedItems[0].Tag as TrackerClient;
 
+                IEnumerable<IPEndPoint> peerEPs;
+
+                if (tracker == null)
+                    peerEPs = _chat.DhtGetPeers();
+                else
+                    peerEPs = tracker.Peers;
+
                 string peers = "";
 
-                foreach (IPEndPoint peerEP in tracker.Peers)
+                foreach (IPEndPoint peerEP in peerEPs)
                 {
                     peers += peerEP.ToString() + "\r\n";
                 }
 
                 if (peers == "")
-                {
                     MessageBox.Show("No peer returned by the tracker.", "No Peer Available", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
                 else
-                {
-                    MessageBox.Show("Peers returned by the tracker:\r\n\r\n" + peers, "Peers List", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
+                    MessageBox.Show(peers, "Peers List", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
@@ -148,7 +199,11 @@ namespace BitChatAppMono
                 foreach (ListViewItem item in lstTrackerInfo.SelectedItems)
                 {
                     TrackerClient tracker = item.Tag as TrackerClient;
-                    tracker.ScheduleUpdateNow();
+
+                    if (tracker == null)
+                        _chat.DhtUpdate();
+                    else
+                        tracker.ScheduleUpdateNow();
                 }
             }
         }
@@ -156,6 +211,36 @@ namespace BitChatAppMono
         private void addTrackerToolStripMenuItem_Click(object sender, EventArgs e)
         {
             using (frmAddTracker frm = new frmAddTracker())
+            {
+                if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
+                {
+                    List<Uri> uriList = frm.TrackerUriList;
+
+                    foreach (Uri uri in uriList)
+                    {
+                        TrackerClient tracker = _chat.AddTracker(uri);
+                        if (tracker != null)
+                        {
+                            ListViewItem item = new ListViewItem(tracker.TrackerUri.AbsoluteUri);
+                            item.Tag = tracker;
+
+                            item.SubItems.Add("");
+                            item.SubItems.Add("updating...");
+                            item.SubItems.Add("0");
+
+                            lock (lstTrackerInfo.Items)
+                            {
+                                lstTrackerInfo.Items.Add(item);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private void addDefaultTrackersToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (frmAddTracker frm = new frmAddTracker(_profile.TrackerURIs))
             {
                 if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
                 {
@@ -191,9 +276,11 @@ namespace BitChatAppMono
                 {
                     TrackerClient tracker = item.Tag as TrackerClient;
 
-                    _chat.RemoveTracker(tracker);
-
-                    lstTrackerInfo.Items.Remove(item);
+                    if (tracker != null)
+                    {
+                        _chat.RemoveTracker(tracker);
+                        lstTrackerInfo.Items.Remove(item);
+                    }
                 }
             }
         }
@@ -201,9 +288,9 @@ namespace BitChatAppMono
         private void chkShowSecret_CheckedChanged(object sender, EventArgs e)
         {
             if (chkShowSecret.Checked)
-                txtSecret.Text = _chat.SharedSecret;
+                txtSecret.PasswordChar = '\0';
             else
-                txtSecret.Text = "########";
+                txtSecret.PasswordChar = '#';
         }
 
         private void copyTrackerToolStripMenuItem_Click(object sender, EventArgs e)
@@ -216,7 +303,8 @@ namespace BitChatAppMono
                 {
                     TrackerClient tracker = item.Tag as TrackerClient;
 
-                    trackers += tracker.TrackerUri.AbsoluteUri + "\r\n";
+                    if (tracker != null)
+                        trackers += tracker.TrackerUri.AbsoluteUri + "\r\n";
                 }
             }
 
@@ -242,7 +330,8 @@ namespace BitChatAppMono
                 {
                     TrackerClient tracker = item.Tag as TrackerClient;
 
-                    trackers += tracker.TrackerUri.AbsoluteUri + "\r\n";
+                    if (tracker != null)
+                        trackers += tracker.TrackerUri.AbsoluteUri + "\r\n";
                 }
             }
 
@@ -257,5 +346,35 @@ namespace BitChatAppMono
                 { }
             }
         }
+
+        private void chkLANChat_CheckedChanged(object sender, EventArgs e)
+        {
+            _chat.EnableTracking = !chkLANChat.Checked;
+        }
+
+        private void btnOK_Click(object sender, EventArgs e)
+        {
+            if (txtSecret.Text != _chat.SharedSecret)
+                DialogResult = DialogResult.OK;
+            else
+                DialogResult = DialogResult.Cancel;
+
+            this.Close();
+        }
+
+        private void btnClose_Click(object sender, EventArgs e)
+        {
+            DialogResult = DialogResult.Cancel;
+            this.Close();
+        }
+
+        #endregion
+
+        #region properties
+
+        public string SharedSecret
+        { get { return txtSecret.Text; } }
+
+        #endregion
     }
 }

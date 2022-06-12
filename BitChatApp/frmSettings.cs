@@ -17,16 +17,13 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient;
-using BitChatClient.Network.Connections;
-using TechnitiumLibrary.Net.BitTorrent;
-using TechnitiumLibrary.Security.Cryptography;
+using BitChatCore;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
-using System.Text;
+using System.IO;
+using System.Net;
 using System.Windows.Forms;
+using TechnitiumLibrary.Net.Proxy;
 
 namespace BitChatApp
 {
@@ -34,38 +31,63 @@ namespace BitChatApp
     {
         #region variables
 
-        BitChatService _service;
-
-        ushort _port = 0;
         List<Uri> _trackers = new List<Uri>();
+        ushort _port = 0;
 
-        Timer _timer;
+        string _proxyAddress;
+        ushort _proxyPort = 0;
 
         #endregion
 
         #region constructor
 
-        public frmSettings(BitChatService service)
+        public frmSettings(BitChatProfile profile)
         {
             InitializeComponent();
 
-            _service = service;
-
-            BitChatProfile profile = service.Profile;
-
-            txtPort.Text = profile.LocalEP.Port.ToString();
             txtDownloadFolder.Text = profile.DownloadFolder;
-            chkUseCRL.Checked = profile.CheckCertificateRevocationList;
+            btnBrowseDLFolder.Enabled = !profile.IsPortableApp;
 
             foreach (Uri tracker in profile.TrackerURIs)
             {
                 txtTrackers.Text += tracker.AbsoluteUri + "\r\n";
             }
 
-            _timer = new Timer();
-            _timer.Interval = 1000;
-            _timer.Tick += _timer_Tick;
-            _timer.Start();
+            txtPort.Text = profile.LocalPort.ToString();
+            chkUseCRL.Checked = profile.CheckCertificateRevocationList;
+            chkAllowInvitations.Checked = profile.AllowInboundInvitations;
+            chkAllowOnlyLocalInvitations.Enabled = chkAllowInvitations.Checked;
+            chkAllowOnlyLocalInvitations.Checked = profile.AllowOnlyLocalInboundInvitations;
+            chkUPnP.Checked = profile.EnableUPnP;
+
+            if (profile.Proxy == null)
+                cmbProxy.SelectedIndex = 0;
+            else
+                cmbProxy.SelectedIndex = (int)profile.Proxy.Type;
+
+            btnCheckProxy.Enabled = (cmbProxy.SelectedIndex != 0);
+            txtProxyAddress.Text = profile.ProxyAddress;
+            txtProxyPort.Text = profile.ProxyPort.ToString();
+            txtProxyAddress.Enabled = btnCheckProxy.Enabled;
+            txtProxyPort.Enabled = btnCheckProxy.Enabled;
+            chkProxyAuth.Enabled = btnCheckProxy.Enabled;
+
+            if ((cmbProxy.SelectedIndex == 2) && (profile.ProxyPort == 9150) && (profile.ProxyAddress == "127.0.0.1"))
+                cmbProxy.SelectedIndex = 3;
+
+            if (profile.ProxyCredentials == null)
+            {
+                chkProxyAuth.Checked = false;
+            }
+            else
+            {
+                chkProxyAuth.Checked = true;
+                txtProxyUser.Text = profile.ProxyCredentials.UserName;
+                txtProxyPass.Text = profile.ProxyCredentials.Password;
+            }
+
+            txtProxyUser.Enabled = chkProxyAuth.Enabled && chkProxyAuth.Checked;
+            txtProxyPass.Enabled = chkProxyAuth.Enabled && chkProxyAuth.Checked;
         }
 
         #endregion
@@ -100,9 +122,9 @@ namespace BitChatApp
                 }
             }
 
-            if (!ushort.TryParse(txtPort.Text, out _port))
+            if (!Directory.Exists(txtDownloadFolder.Text))
             {
-                MessageBox.Show("The port number specified is invalid. The number must be in 0-65535 range.", "Invalid Port Specified!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("Download folder does not exists. Please select a valid folder.", "Download Folder Does Not Exists!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
@@ -118,11 +140,37 @@ namespace BitChatApp
             }
             catch (Exception)
             {
-                MessageBox.Show("The tracker URL format is invalid. Please enter a valid tracker URL.", "Invalid Tracker URL", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("The tracker URL format is invalid. Please enter a valid tracker URL.", "Invalid Tracker URL!", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return;
             }
 
-            this.DialogResult = System.Windows.Forms.DialogResult.OK;
+            if (!ushort.TryParse(txtPort.Text, out _port))
+            {
+                MessageBox.Show("The port number specified is invalid. The number must be in 0-65535 range.", "Invalid Port Specified!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if ((cmbProxy.SelectedIndex != 0) && (string.IsNullOrWhiteSpace(txtProxyAddress.Text)))
+            {
+                MessageBox.Show("The proxy address is missing. Please enter a valid proxy address.", "Proxy Address Missing!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            _proxyAddress = txtProxyAddress.Text;
+
+            if (!ushort.TryParse(txtProxyPort.Text, out _proxyPort))
+            {
+                MessageBox.Show("The proxy port number specified is invalid. The number must be in 0-65535 range.", "Invalid Proxy Port Specified!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if ((chkProxyAuth.Checked) && (string.IsNullOrWhiteSpace(txtProxyUser.Text)))
+            {
+                MessageBox.Show("The proxy username is missing. Please enter a username.", "Proxy Username Missing!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            this.DialogResult = DialogResult.OK;
             this.Close();
         }
 
@@ -137,30 +185,77 @@ namespace BitChatApp
             System.Diagnostics.Process.Start(@"http://go.technitium.com/?id=3");
         }
 
-        private void _timer_Tick(object sender, EventArgs e)
+        private void cmbProxy_SelectedIndexChanged(object sender, EventArgs e)
         {
-            switch (_service.UPnPStatus)
+            btnCheckProxy.Enabled = (cmbProxy.SelectedIndex != 0);
+
+            if (cmbProxy.SelectedIndex == 3)
             {
-                case UPnPStatus.NoInternetConnection:
-                    lblUPnPStatus.Text = "No Internet connection available";
-                    break;
+                //socks 5 tor
+                txtProxyAddress.Enabled = false;
+                txtProxyPort.Enabled = false;
+                chkProxyAuth.Enabled = false;
+                txtProxyUser.Enabled = false;
+                txtProxyPass.Enabled = false;
 
-                case UPnPStatus.PortForwarded:
-                    lblUPnPStatus.Text = "Port forwarded [" + _service.ExternalSelfEP.ToString() + "]";
-                    break;
-
-                case UPnPStatus.PortForwardingNotRequired:
-                    lblUPnPStatus.Text = "Port forwarding not needed";
-                    break;
-
-                case UPnPStatus.UPnPDeviceNotFound:
-                    lblUPnPStatus.Text = "UPnP device not found";
-                    break;
-
-                default:
-                    lblUPnPStatus.Text = "Unknown";
-                    break;
+                txtProxyAddress.Text = "127.0.0.1";
+                txtProxyPort.Text = "9150";
+                chkProxyAuth.Checked = false;
             }
+            else
+            {
+                txtProxyAddress.Enabled = btnCheckProxy.Enabled;
+                txtProxyPort.Enabled = btnCheckProxy.Enabled;
+                chkProxyAuth.Enabled = btnCheckProxy.Enabled;
+                txtProxyUser.Enabled = chkProxyAuth.Enabled && chkProxyAuth.Checked;
+                txtProxyPass.Enabled = chkProxyAuth.Enabled && chkProxyAuth.Checked;
+            }
+        }
+
+        private void chkProxyAuth_CheckedChanged(object sender, EventArgs e)
+        {
+            txtProxyUser.Enabled = chkProxyAuth.Checked;
+            txtProxyPass.Enabled = chkProxyAuth.Checked;
+        }
+
+        private void btnCheckProxy_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                NetProxyType proxyType = this.ProxyType;
+                NetProxy proxy;
+                NetworkCredential credentials = null;
+
+                if (chkProxyAuth.Checked)
+                    credentials = new NetworkCredential(txtProxyUser.Text, txtProxyPass.Text);
+
+                switch (proxyType)
+                {
+                    case NetProxyType.Http:
+                        proxy = new NetProxy(new WebProxyEx(new Uri("http://" + txtProxyAddress.Text + ":" + int.Parse(txtProxyPort.Text)), false, new string[] { }, credentials));
+                        break;
+
+                    case NetProxyType.Socks5:
+                        proxy = new NetProxy(new SocksClient(txtProxyAddress.Text, int.Parse(txtProxyPort.Text), credentials));
+                        break;
+
+                    default:
+                        return;
+                }
+
+                proxy.CheckProxyAccess();
+
+                MessageBox.Show("Bit Chat was able to connect to the proxy server successfully.", "Proxy Check Success!", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Proxy Check Failed!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+
+        private void chkAllowInvitations_CheckedChanged(object sender, EventArgs e)
+        {
+            chkAllowOnlyLocalInvitations.Enabled = chkAllowInvitations.Checked;
         }
 
         #endregion
@@ -173,17 +268,57 @@ namespace BitChatApp
         public string Password
         { get { return txtProfilePassword.Text; } }
 
-        public ushort Port
-        { get { return _port; } }
-
         public string DownloadFolder
         { get { return txtDownloadFolder.Text; } }
+
+        public Uri[] Trackers
+        { get { return _trackers.ToArray(); } }
+
+        public ushort Port
+        { get { return _port; } }
 
         public bool CheckCertificateRevocationList
         { get { return chkUseCRL.Checked; } }
 
-        public Uri[] Trackers
-        { get { return _trackers.ToArray(); } }
+        public bool AllowInboundInvitations
+        { get { return chkAllowInvitations.Checked; } }
+
+        public bool AllowOnlyLocalInboundInvitations
+        { get { return chkAllowOnlyLocalInvitations.Checked; } }
+
+        public bool EnableUPnP
+        { get { return chkUPnP.Checked; } }
+
+        public bool EnableProxy
+        { get { return cmbProxy.SelectedIndex != 0; } }
+
+        public NetProxyType ProxyType
+        {
+            get
+            {
+                if (cmbProxy.SelectedIndex == 3)
+                    return NetProxyType.Socks5;
+                else
+                    return (NetProxyType)cmbProxy.SelectedIndex;
+            }
+        }
+
+        public string ProxyAddress
+        { get { return _proxyAddress; } }
+
+        public int ProxyPort
+        { get { return _proxyPort; } }
+
+        public NetworkCredential ProxyCredentials
+        {
+            get
+            {
+                if (chkProxyAuth.Checked)
+                    return new NetworkCredential(txtProxyUser.Text, txtProxyPass.Text);
+                else
+                    return null;
+            }
+        }
 
         #endregion
     }

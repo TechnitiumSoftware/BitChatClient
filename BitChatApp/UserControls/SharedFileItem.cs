@@ -17,24 +17,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient;
-using BitChatClient.FileSharing;
-using TechnitiumLibrary.Net;
+using BitChatCore;
+using BitChatCore.FileSharing;
 using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
+using TechnitiumLibrary.Net;
 
 namespace BitChatApp.UserControls
 {
-    public enum SharedFileItemType
-    {
-        Advertisement = 0,
-        Downloading = 1,
-        Sharing = 2
-    }
-
     public partial class SharedFileItem : CustomListViewItem
     {
         #region events
@@ -42,6 +35,7 @@ namespace BitChatApp.UserControls
         public event EventHandler FileDownloaded;
         public event EventHandler FileRemoved;
         public event EventHandler FileDownloadStarted;
+        public event EventHandler ShareFile;
 
         #endregion
 
@@ -49,10 +43,8 @@ namespace BitChatApp.UserControls
 
         Color _BackColorAvailable = Color.FromArgb(255, 238, 215);
 
-        SharedFile _file;
+        SharedFile _sharedFile;
         BitChat _chat;
-
-        SharedFileItemType _type;
 
         string _fileSizeFormatted;
         bool _lockLabSpeed = false;
@@ -61,57 +53,47 @@ namespace BitChatApp.UserControls
 
         #region constructor
 
-        public SharedFileItem()
-        {
-            InitializeComponent();
-
-            pbFileProgress.Visible = false;
-        }
-
         public SharedFileItem(SharedFile file, BitChat chat)
         {
             InitializeComponent();
 
-            _file = file;
+            _sharedFile = file;
             _chat = chat;
 
-            _fileSizeFormatted = WebUtilities.GetFormattedSize(_file.MetaData.FileSize);
+            _fileSizeFormatted = WebUtilities.GetFormattedSize(_sharedFile.MetaData.FileSize);
 
-            labFileName.Text = _file.MetaData.FileName;
+            labFileName.Text = _sharedFile.MetaData.FileName;
             labSpeed.Text = "";
 
-            if (_file.TotalPeers > 1)
-                labInfo1.Text = _fileSizeFormatted + " (" + _file.TotalPeers + " peers)";
+            if (_sharedFile.TotalPeers > 1)
+                labInfo1.Text = _fileSizeFormatted + " (" + _sharedFile.TotalPeers + " peers)";
             else
-                labInfo1.Text = _fileSizeFormatted + " (" + _file.TotalPeers + " peer)";
+                labInfo1.Text = _fileSizeFormatted + " (" + _sharedFile.TotalPeers + " peer)";
 
-            _file.FileDownloadStarted += OnFileDownloadStarted;
-            _file.FileDownloaded += OnFileDownloaded;
-            _file.BlockDownloaded += OnBlockDownloaded;
-            _file.PeerCountUpdate += OnPeerCountUpdate;
-            _file.FileTransferSpeedUpdate += OnFileTransferSpeedUpdate;
-            _file.FileRemoved += OnFileRemoved;
+            _sharedFile.FileDownloadStarted += sharedFile_FileDownloadStarted;
+            _sharedFile.FileDownloaded += sharedFile_FileDownloaded;
+            _sharedFile.FileBlockDownloaded += sharedFile_FileBlockDownloaded;
+            _sharedFile.PeerCountUpdate += sharedFile_PeerCountUpdate;
+            _sharedFile.FileTransferSpeedUpdate += sharedFile_FileTransferSpeedUpdate;
+            _sharedFile.FilePaused += sharedFile_FilePaused;
 
-            if (_file.State == SharedFileState.Advertisement)
+            _chat.FileRemoved += chat_FileRemoved;
+
+            if (_sharedFile.State == SharedFileState.Advertisement)
             {
-                _type = SharedFileItemType.Advertisement;
                 this.BackColor = _BackColorAvailable;
 
                 pbFileProgress.Visible = false;
             }
-            else if (_file.IsComplete)
+            else if (_sharedFile.IsComplete)
             {
-                _type = SharedFileItemType.Sharing;
-
                 labSpeed.ForeColor = Color.Blue;
                 pbFileProgress.Visible = false;
             }
             else
             {
-                _type = SharedFileItemType.Downloading;
-
                 pbFileProgress.Visible = true;
-                pbFileProgress.Value = _file.PercentComplete;
+                pbFileProgress.Value = _sharedFile.PercentComplete;
             }
         }
 
@@ -123,26 +105,22 @@ namespace BitChatApp.UserControls
         {
             _lockLabSpeed = hovering;
 
-            switch (_type)
+            switch (_sharedFile.State)
             {
-                case SharedFileItemType.Advertisement:
+                case SharedFileState.Advertisement:
                     if (hovering)
                         labSpeed.Text = "Available";
                     else
                         labSpeed.Text = "";
 
-                    ShowButtons(hovering, false, false);
+                    ShowButtons(hovering, false, hovering);
                     break;
 
-                case SharedFileItemType.Sharing:
+                case SharedFileState.Sharing:
                     if (hovering)
                     {
                         this.BackColor = Color.FromArgb(241, 245, 249);
-
-                        if (_file.State == SharedFileState.Paused)
-                            labSpeed.Text = "Paused";
-                        else
-                            labSpeed.Text = "Sharing";
+                        labSpeed.Text = "Sharing";
                     }
                     else
                     {
@@ -150,22 +128,14 @@ namespace BitChatApp.UserControls
                         labSpeed.Text = "";
                     }
 
-                    if (_file.State == SharedFileState.Sharing)
-                        ShowButtons(false, hovering, hovering);
-                    else
-                        ShowButtons(hovering, false, hovering);
-
+                    ShowButtons(false, hovering, hovering);
                     break;
 
-                case SharedFileItemType.Downloading:
+                case SharedFileState.Downloading:
                     if (hovering)
                     {
                         this.BackColor = Color.FromArgb(241, 245, 249);
-
-                        if (_file.State == SharedFileState.Paused)
-                            labSpeed.Text = "Paused";
-                        else
-                            labSpeed.Text = "Downloading";
+                        labSpeed.Text = "Downloading";
                     }
                     else
                     {
@@ -173,66 +143,67 @@ namespace BitChatApp.UserControls
                         labSpeed.Text = "";
                     }
 
-                    if (_file.State == SharedFileState.Downloading)
-                        ShowButtons(false, hovering, hovering);
-                    else
-                        ShowButtons(hovering, false, hovering);
+                    ShowButtons(false, hovering, hovering);
+                    break;
 
+                case SharedFileState.Paused:
+                    if (hovering)
+                    {
+                        this.BackColor = Color.FromArgb(241, 245, 249);
+                        labSpeed.Text = "Paused";
+                    }
+                    else
+                    {
+                        this.BackColor = Color.White;
+                        labSpeed.Text = "";
+                    }
+
+                    ShowButtons(hovering, false, hovering);
                     break;
             }
         }
 
         protected override void OnMouseUp(MouseEventArgs e)
         {
-            if (e.Button == System.Windows.Forms.MouseButtons.Right)
+            if (e.Button == MouseButtons.Right)
             {
-                switch (_type)
+                switch (_sharedFile.State)
                 {
-                    case SharedFileItemType.Advertisement:
+                    case SharedFileState.Advertisement:
                         startDownloadToolStripMenuItem.Visible = true;
                         startSharingToolStripMenuItem.Visible = false;
                         pauseToolStripMenuItem.Visible = false;
-                        removeToolStripMenuItem.Visible = false;
+                        shareToolStripMenuItem.Visible = false;
+                        removeToolStripMenuItem.Visible = true;
                         openFileToolStripMenuItem.Visible = false;
                         openContainingFolderToolStripMenuItem.Visible = false;
                         break;
 
-                    case SharedFileItemType.Sharing:
+                    case SharedFileState.Sharing:
                         startDownloadToolStripMenuItem.Visible = false;
-                        removeToolStripMenuItem.Visible = true;
+                        startSharingToolStripMenuItem.Visible = false;
+                        pauseToolStripMenuItem.Visible = true;
+                        shareToolStripMenuItem.Visible = true;
                         openFileToolStripMenuItem.Visible = true;
                         openContainingFolderToolStripMenuItem.Visible = true;
-
-                        if (_file.State == SharedFileState.Paused)
-                        {
-                            startSharingToolStripMenuItem.Visible = true;
-                            pauseToolStripMenuItem.Visible = false;
-                        }
-                        else
-                        {
-                            startSharingToolStripMenuItem.Visible = false;
-                            pauseToolStripMenuItem.Visible = true;
-                        }
-
                         break;
 
-                    case SharedFileItemType.Downloading:
+                    case SharedFileState.Downloading:
+                        startDownloadToolStripMenuItem.Visible = false;
                         startSharingToolStripMenuItem.Visible = false;
-                        removeToolStripMenuItem.Visible = true;
+                        pauseToolStripMenuItem.Visible = true;
+                        shareToolStripMenuItem.Visible = false;
                         openFileToolStripMenuItem.Visible = false;
-                        openContainingFolderToolStripMenuItem.Visible = true;
+                        openContainingFolderToolStripMenuItem.Visible = false;
+                        break;
 
-                        if (_file.State == SharedFileState.Paused)
-                        {
-                            startDownloadToolStripMenuItem.Visible = true;
-                            pauseToolStripMenuItem.Visible = false;
-                        }
-                        else
-                        {
-                            startDownloadToolStripMenuItem.Visible = false;
-                            pauseToolStripMenuItem.Visible = true;
-                        }
-
+                    case SharedFileState.Paused:
+                        startDownloadToolStripMenuItem.Visible = !_sharedFile.IsComplete;
+                        startSharingToolStripMenuItem.Visible = _sharedFile.IsComplete;
+                        pauseToolStripMenuItem.Visible = false;
+                        shareToolStripMenuItem.Visible = _sharedFile.IsComplete;
+                        openFileToolStripMenuItem.Visible = _sharedFile.IsComplete;
+                        openContainingFolderToolStripMenuItem.Visible = _sharedFile.IsComplete;
                         break;
 
                     default:
@@ -251,13 +222,13 @@ namespace BitChatApp.UserControls
         {
             string prepend;
 
-            if (_file.IsComplete)
+            if (_sharedFile.IsComplete)
             {
                 prepend = "2";
             }
             else
             {
-                switch (_file.State)
+                switch (_sharedFile.State)
                 {
                     case SharedFileState.Advertisement:
                         prepend = "0";
@@ -269,12 +240,86 @@ namespace BitChatApp.UserControls
                 }
             }
 
-            return prepend + _file.MetaData.FileName;
+            return prepend + _sharedFile.MetaData.FileName;
         }
 
         #endregion
 
         #region private
+
+        private void sharedFile_FileDownloadStarted(object sender, EventArgs e)
+        {
+            labFileName.Text = _sharedFile.MetaData.FileName;
+            labSpeed.Text = "";
+
+            if (_sharedFile.TotalPeers > 1)
+                labInfo1.Text = _fileSizeFormatted + " (" + _sharedFile.TotalPeers + " peers)";
+            else
+                labInfo1.Text = _fileSizeFormatted + " (" + _sharedFile.TotalPeers + " peer)";
+
+            this.BackColor = Color.White;
+
+            pbFileProgress.Visible = true;
+            pbFileProgress.Value = _sharedFile.PercentComplete;
+
+            if (FileDownloadStarted != null)
+                FileDownloadStarted(this, EventArgs.Empty);
+
+            SortListView();
+        }
+
+        private void sharedFile_FileDownloaded(object sender, EventArgs args)
+        {
+            pbFileProgress.Visible = false;
+            labSpeed.Text = "";
+            labSpeed.ForeColor = Color.Blue;
+            this.BackColor = Color.White;
+
+            if (_sharedFile.TotalPeers > 1)
+                labInfo1.Text = _fileSizeFormatted + " (" + _sharedFile.TotalPeers + " peers)";
+            else
+                labInfo1.Text = _fileSizeFormatted + " (" + _sharedFile.TotalPeers + " peer)";
+
+            if (FileDownloaded != null)
+                FileDownloaded(this, EventArgs.Empty);
+
+            SortListView();
+        }
+
+        private void sharedFile_FileBlockDownloaded(object sender, EventArgs args)
+        {
+            pbFileProgress.Value = _sharedFile.PercentComplete;
+        }
+
+        private void sharedFile_FileTransferSpeedUpdate(object sender, EventArgs args)
+        {
+            if (_lockLabSpeed)
+                return;
+
+            if (_sharedFile.IsComplete)
+                labSpeed.Text = WebUtilities.GetFormattedSpeed(_sharedFile.BytesUploadedLastSecond);
+            else
+                labSpeed.Text = WebUtilities.GetFormattedSpeed(_sharedFile.BytesDownloadedLastSecond);
+        }
+
+        private void sharedFile_PeerCountUpdate(object sender, EventArgs args)
+        {
+            if (_sharedFile.TotalPeers > 1)
+                labInfo1.Text = _fileSizeFormatted + " (" + _sharedFile.TotalPeers + " peers)";
+            else
+                labInfo1.Text = _fileSizeFormatted + " (" + _sharedFile.TotalPeers + " peer)";
+        }
+
+        private void chat_FileRemoved(BitChat chat, SharedFile sharedFile)
+        {
+            if (_sharedFile == sharedFile)
+                FileRemoved?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void sharedFile_FilePaused(object sender, EventArgs e)
+        {
+            labSpeed.Text = "";
+        }
 
         private void startDownloadToolStripMenuItem_Click(object sender, EventArgs e)
         {
@@ -292,27 +337,13 @@ namespace BitChatApp.UserControls
             d.BeginInvoke(null, null, null);
 
             ShowButtons(false, true, true);
-
-            if (_type == SharedFileItemType.Advertisement)
-            {
-                _type = SharedFileItemType.Downloading;
-                this.BackColor = Color.White;
-
-                pbFileProgress.Visible = true;
-                pbFileProgress.Value = _file.PercentComplete;
-
-                if (FileDownloadStarted != null)
-                    FileDownloadStarted(this, EventArgs.Empty);
-
-                SortListView();
-            }
         }
 
         private void StartAsync(object obj)
         {
             try
             {
-                _file.Start();
+                _sharedFile.Start();
             }
             catch (Exception ex)
             {
@@ -327,7 +358,7 @@ namespace BitChatApp.UserControls
 
         private void btnPause_Click(object sender, EventArgs e)
         {
-            _file.Pause();
+            _sharedFile.Pause();
 
             labSpeed.Text = "";
             ShowButtons(true, false, true);
@@ -340,21 +371,16 @@ namespace BitChatApp.UserControls
 
         private void btnRemove_Click(object sender, EventArgs e)
         {
-            _file.Remove(_chat);
-
-            ShowButtons(false, false, false);
-
-            if (FileRemoved != null)
-                FileRemoved(this, EventArgs.Empty);
+            _chat.RemoveSharedFile(_sharedFile);
         }
 
         private void openFileToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            if (MessageBox.Show("Are you sure to open the file?\r\n\r\nFile: " + _file.MetaData.FileName + "\r\nType: " + _file.MetaData.ContentType.MediaType + "\r\nSize: " + WebUtilities.GetFormattedSize(_file.MetaData.FileSize) + "\r\n\r\nWARNING! Do NOT open files sent by untrusted people as the files may be infected with trojan/virus.", "Open File Warning!", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.Yes)
+            if (MessageBox.Show("Are you sure to open the file?\r\n\r\nFile: " + _sharedFile.MetaData.FileName + "\r\nType: " + _sharedFile.MetaData.ContentType.MediaType + "\r\nSize: " + WebUtilities.GetFormattedSize(_sharedFile.MetaData.FileSize) + "\r\n\r\nWARNING! Do NOT open files sent by untrusted people as the files may be infected with trojan/virus.", "Open File Warning!", MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2) == DialogResult.Yes)
             {
                 try
                 {
-                    Process.Start(_file.FilePath);
+                    Process.Start(_sharedFile.FilePath);
                 }
                 catch (Exception ex)
                 {
@@ -367,12 +393,17 @@ namespace BitChatApp.UserControls
         {
             try
             {
-                Process.Start(Path.GetDirectoryName(_file.FilePath));
+                Process.Start(Path.GetDirectoryName(_sharedFile.FilePath));
             }
             catch (Exception ex)
             {
                 MessageBox.Show("Error! " + ex.Message, "Error!", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
+        }
+
+        private void shareToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            ShareFile?.Invoke(_sharedFile, EventArgs.Empty);
         }
 
         private void ShowButtons(bool start, bool pause, bool delete)
@@ -404,65 +435,6 @@ namespace BitChatApp.UserControls
                 btnPause.Visible = false;
                 btnStart.Visible = false;
             }
-        }
-
-        private void OnFileDownloadStarted(object sender, EventArgs e)
-        {
-            labFileName.Text = _file.MetaData.FileName;
-            labSpeed.Text = "";
-
-            if (_file.TotalPeers > 1)
-                labInfo1.Text = _fileSizeFormatted + " (" + _file.TotalPeers + " peers)";
-            else
-                labInfo1.Text = _fileSizeFormatted + " (" + _file.TotalPeers + " peer)";
-        }
-
-        private void OnFileDownloaded(object sender, EventArgs args)
-        {
-            _type = SharedFileItemType.Sharing;
-            pbFileProgress.Visible = false;
-            labSpeed.Text = "";
-            labSpeed.ForeColor = Color.Blue;
-
-            if (_file.TotalPeers > 1)
-                labInfo1.Text = _fileSizeFormatted + " (" + _file.TotalPeers + " peers)";
-            else
-                labInfo1.Text = _fileSizeFormatted + " (" + _file.TotalPeers + " peer)";
-
-            if (FileDownloaded != null)
-                FileDownloaded(this, EventArgs.Empty);
-
-            SortListView();
-        }
-
-        private void OnBlockDownloaded(object sender, EventArgs args)
-        {
-            pbFileProgress.Value = _file.PercentComplete;
-        }
-
-        private void OnFileTransferSpeedUpdate(object sender, EventArgs args)
-        {
-            if (_lockLabSpeed)
-                return;
-
-            if (_file.IsComplete)
-                labSpeed.Text = WebUtilities.GetFormattedSpeed(_file.BytesUploadedLastSecond);
-            else
-                labSpeed.Text = WebUtilities.GetFormattedSpeed(_file.BytesDownloadedLastSecond);
-        }
-
-        private void OnPeerCountUpdate(object sender, EventArgs args)
-        {
-            if (_file.TotalPeers > 1)
-                labInfo1.Text = _fileSizeFormatted + " (" + _file.TotalPeers + " peers)";
-            else
-                labInfo1.Text = _fileSizeFormatted + " (" + _file.TotalPeers + " peer)";
-        }
-
-        private void OnFileRemoved(object sender, EventArgs e)
-        {
-            if (FileRemoved != null)
-                FileRemoved(this, EventArgs.Empty);
         }
 
         #endregion

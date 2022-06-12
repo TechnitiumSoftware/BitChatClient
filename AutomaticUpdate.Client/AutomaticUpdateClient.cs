@@ -25,11 +25,13 @@ using System.Net;
 using System.Reflection;
 using System.Threading;
 using TechnitiumLibrary.IO;
+using TechnitiumLibrary.Net;
+using TechnitiumLibrary.Net.Proxy;
 using TechnitiumLibrary.Security.Cryptography;
 
 namespace AutomaticUpdate.Client
 {
-    public class AutomaticUpdateClient
+    public class AutomaticUpdateClient : IDisposable
     {
         #region events
 
@@ -53,6 +55,8 @@ namespace AutomaticUpdate.Client
 
         DateTime _lastUpdateCheckedOn;
         DateTime _lastModifiedGMT;
+
+        NetProxy _proxy;
 
         UpdateInfo _updateInfo;
 
@@ -81,6 +85,38 @@ namespace AutomaticUpdate.Client
             _lastModifiedGMT = lastModifiedGMT;
 
             _checkTimer = new Timer(CheckForUpdateAsync, null, 10000, 1 * 60 * 60 * 1000);
+        }
+
+        #endregion
+
+        #region IDisposable
+
+        ~AutomaticUpdateClient()
+        {
+            Dispose(false);
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        bool _disposed = false;
+
+        private void Dispose(bool disposing)
+        {
+            if (!_disposed)
+            {
+                //stop timer
+                if (_checkTimer != null)
+                {
+                    _checkTimer.Dispose();
+                    _checkTimer = null;
+                }
+
+                _disposed = true;
+            }
         }
 
         #endregion
@@ -148,41 +184,33 @@ namespace AutomaticUpdate.Client
 
             try
             {
-                HttpWebRequest request = (HttpWebRequest)WebRequest.Create(_checkUpdateURL);
-                request.UserAgent = GetUserAgent();
-                request.IfModifiedSince = _lastModifiedGMT;
-
-                HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-
-                switch (response.StatusCode)
+                using (WebClientEx client = new WebClientEx())
                 {
-                    case HttpStatusCode.OK:
-                        _updateInfo = new UpdateInfo(response.GetResponseStream());
-                        _lastModifiedGMT = DateTime.Parse(response.Headers["Last-Modified"]);
+                    client.Proxy = _proxy;
+                    client.UserAgent = GetUserAgent();
+                    client.IfModifiedSince = _lastModifiedGMT;
 
-                        if (_updateInfo.IsUpdateAvailable(_currentVersion))
-                        {
-                            //update available, stop timer
-                            _checkTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                    using (Stream s = client.OpenRead(_checkUpdateURL))
+                    {
+                        _updateInfo = new UpdateInfo(s);
+                    }
 
-                            //raise event to user UI
-                            RaiseEventUpdateAvailable();
-                        }
-                        else
-                        {
-                            //if manual check then raise event
-                            if (state != null)
-                                RaiseEventNoUpdateAvailable();
-                        }
+                    _lastModifiedGMT = DateTime.Parse(client.ResponseHeaders["Last-Modified"]);
 
-                        break;
+                    if (_updateInfo.IsUpdateAvailable(_currentVersion))
+                    {
+                        //update available, stop timer
+                        _checkTimer.Change(Timeout.Infinite, Timeout.Infinite);
 
-                    default:
+                        //raise event to user UI
+                        RaiseEventUpdateAvailable();
+                    }
+                    else
+                    {
                         //if manual check then raise event
                         if (state != null)
                             RaiseEventNoUpdateAvailable();
-
-                        break;
+                    }
                 }
             }
             catch (WebException ex)
@@ -246,9 +274,10 @@ namespace AutomaticUpdate.Client
                 {
                     #region download update file
 
-                    using (WebClient client = new WebClient())
+                    using (WebClientEx client = new WebClientEx())
                     {
-                        client.Headers.Add("User-Agent", GetUserAgent());
+                        client.Proxy = _proxy;
+                        client.UserAgent = GetUserAgent();
                         client.DownloadFile(_updateInfo.DownloadURI, tmpGZFile);
                     }
 
@@ -390,6 +419,12 @@ namespace AutomaticUpdate.Client
 
         public DateTime LastModifiedGMT
         { get { return _lastModifiedGMT; } }
+
+        public NetProxy Proxy
+        {
+            get { return _proxy; }
+            set { _proxy = value; }
+        }
 
         #endregion
     }

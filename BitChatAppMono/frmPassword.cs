@@ -17,23 +17,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient;
-using TechnitiumLibrary.Security.Cryptography;
+using BitChatCore;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
 using System.IO;
-using System.Text;
 using System.Windows.Forms;
 
-namespace BitChatAppMono
+namespace BitChatApp
 {
     public partial class frmPassword : Form
     {
         #region variables
 
         string _profileFilePath;
+        bool _isPortableApp;
+        string _profileFolder;
 
         BitChatProfile _profile;
 
@@ -41,11 +38,13 @@ namespace BitChatAppMono
 
         #region constructor
 
-        public frmPassword(string profileFilePath)
+        public frmPassword(string profileFilePath, bool isPortableApp, string profileFolder)
         {
             InitializeComponent();
 
             _profileFilePath = profileFilePath;
+            _isPortableApp = isPortableApp;
+            _profileFolder = profileFolder;
 
             labProfileName.Text = Path.GetFileNameWithoutExtension(_profileFilePath);
         }
@@ -60,7 +59,7 @@ namespace BitChatAppMono
             {
                 using (FileStream fS = new FileStream(_profileFilePath, FileMode.Open, FileAccess.Read))
                 {
-                    _profile = new BitChatProfile(fS, txtPassword.Text);
+                    _profile = new BitChatProfile(fS, txtPassword.Text, _isPortableApp, _profileFolder);
                 }
 
                 DialogResult = System.Windows.Forms.DialogResult.OK;
@@ -72,7 +71,7 @@ namespace BitChatAppMono
                 {
                     using (FileStream fS = new FileStream(_profileFilePath + ".bak", FileMode.Open, FileAccess.Read))
                     {
-                        _profile = new BitChatProfile(fS, txtPassword.Text);
+                        _profile = new BitChatProfile(fS, txtPassword.Text, _isPortableApp, _profileFolder);
                     }
 
                     DialogResult = System.Windows.Forms.DialogResult.OK;
@@ -80,7 +79,7 @@ namespace BitChatAppMono
                 }
                 catch
                 {
-                    MessageBox.Show("Invalid password. Please try again.", "Invalid Password!", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                    MessageBox.Show("Invalid password or file data tampered. Please try again.", "Invalid Password!", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
 
                     txtPassword.Text = "";
                     txtPassword.Focus();
@@ -88,14 +87,14 @@ namespace BitChatAppMono
             }
         }
 
-        private void btnClose_Click(object sender, EventArgs e)
+        private void btnBack_Click(object sender, EventArgs e)
         {
             this.Close();
         }
 
         private void lnkForgotPassword_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            if (MessageBox.Show("Since the profile password is used to encrypt the profile data, there is no method to recover the encryption password or the profile data.\r\n\r\nTo access Bit Chat, you will need to register a new profile and you can use the same email address for registeration. You will lose all your settings and you will have to join all your chats again.\r\n\r\nDo you want to register a new profile now?", "Register New Profile?", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == System.Windows.Forms.DialogResult.Yes)
+            if (MessageBox.Show("Since the profile password is used to encrypt the profile data, there is no method to recover the encryption password or the profile data.\r\n\r\nTo access Bit Chat, you will need to register a new profile and you can use the same email address for registration. You will lose all your settings and you will have to join all your chats again.\r\n\r\nDo you want to register a new profile now?", "Register New Profile?", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == System.Windows.Forms.DialogResult.Yes)
             {
                 this.DialogResult = System.Windows.Forms.DialogResult.Yes;
                 this.Close();

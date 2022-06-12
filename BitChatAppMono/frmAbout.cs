@@ -17,14 +17,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
-using System.Text;
 using System.Windows.Forms;
 
-namespace BitChatAppMono
+namespace BitChatApp
 {
     public partial class frmAbout : Form
     {
@@ -47,7 +42,7 @@ namespace BitChatAppMono
 
         private void lnkWebsite_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            System.Diagnostics.Process.Start(@"http://bitchat.im/");
+            System.Diagnostics.Process.Start(@"https://bitchat.im/");
         }
     }
 }

@@ -1,6 +1,8 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutomaticUpdate.Client", "AutomaticUpdate.Client\AutomaticUpdate.Client.csproj", "{0BC4EAC6-4A90-4126-900D-AB5EB691C3FD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AutomaticUpdate.Update", "AutomaticUpdate.Update\AutomaticUpdate.Update.csproj", "{1A335105-2DA8-4143-A8CB-66A2C6FC1F00}"
@@ -9,7 +11,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitChatApp", "BitChatApp\Bi
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitChatAppMono", "BitChatAppMono\BitChatAppMono.csproj", "{D561478D-7EA2-4066-8EC4-D9DF74E1B190}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitChatClient", "BitChatClient\BitChatClient.csproj", "{3038B7EA-D974-431F-A6C0-FE7C7E5308A2}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BitChatCore", "BitChatCore\BitChatCore.csproj", "{3038B7EA-D974-431F-A6C0-FE7C7E5308A2}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "References", "References", "{3A48DAB9-2590-4514-8BB5-8DFF08B1BF60}"
 	ProjectSection(SolutionItems) = preProject
@@ -21,65 +23,38 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "References", "References", 
 		References\TechnitiumLibrary.Security.Cryptography.dll = References\TechnitiumLibrary.Security.Cryptography.dll
 	EndProjectSection
 EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "BitChatAppSetup", "BitChatAppSetup\BitChatAppSetup.vdproj", "{1875E90B-EFE9-4B53-8558-0657D3F72F75}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
-		CD_ROM|Any CPU = CD_ROM|Any CPU
 		Debug|Any CPU = Debug|Any CPU
-		DVD-5|Any CPU = DVD-5|Any CPU
 		Release|Any CPU = Release|Any CPU
-		SingleImage|Any CPU = SingleImage|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{0BC4EAC6-4A90-4126-900D-AB5EB691C3FD}.CD_ROM|Any CPU.ActiveCfg = Release|Any CPU
-		{0BC4EAC6-4A90-4126-900D-AB5EB691C3FD}.CD_ROM|Any CPU.Build.0 = Release|Any CPU
 		{0BC4EAC6-4A90-4126-900D-AB5EB691C3FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0BC4EAC6-4A90-4126-900D-AB5EB691C3FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{0BC4EAC6-4A90-4126-900D-AB5EB691C3FD}.DVD-5|Any CPU.ActiveCfg = Debug|Any CPU
-		{0BC4EAC6-4A90-4126-900D-AB5EB691C3FD}.DVD-5|Any CPU.Build.0 = Debug|Any CPU
 		{0BC4EAC6-4A90-4126-900D-AB5EB691C3FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0BC4EAC6-4A90-4126-900D-AB5EB691C3FD}.Release|Any CPU.Build.0 = Release|Any CPU
-		{0BC4EAC6-4A90-4126-900D-AB5EB691C3FD}.SingleImage|Any CPU.ActiveCfg = Release|Any CPU
-		{0BC4EAC6-4A90-4126-900D-AB5EB691C3FD}.SingleImage|Any CPU.Build.0 = Release|Any CPU
-		{1A335105-2DA8-4143-A8CB-66A2C6FC1F00}.CD_ROM|Any CPU.ActiveCfg = Release|Any CPU
-		{1A335105-2DA8-4143-A8CB-66A2C6FC1F00}.CD_ROM|Any CPU.Build.0 = Release|Any CPU
 		{1A335105-2DA8-4143-A8CB-66A2C6FC1F00}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{1A335105-2DA8-4143-A8CB-66A2C6FC1F00}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{1A335105-2DA8-4143-A8CB-66A2C6FC1F00}.DVD-5|Any CPU.ActiveCfg = Debug|Any CPU
-		{1A335105-2DA8-4143-A8CB-66A2C6FC1F00}.DVD-5|Any CPU.Build.0 = Debug|Any CPU
 		{1A335105-2DA8-4143-A8CB-66A2C6FC1F00}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1A335105-2DA8-4143-A8CB-66A2C6FC1F00}.Release|Any CPU.Build.0 = Release|Any CPU
-		{1A335105-2DA8-4143-A8CB-66A2C6FC1F00}.SingleImage|Any CPU.ActiveCfg = Release|Any CPU
-		{1A335105-2DA8-4143-A8CB-66A2C6FC1F00}.SingleImage|Any CPU.Build.0 = Release|Any CPU
-		{68ED49DF-C976-4165-9314-EA15C4FAB1A3}.CD_ROM|Any CPU.ActiveCfg = Release|Any CPU
-		{68ED49DF-C976-4165-9314-EA15C4FAB1A3}.CD_ROM|Any CPU.Build.0 = Release|Any CPU
 		{68ED49DF-C976-4165-9314-EA15C4FAB1A3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{68ED49DF-C976-4165-9314-EA15C4FAB1A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{68ED49DF-C976-4165-9314-EA15C4FAB1A3}.DVD-5|Any CPU.ActiveCfg = Debug|Any CPU
-		{68ED49DF-C976-4165-9314-EA15C4FAB1A3}.DVD-5|Any CPU.Build.0 = Debug|Any CPU
 		{68ED49DF-C976-4165-9314-EA15C4FAB1A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{68ED49DF-C976-4165-9314-EA15C4FAB1A3}.Release|Any CPU.Build.0 = Release|Any CPU
-		{68ED49DF-C976-4165-9314-EA15C4FAB1A3}.SingleImage|Any CPU.ActiveCfg = Release|Any CPU
-		{68ED49DF-C976-4165-9314-EA15C4FAB1A3}.SingleImage|Any CPU.Build.0 = Release|Any CPU
-		{D561478D-7EA2-4066-8EC4-D9DF74E1B190}.CD_ROM|Any CPU.ActiveCfg = Release|Any CPU
-		{D561478D-7EA2-4066-8EC4-D9DF74E1B190}.CD_ROM|Any CPU.Build.0 = Release|Any CPU
 		{D561478D-7EA2-4066-8EC4-D9DF74E1B190}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D561478D-7EA2-4066-8EC4-D9DF74E1B190}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D561478D-7EA2-4066-8EC4-D9DF74E1B190}.DVD-5|Any CPU.ActiveCfg = Debug|Any CPU
-		{D561478D-7EA2-4066-8EC4-D9DF74E1B190}.DVD-5|Any CPU.Build.0 = Debug|Any CPU
 		{D561478D-7EA2-4066-8EC4-D9DF74E1B190}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D561478D-7EA2-4066-8EC4-D9DF74E1B190}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D561478D-7EA2-4066-8EC4-D9DF74E1B190}.SingleImage|Any CPU.ActiveCfg = Release|Any CPU
-		{D561478D-7EA2-4066-8EC4-D9DF74E1B190}.SingleImage|Any CPU.Build.0 = Release|Any CPU
-		{3038B7EA-D974-431F-A6C0-FE7C7E5308A2}.CD_ROM|Any CPU.ActiveCfg = Release|Any CPU
-		{3038B7EA-D974-431F-A6C0-FE7C7E5308A2}.CD_ROM|Any CPU.Build.0 = Release|Any CPU
 		{3038B7EA-D974-431F-A6C0-FE7C7E5308A2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{3038B7EA-D974-431F-A6C0-FE7C7E5308A2}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{3038B7EA-D974-431F-A6C0-FE7C7E5308A2}.DVD-5|Any CPU.ActiveCfg = Debug|Any CPU
-		{3038B7EA-D974-431F-A6C0-FE7C7E5308A2}.DVD-5|Any CPU.Build.0 = Debug|Any CPU
 		{3038B7EA-D974-431F-A6C0-FE7C7E5308A2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{3038B7EA-D974-431F-A6C0-FE7C7E5308A2}.Release|Any CPU.Build.0 = Release|Any CPU
-		{3038B7EA-D974-431F-A6C0-FE7C7E5308A2}.SingleImage|Any CPU.ActiveCfg = Release|Any CPU
-		{3038B7EA-D974-431F-A6C0-FE7C7E5308A2}.SingleImage|Any CPU.Build.0 = Release|Any CPU
+		{1875E90B-EFE9-4B53-8558-0657D3F72F75}.Debug|Any CPU.ActiveCfg = Debug
+		{1875E90B-EFE9-4B53-8558-0657D3F72F75}.Debug|Any CPU.Build.0 = Debug
+		{1875E90B-EFE9-4B53-8558-0657D3F72F75}.Release|Any CPU.ActiveCfg = Release
+		{1875E90B-EFE9-4B53-8558-0657D3F72F75}.Release|Any CPU.Build.0 = Release
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

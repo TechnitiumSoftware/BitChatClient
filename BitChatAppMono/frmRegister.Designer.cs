@@ -1,4 +1,4 @@
-﻿namespace BitChatAppMono
+﻿namespace BitChatApp
 {
     partial class frmRegister
     {
@@ -30,6 +30,11 @@
         {
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(frmRegister));
             this.pnlRegister = new System.Windows.Forms.Panel();
+            this.linkLabel2 = new System.Windows.Forms.LinkLabel();
+            this.label16 = new System.Windows.Forms.Label();
+            this.chkEnableProxy = new System.Windows.Forms.CheckBox();
+            this.rbImportRSA = new System.Windows.Forms.RadioButton();
+            this.rbAutoGenRSA = new System.Windows.Forms.RadioButton();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
             this.chkAccept = new System.Windows.Forms.CheckBox();
             this.label15 = new System.Windows.Forms.Label();
@@ -64,6 +69,7 @@
             this.lblPanelTitle = new System.Windows.Forms.Label();
             this.lblPanelMessage = new System.Windows.Forms.Label();
             this.pnlDownloadCert = new System.Windows.Forms.Panel();
+            this.lblRegisteredEmail = new System.Windows.Forms.Label();
             this.label21 = new System.Windows.Forms.Label();
             this.label20 = new System.Windows.Forms.Label();
             this.label19 = new System.Windows.Forms.Label();
@@ -81,6 +87,11 @@
             // 
             // pnlRegister
             // 
+            this.pnlRegister.Controls.Add(this.linkLabel2);
+            this.pnlRegister.Controls.Add(this.label16);
+            this.pnlRegister.Controls.Add(this.chkEnableProxy);
+            this.pnlRegister.Controls.Add(this.rbImportRSA);
+            this.pnlRegister.Controls.Add(this.rbAutoGenRSA);
             this.pnlRegister.Controls.Add(this.linkLabel1);
             this.pnlRegister.Controls.Add(this.chkAccept);
             this.pnlRegister.Controls.Add(this.label15);
@@ -116,32 +127,95 @@
             this.pnlRegister.Size = new System.Drawing.Size(660, 387);
             this.pnlRegister.TabIndex = 6;
             // 
+            // linkLabel2
+            // 
+            this.linkLabel2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.linkLabel2.AutoSize = true;
+            this.linkLabel2.LinkColor = System.Drawing.Color.FromArgb(((int)(((byte)(102)))), ((int)(((byte)(153)))), ((int)(((byte)(255)))));
+            this.linkLabel2.Location = new System.Drawing.Point(3, 370);
+            this.linkLabel2.Name = "linkLabel2";
+            this.linkLabel2.Size = new System.Drawing.Size(153, 13);
+            this.linkLabel2.TabIndex = 45;
+            this.linkLabel2.TabStop = true;
+            this.linkLabel2.Text = "Help: How To Register Profile?";
+            this.linkLabel2.VisitedLinkColor = System.Drawing.Color.White;
+            this.linkLabel2.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel2_LinkClicked);
+            // 
+            // label16
+            // 
+            this.label16.AutoSize = true;
+            this.label16.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.label16.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
+            this.label16.Location = new System.Drawing.Point(356, 220);
+            this.label16.Name = "label16";
+            this.label16.Size = new System.Drawing.Size(248, 15);
+            this.label16.TabIndex = 44;
+            this.label16.Text = "Note! Email address alias is not supported.";
+            // 
+            // chkEnableProxy
+            // 
+            this.chkEnableProxy.AutoSize = true;
+            this.chkEnableProxy.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
+            this.chkEnableProxy.Location = new System.Drawing.Point(30, 244);
+            this.chkEnableProxy.Name = "chkEnableProxy";
+            this.chkEnableProxy.Size = new System.Drawing.Size(88, 17);
+            this.chkEnableProxy.TabIndex = 36;
+            this.chkEnableProxy.Text = "Enable Proxy";
+            this.chkEnableProxy.UseVisualStyleBackColor = true;
+            // 
+            // rbImportRSA
+            // 
+            this.rbImportRSA.AutoSize = true;
+            this.rbImportRSA.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
+            this.rbImportRSA.Location = new System.Drawing.Point(30, 218);
+            this.rbImportRSA.Name = "rbImportRSA";
+            this.rbImportRSA.Size = new System.Drawing.Size(197, 17);
+            this.rbImportRSA.TabIndex = 35;
+            this.rbImportRSA.Text = "&Import custom RSA 4096-bit key pair";
+            this.rbImportRSA.UseVisualStyleBackColor = true;
+            this.rbImportRSA.CheckedChanged += new System.EventHandler(this.rbImportRSA_CheckedChanged);
+            // 
+            // rbAutoGenRSA
+            // 
+            this.rbAutoGenRSA.AutoSize = true;
+            this.rbAutoGenRSA.Checked = true;
+            this.rbAutoGenRSA.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
+            this.rbAutoGenRSA.Location = new System.Drawing.Point(30, 195);
+            this.rbAutoGenRSA.Name = "rbAutoGenRSA";
+            this.rbAutoGenRSA.Size = new System.Drawing.Size(279, 17);
+            this.rbAutoGenRSA.TabIndex = 34;
+            this.rbAutoGenRSA.TabStop = true;
+            this.rbAutoGenRSA.Text = "&Automatically generate RSA 4096-bit key pair (default)";
+            this.rbAutoGenRSA.UseVisualStyleBackColor = true;
+            // 
             // linkLabel1
             // 
             this.linkLabel1.AutoSize = true;
-            this.linkLabel1.Location = new System.Drawing.Point(356, 337);
+            this.linkLabel1.LinkColor = System.Drawing.Color.FromArgb(((int)(((byte)(102)))), ((int)(((byte)(153)))), ((int)(((byte)(255)))));
+            this.linkLabel1.Location = new System.Drawing.Point(356, 343);
             this.linkLabel1.Name = "linkLabel1";
-            this.linkLabel1.Size = new System.Drawing.Size(128, 13);
-            this.linkLabel1.TabIndex = 38;
-            this.linkLabel1.Text = "Read terms and condition";
+            this.linkLabel1.Size = new System.Drawing.Size(224, 13);
+            this.linkLabel1.TabIndex = 40;
+            this.linkLabel1.TabStop = true;
+            this.linkLabel1.Text = "Read terms and conditions, and privacy policy";
             this.linkLabel1.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel1_LinkClicked);
             // 
             // chkAccept
             // 
             this.chkAccept.AutoSize = true;
             this.chkAccept.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
-            this.chkAccept.Location = new System.Drawing.Point(359, 317);
+            this.chkAccept.Location = new System.Drawing.Point(359, 323);
             this.chkAccept.Name = "chkAccept";
-            this.chkAccept.Size = new System.Drawing.Size(181, 17);
-            this.chkAccept.TabIndex = 37;
-            this.chkAccept.Text = "I accept all terms and conditions.";
+            this.chkAccept.Size = new System.Drawing.Size(178, 17);
+            this.chkAccept.TabIndex = 39;
+            this.chkAccept.Text = "I accept all terms and conditions";
             this.chkAccept.UseVisualStyleBackColor = true;
             this.chkAccept.CheckedChanged += new System.EventHandler(this.chkAccept_CheckedChanged);
             // 
             // label15
             // 
             this.label15.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
-            this.label15.Location = new System.Drawing.Point(356, 237);
+            this.label15.Location = new System.Drawing.Point(356, 244);
             this.label15.Name = "label15";
             this.label15.Size = new System.Drawing.Size(302, 71);
             this.label15.TabIndex = 39;
@@ -150,7 +224,7 @@
             // label14
             // 
             this.label14.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
-            this.label14.Location = new System.Drawing.Point(12, 241);
+            this.label14.Location = new System.Drawing.Point(12, 269);
             this.label14.Name = "label14";
             this.label14.Size = new System.Drawing.Size(313, 48);
             this.label14.TabIndex = 38;
@@ -162,24 +236,24 @@
             this.btnBack.Location = new System.Drawing.Point(582, 364);
             this.btnBack.Name = "btnBack";
             this.btnBack.Size = new System.Drawing.Size(75, 23);
-            this.btnBack.TabIndex = 41;
+            this.btnBack.TabIndex = 42;
             this.btnBack.Text = "&Back";
             this.btnBack.UseVisualStyleBackColor = true;
             this.btnBack.Click += new System.EventHandler(this.btnBack_Click);
             // 
             // txtConfirmPassword
             // 
-            this.txtConfirmPassword.Location = new System.Drawing.Point(109, 318);
+            this.txtConfirmPassword.Location = new System.Drawing.Point(109, 343);
             this.txtConfirmPassword.Name = "txtConfirmPassword";
             this.txtConfirmPassword.PasswordChar = '#';
             this.txtConfirmPassword.Size = new System.Drawing.Size(203, 20);
-            this.txtConfirmPassword.TabIndex = 36;
+            this.txtConfirmPassword.TabIndex = 38;
             // 
             // label13
             // 
             this.label13.AutoSize = true;
             this.label13.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
-            this.label13.Location = new System.Drawing.Point(13, 321);
+            this.label13.Location = new System.Drawing.Point(13, 346);
             this.label13.Name = "label13";
             this.label13.Size = new System.Drawing.Size(94, 13);
             this.label13.TabIndex = 35;
@@ -187,17 +261,17 @@
             // 
             // txtProfilePassword
             // 
-            this.txtProfilePassword.Location = new System.Drawing.Point(109, 292);
+            this.txtProfilePassword.Location = new System.Drawing.Point(109, 317);
             this.txtProfilePassword.Name = "txtProfilePassword";
             this.txtProfilePassword.PasswordChar = '#';
             this.txtProfilePassword.Size = new System.Drawing.Size(203, 20);
-            this.txtProfilePassword.TabIndex = 34;
+            this.txtProfilePassword.TabIndex = 37;
             // 
             // label12
             // 
             this.label12.AutoSize = true;
             this.label12.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
-            this.label12.Location = new System.Drawing.Point(19, 295);
+            this.label12.Location = new System.Drawing.Point(19, 318);
             this.label12.Name = "label12";
             this.label12.Size = new System.Drawing.Size(88, 13);
             this.label12.TabIndex = 33;
@@ -561,7 +635,7 @@
             this.btnRegister.Location = new System.Drawing.Point(501, 364);
             this.btnRegister.Name = "btnRegister";
             this.btnRegister.Size = new System.Drawing.Size(75, 23);
-            this.btnRegister.TabIndex = 40;
+            this.btnRegister.TabIndex = 41;
             this.btnRegister.Text = "&Register";
             this.btnRegister.UseVisualStyleBackColor = true;
             this.btnRegister.Click += new System.EventHandler(this.btnRegister_Click);
@@ -573,9 +647,9 @@
             this.label2.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
             this.label2.Location = new System.Drawing.Point(3, 3);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(198, 22);
+            this.label2.Size = new System.Drawing.Size(187, 22);
             this.label2.TabIndex = 8;
-            this.label2.Text = "Profile Registeration";
+            this.label2.Text = "Profile Registration";
             // 
             // label3
             // 
@@ -583,7 +657,7 @@
             this.label3.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(32)))), ((int)(((byte)(32)))), ((int)(((byte)(32)))));
             this.label3.Location = new System.Drawing.Point(1, 28);
             this.label3.Name = "label3";
-            this.label3.Size = new System.Drawing.Size(657, 31);
+            this.label3.Size = new System.Drawing.Size(657, 43);
             this.label3.TabIndex = 2;
             this.label3.Text = resources.GetString("label3.Text");
             // 
@@ -620,6 +694,7 @@
             // 
             // pnlDownloadCert
             // 
+            this.pnlDownloadCert.Controls.Add(this.lblRegisteredEmail);
             this.pnlDownloadCert.Controls.Add(this.label21);
             this.pnlDownloadCert.Controls.Add(this.label20);
             this.pnlDownloadCert.Controls.Add(this.label19);
@@ -631,6 +706,17 @@
             this.pnlDownloadCert.Size = new System.Drawing.Size(660, 387);
             this.pnlDownloadCert.TabIndex = 8;
             this.pnlDownloadCert.Visible = false;
+            // 
+            // lblRegisteredEmail
+            // 
+            this.lblRegisteredEmail.Font = new System.Drawing.Font("Arial", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.lblRegisteredEmail.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
+            this.lblRegisteredEmail.Location = new System.Drawing.Point(0, 141);
+            this.lblRegisteredEmail.Name = "lblRegisteredEmail";
+            this.lblRegisteredEmail.Size = new System.Drawing.Size(660, 22);
+            this.lblRegisteredEmail.TabIndex = 16;
+            this.lblRegisteredEmail.Text = "user@example.com";
+            this.lblRegisteredEmail.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // label21
             // 
@@ -650,7 +736,8 @@
             this.label20.Name = "label20";
             this.label20.Size = new System.Drawing.Size(663, 17);
             this.label20.TabIndex = 13;
-            this.label20.Text = "Your profile certificate request was successfully registered on the server.";
+            this.label20.Text = "Your profile certificate request was successfully registered on the server for fo" +
+    "llowing email address:";
             this.label20.TextAlign = System.Drawing.ContentAlignment.TopCenter;
             // 
             // label19
@@ -726,8 +813,8 @@
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
             this.ClientSize = new System.Drawing.Size(740, 411);
             this.Controls.Add(this.pnlRegister);
-            this.Controls.Add(this.panel1);
             this.Controls.Add(this.pnlDownloadCert);
+            this.Controls.Add(this.panel1);
             this.Controls.Add(this.pnlMessages);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedSingle;
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
@@ -735,7 +822,8 @@
             this.MinimizeBox = false;
             this.Name = "frmRegister";
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-            this.Text = "Profile Registeration - Technitium Bit Chat";
+            this.Text = "Profile Registration - Technitium Bit Chat";
+            this.Load += new System.EventHandler(this.frmRegister_Load);
             this.pnlRegister.ResumeLayout(false);
             this.pnlRegister.PerformLayout();
             this.pnlMessages.ResumeLayout(false);
@@ -791,5 +879,11 @@
         private System.Windows.Forms.Label label20;
         private System.Windows.Forms.Panel panel1;
         private System.Windows.Forms.PictureBox pictureBox2;
+        private System.Windows.Forms.Label lblRegisteredEmail;
+        private System.Windows.Forms.RadioButton rbImportRSA;
+        private System.Windows.Forms.RadioButton rbAutoGenRSA;
+        private System.Windows.Forms.CheckBox chkEnableProxy;
+        private System.Windows.Forms.Label label16;
+        private System.Windows.Forms.LinkLabel linkLabel2;
     }
 }

@@ -17,63 +17,76 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient;
+using BitChatCore;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
 using System.IO;
-using System.Text;
 using System.Windows.Forms;
 
-namespace BitChatAppMono
+namespace BitChatApp
 {
     public partial class frmProfileManager : Form
     {
         #region variables
 
-        string _localAppData;
+        static bool _firstRunComplete = false;
+
+        bool _isPortableApp;
+        string _profileFolder;
 
         BitChatProfile _profile;
         string _profileFilePath;
-
-        bool _loaded = false;
-
+        
         #endregion
 
         #region constructor
 
-        public frmProfileManager(string localAppData, bool loaded)
+        public frmProfileManager()
         {
             InitializeComponent();
 
-            _localAppData = localAppData;
-
-            //find & list profiles
-            string[] profiles = Directory.GetFiles(_localAppData, "*.profile", SearchOption.TopDirectoryOnly);
-
-            foreach (string profile in profiles)
-            {
-                if (profile.EndsWith(".profile"))
-                    lstProfiles.Items.Add(Path.GetFileNameWithoutExtension(profile));
-            }
-
-            _loaded = loaded;
+            RefreshProfileList();
         }
 
         #endregion
 
         #region private
 
+        private void RefreshProfileList()
+        {
+            _isPortableApp = true;
+            _profileFolder = Environment.CurrentDirectory;
+
+            string[] profiles = Directory.GetFiles(Environment.CurrentDirectory, "*.profile", SearchOption.TopDirectoryOnly);
+
+            lstProfiles.Items.Clear();
+
+            foreach (string profile in profiles)
+            {
+                if (profile.EndsWith(".profile"))
+                {
+                    string profileName = Path.GetFileNameWithoutExtension(profile);
+
+                    if (!string.IsNullOrWhiteSpace(profileName))
+                        lstProfiles.Items.Add(profileName);
+                }
+            }
+
+            if (lstProfiles.Items.Count > 0)
+                lstProfiles.SelectedIndex = 0;
+        }
+
         private void frmProfileManager_Load(object sender, EventArgs e)
         {
-            if (_loaded)
+            if (_firstRunComplete)
                 return;
+
+            _firstRunComplete = true;
 
             switch (lstProfiles.Items.Count)
             {
                 case 0:
-                    using (frmWelcome frm = new frmWelcome(_localAppData))
+                    using (frmWelcome frm = new frmWelcome(_isPortableApp, _profileFolder))
                     {
                         DialogResult result = frm.ShowDialog(this);
 
@@ -100,24 +113,9 @@ namespace BitChatAppMono
                     break;
 
                 case 1:
-                    _profileFilePath = Path.Combine(_localAppData, (lstProfiles.Items[0] as string) + ".profile");
+                    _profileFilePath = Path.Combine(_profileFolder, (lstProfiles.Items[0] as string) + ".profile");
 
-                    using (frmPassword frm = new frmPassword(_profileFilePath))
-                    {
-                        switch (frm.ShowDialog(this))
-                        {
-                            case System.Windows.Forms.DialogResult.OK:
-                                _profile = frm.Profile;
-
-                                this.DialogResult = System.Windows.Forms.DialogResult.OK;
-                                this.Close();
-                                break;
-
-                            case System.Windows.Forms.DialogResult.Yes:
-                                btnNewProfile_Click(null, null);
-                                break;
-                        }
-                    }
+                    Start();
                     break;
 
                 default:
@@ -128,6 +126,7 @@ namespace BitChatAppMono
         private void lstProfiles_SelectedIndexChanged(object sender, EventArgs e)
         {
             btnStart.Enabled = (lstProfiles.SelectedItem != null);
+            btnReIssueProfile.Enabled = btnStart.Enabled;
             btnDeleteProfile.Enabled = btnStart.Enabled;
             btnExportProfile.Enabled = btnStart.Enabled;
         }
@@ -140,18 +139,9 @@ namespace BitChatAppMono
 
         private void btnStart_Click(object sender, EventArgs e)
         {
-            _profileFilePath = Path.Combine(_localAppData, (lstProfiles.SelectedItem as string) + ".profile");
+            _profileFilePath = Path.Combine(_profileFolder, (lstProfiles.SelectedItem as string) + ".profile");
 
-            using (frmPassword frm = new frmPassword(_profileFilePath))
-            {
-                if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
-                {
-                    _profile = frm.Profile;
-
-                    this.DialogResult = System.Windows.Forms.DialogResult.OK;
-                    this.Close();
-                }
-            }
+            Start();
         }
 
         private void btnExit_Click(object sender, EventArgs e)
@@ -164,7 +154,7 @@ namespace BitChatAppMono
         {
             this.Hide();
 
-            using (frmRegister frm = new frmRegister(_localAppData))
+            using (frmRegister frm = new frmRegister(_isPortableApp, _profileFolder))
             {
                 if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
                 {
@@ -178,7 +168,41 @@ namespace BitChatAppMono
                 }
             }
 
+            RefreshProfileList();
             this.Show();
+        }
+
+        private void btnReIssueProfile_Click(object sender, EventArgs e)
+        {
+            if (MessageBox.Show("Reissuing a profile certificate will allow you register again with the same email address and change your information in the profile certificate while keeping all your profile settings intact.\r\n\r\nAre you sure you want to reissue the selected profile?\r\n\r\nWARNING! This will revoke the previously issued profile certificate however, your settings will remain intact.", "Reissue Profile Certificate?", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == System.Windows.Forms.DialogResult.Yes)
+            {
+                this.Hide();
+
+                _profileFilePath = Path.Combine(_profileFolder, (lstProfiles.SelectedItem as string) + ".profile");
+
+                using (frmPassword frm = new frmPassword(_profileFilePath, _isPortableApp, _profileFolder))
+                {
+                    if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
+                    {
+                        _profile = frm.Profile;
+
+                        using (frmRegister frmReg = new frmRegister(_profile, _profileFilePath, _isPortableApp, _profileFolder, true))
+                        {
+                            if (frmReg.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
+                            {
+                                _profile = frmReg.Profile;
+                                _profileFilePath = frmReg.ProfileFilePath;
+
+                                string profileName = Path.GetFileNameWithoutExtension(_profileFilePath);
+                                lstProfiles.SelectedItem = profileName;
+                            }
+                        }
+                    }
+                }
+
+                RefreshProfileList();
+                this.Show();
+            }
         }
 
         private void btnDeleteProfile_Click(object sender, EventArgs e)
@@ -191,8 +215,8 @@ namespace BitChatAppMono
                 {
                     try
                     {
-                        File.Delete(Path.Combine(_localAppData, profile + ".profile"));
-                        File.Delete(Path.Combine(_localAppData, profile + ".profile.bak"));
+                        File.Delete(Path.Combine(_profileFolder, profile + ".profile"));
+                        File.Delete(Path.Combine(_profileFolder, profile + ".profile.bak"));
 
                         toRemove.Add(profile);
                     }
@@ -222,7 +246,7 @@ namespace BitChatAppMono
                     {
                         string profileName = Path.GetFileNameWithoutExtension(oFD.FileName);
 
-                        File.Copy(oFD.FileName, Path.Combine(_localAppData, profileName + ".profile"));
+                        File.Copy(oFD.FileName, Path.Combine(_profileFolder, profileName + ".profile"));
 
                         lstProfiles.Items.Add(profileName);
                     }
@@ -241,6 +265,7 @@ namespace BitChatAppMono
                 sFD.Title = "Export Bit Chat Profile File As...";
                 sFD.Filter = "Bit Chat Profile File (*.profile)|*.profile";
                 sFD.DefaultExt = ".profile";
+                sFD.FileName = lstProfiles.SelectedItem + ".profile";
                 sFD.CheckPathExists = true;
                 sFD.OverwritePrompt = true;
 
@@ -248,7 +273,7 @@ namespace BitChatAppMono
                 {
                     try
                     {
-                        File.Copy(Path.Combine(_localAppData, lstProfiles.SelectedItem + ".profile"), sFD.FileName, true);
+                        File.Copy(Path.Combine(_profileFolder, lstProfiles.SelectedItem + ".profile"), sFD.FileName, true);
                     }
                     catch (Exception ex)
                     {
@@ -264,9 +289,62 @@ namespace BitChatAppMono
                 btnDeleteProfile_Click(null, null);
         }
 
+        private void Start()
+        {
+            using (frmPassword frm = new frmPassword(_profileFilePath, _isPortableApp, _profileFolder))
+            {
+                switch (frm.ShowDialog(this))
+                {
+                    case DialogResult.OK:
+                        _profile = frm.Profile;
+
+                        if (_profile.LocalCertificateStore.Certificate.Type == TechnitiumLibrary.Security.Cryptography.CertificateType.User)
+                        {
+                            //check for profile certificate expiry
+                            double daysToExpire = (_profile.LocalCertificateStore.Certificate.ExpiresOnUTC - DateTime.UtcNow).TotalDays;
+
+                            if (daysToExpire < 0.0)
+                            {
+                                //cert already expired
+
+                                if (MessageBox.Show("Your profile certificate '" + _profile.LocalCertificateStore.Certificate.SerialNumber + "' issued to '" + _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address + "' has expired on " + _profile.LocalCertificateStore.Certificate.ExpiresOnUTC.ToString() + ".\r\n\r\nDo you want to reissue the certificate now?", "Profile Certificate Expired! Reissue Now?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
+                                {
+                                    btnReIssueProfile_Click(null, null);
+                                }
+
+                                return;
+                            }
+                            else if (daysToExpire < 30.0)
+                            {
+                                //cert to expire in 30 days
+                                if (MessageBox.Show("Your profile certificate '" + _profile.LocalCertificateStore.Certificate.SerialNumber + "' issued to '" + _profile.LocalCertificateStore.Certificate.IssuedTo.EmailAddress.Address + "' will expire in " + Convert.ToInt32(daysToExpire) + " days on " + _profile.LocalCertificateStore.Certificate.ExpiresOnUTC.ToString() + ".\r\n\r\nDo you want to reissue the certificate now?", "Profile Certificate About To Expire! Reissue Now?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
+                                {
+                                    btnReIssueProfile_Click(null, null);
+                                    return;
+                                }
+                            }
+                        }
+
+                        this.DialogResult = DialogResult.OK;
+                        this.Close();
+                        break;
+
+                    case DialogResult.Yes:
+                        btnNewProfile_Click(null, null);
+                        break;
+                }
+            }
+        }
+
         #endregion
 
         #region properties
+
+        public bool IsPortableApp
+        { get { return _isPortableApp; } }
+
+        public string ProfileFolder
+        { get { return _profileFolder; } }
 
         public BitChatProfile Profile
         { get { return _profile; } }

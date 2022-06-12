@@ -1,6 +1,6 @@
 ﻿/*
 Technitium Bit Chat
-Copyright (C) 2015  Shreyas Zare (shreyas@technitium.com)
+Copyright (C) 2017  Shreyas Zare (shreyas@technitium.com)
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -19,21 +19,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 using AutomaticUpdate.Client;
 using BitChatApp.UserControls;
-using BitChatClient;
-using TechnitiumLibrary.IO;
-using TechnitiumLibrary.Net;
-using TechnitiumLibrary.Net.BitTorrent;
-using TechnitiumLibrary.Net.Firewall;
-using TechnitiumLibrary.Security.Cryptography;
+using BitChatCore;
+using BitChatCore.FileSharing;
+using BitChatCore.Network.Connections;
+using BitChatCore.Network.SecureChannel;
 using System;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Media;
-using System.Net;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using TechnitiumLibrary.IO;
+using TechnitiumLibrary.Net;
+using TechnitiumLibrary.Security.Cryptography;
 
 namespace BitChatApp
 {
@@ -41,21 +40,23 @@ namespace BitChatApp
     {
         #region variables
 
-        AppLink _link;
-
         BitChatProfile _profile;
         string _profileFilePath;
 
         FileStream _debugFile;
         StreamWriter _debugWriter;
 
-        BitChatService _service;
+        BitChatNode _node;
 
         AutomaticUpdateClient _updateClient;
         DateTime _lastUpdateCheckedOn;
         DateTime _lastModifiedGMT;
 
-        SoundPlayer sndMessageNotification = new SoundPlayer(Properties.Resources.MessageNotification);
+        SoundPlayer _sndMessageNotification = new SoundPlayer(Properties.Resources.MessageNotification);
+
+        BitChatPanel _currentChatPanel;
+        Timer _updateTimer;
+        bool _upnpNoticeShown = false;
 
         #endregion
 
@@ -68,16 +69,30 @@ namespace BitChatApp
             _profile = profile;
             _profileFilePath = profileFilePath;
 
-            //start bitchat service
-            _service = new BitChatService(profile, Program.TRUSTED_CERTIFICATES, InvalidCertificateEvent);
+            SecureChannelCryptoOptionFlags cryptoOptions;
 
-            //add firewall entry
             switch (Environment.OSVersion.Platform)
             {
                 case PlatformID.Win32NT:
-                    AddWindowsFirewallEntry();
+                    if (Environment.OSVersion.Version.Major > 5)
+                        cryptoOptions = SecureChannelCryptoOptionFlags.ECDHE256_RSA_WITH_AES256_CBC_HMAC_SHA256 | SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256;
+                    else
+                        cryptoOptions = SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256;
+
+                    break;
+
+                default:
+                    cryptoOptions = SecureChannelCryptoOptionFlags.DHE2048_RSA_WITH_AES256_CBC_HMAC_SHA256;
                     break;
             }
+
+            //start bitchat client
+            _node = new BitChatNode(profile, Program.TRUSTED_CERTIFICATES, cryptoOptions);
+
+            _node.InvalidCertificateDetected += BitChatNode_InvalidCertificateDetected;
+            _node.BitChatInvitationReceived += BitChatNode_BitChatInvitationReceived;
+
+            _node.Start();
         }
 
         #endregion
@@ -89,7 +104,7 @@ namespace BitChatApp
             //load chats and ui views
             lblUserName.Text = _profile.LocalCertificateStore.Certificate.IssuedTo.Name;
 
-            foreach (BitChat chat in _service.GetBitChatList())
+            foreach (BitChat chat in _node.GetBitChatList())
                 AddChatView(chat);
 
             lstChats.SelectItem(lstChats.GetFirstItem());
@@ -120,24 +135,21 @@ namespace BitChatApp
                 this.Top = 100;
             }
 
-            //create AppLink
-            _link = new AppLink(Program.APP_LINK_PORT);
-            _link.CommandReceived += _link_CommandReceived;
-
-            //if (_cmdLine != null)
-            //    _link_CommandReceived(_cmdLine);
-
-
             //start automatic update client
             _updateClient = new AutomaticUpdateClient(Program.MUTEX_NAME, Application.ProductVersion, Program.UPDATE_URI, Program.UPDATE_CHECK_INTERVAL_DAYS, Program.TRUSTED_CERTIFICATES, _lastUpdateCheckedOn, _lastModifiedGMT);
+            _updateClient.Proxy = _profile.Proxy;
             _updateClient.ExitApplication += _updateClient_ExitApplication;
             _updateClient.UpdateAvailable += _updateClient_UpdateAvailable;
             _updateClient.NoUpdateAvailable += _updateClient_NoUpdateAvailable;
             _updateClient.UpdateError += _updateClient_UpdateError;
 
-
             //show tray icon
             notifyIcon1.Visible = true;
+
+            _updateTimer = new Timer();
+            _updateTimer.Interval = 10000;
+            _updateTimer.Tick += updateTimer_Tick;
+            _updateTimer.Start();
         }
 
         private void frmMain_KeyDown(object sender, KeyEventArgs e)
@@ -147,11 +159,20 @@ namespace BitChatApp
                 StartDebugging();
                 e.Handled = true;
             }
+            else if (e.Alt && (e.KeyCode == Keys.F))
+            {
+                btnPlusButton_Click(null, null);
+            }
         }
 
         private void frmMain_FormClosed(object sender, FormClosedEventArgs e)
         {
-            SaveProfile();
+            try
+            {
+                SaveProfile();
+            }
+            catch
+            { }
 
             if (_debugFile != null)
             {
@@ -164,26 +185,24 @@ namespace BitChatApp
                 }
             }
 
-            _link.Dispose();
-            _service.Dispose();
+            _updateTimer.Dispose();
+            _updateClient.Dispose();
+            _node.Dispose();
         }
 
         private void frmMain_FormClosing(object sender, FormClosingEventArgs e)
         {
-            switch (this.DialogResult)
+            if (e.CloseReason == CloseReason.UserClosing)
             {
-                case DialogResult.Cancel:
-                case DialogResult.None:
-                    e.Cancel = true;
-                    this.Hide();
-                    break;
+                switch (this.DialogResult)
+                {
+                    case DialogResult.Cancel:
+                    case DialogResult.None:
+                        e.Cancel = true;
+                        this.Hide();
+                        break;
+                }
             }
-        }
-
-        private void _link_CommandReceived(string cmd)
-        {
-            this.Show();
-            this.Activate();
         }
 
         private void btnPlusButton_Click(object sender, EventArgs e)
@@ -193,20 +212,14 @@ namespace BitChatApp
 
         private void lblUserName_MouseEnter(object sender, EventArgs e)
         {
-            lblUserName.Font = new Font(lblUserName.Font, FontStyle.Bold);
+            panel1.BackColor = Color.FromArgb(61, 78, 93);
+            lblUserName.BackColor = panel1.BackColor;
         }
 
         private void lblUserName_MouseLeave(object sender, EventArgs e)
         {
-            lblUserName.Font = new Font(lblUserName.Font, FontStyle.Regular);
-        }
-
-        private void lblUserName_Click(object sender, EventArgs e)
-        {
-            using (frmViewCertificate frm = new frmViewCertificate(_profile.LocalCertificateStore.Certificate))
-            {
-                frm.ShowDialog(this);
-            }
+            panel1.BackColor = Color.FromArgb(51, 65, 78);
+            lblUserName.BackColor = panel1.BackColor;
         }
 
         private void lstChats_DoubleClick(object sender, EventArgs e)
@@ -221,9 +234,15 @@ namespace BitChatApp
 
         private void lstChats_MouseUp(object sender, MouseEventArgs e)
         {
-            if (e.Button == System.Windows.Forms.MouseButtons.Right)
+            if (e.Button == MouseButtons.Right)
             {
+                mnuMuteNotifications.Enabled = false;
+                mnuMuteNotifications.Checked = false;
+                mnuGoOffline.Enabled = false;
+                mnuGoOffline.Checked = false;
                 mnuLeaveChat.Enabled = false;
+                mnuViewPeerProfile.Visible = false;
+                mnuGroupPhoto.Visible = false;
                 mnuProperties.Enabled = false;
                 mnuChat.Show(lstChats, e.Location);
             }
@@ -239,7 +258,13 @@ namespace BitChatApp
                     break;
 
                 case Keys.Apps:
+                    mnuMuteNotifications.Enabled = false;
+                    mnuMuteNotifications.Checked = false;
+                    mnuGoOffline.Enabled = false;
+                    mnuGoOffline.Checked = false;
                     mnuLeaveChat.Enabled = false;
+                    mnuViewPeerProfile.Visible = false;
+                    mnuGroupPhoto.Visible = false;
                     mnuProperties.Enabled = false;
                     mnuChat.Show(lstChats, lstChats.Location);
                     e.Handled = true;
@@ -249,11 +274,20 @@ namespace BitChatApp
 
         private void lstChats_ItemMouseUp(object sender, MouseEventArgs e)
         {
-            if (e.Button == System.Windows.Forms.MouseButtons.Right)
+            if (e.Button == MouseButtons.Right)
             {
+                ChatListItem itm = lstChats.SelectedItem as ChatListItem;
+
+                mnuMuteNotifications.Enabled = true;
+                mnuMuteNotifications.Checked = itm.BitChat.Mute;
+                mnuGoOffline.Enabled = true;
+                mnuGoOffline.Checked = (itm.BitChat.NetworkStatus == BitChatCore.Network.BitChatNetworkStatus.Offline);
                 mnuLeaveChat.Enabled = true;
+                mnuViewPeerProfile.Visible = (itm.BitChat.NetworkType == BitChatCore.Network.BitChatNetworkType.PrivateChat);
+                mnuViewPeerProfile.Enabled = (itm.Peer != null);
+                mnuGroupPhoto.Visible = (itm.BitChat.NetworkType == BitChatCore.Network.BitChatNetworkType.GroupChat);
                 mnuProperties.Enabled = true;
-                mnuChat.Show(lstChats, e.Location);
+                mnuChat.Show(sender as Control, e.Location);
             }
         }
 
@@ -267,7 +301,16 @@ namespace BitChatApp
                     break;
 
                 case Keys.Apps:
+                    ChatListItem itm = lstChats.SelectedItem as ChatListItem;
+
+                    mnuMuteNotifications.Enabled = true;
+                    mnuMuteNotifications.Checked = itm.BitChat.Mute;
+                    mnuGoOffline.Enabled = true;
+                    mnuGoOffline.Checked = (itm.BitChat.NetworkStatus == BitChatCore.Network.BitChatNetworkStatus.Offline);
                     mnuLeaveChat.Enabled = true;
+                    mnuViewPeerProfile.Visible = (itm.BitChat.NetworkType == BitChatCore.Network.BitChatNetworkType.PrivateChat);
+                    mnuViewPeerProfile.Enabled = (itm.Peer != null);
+                    mnuGroupPhoto.Visible = (itm.BitChat.NetworkType == BitChatCore.Network.BitChatNetworkType.GroupChat);
                     mnuProperties.Enabled = true;
                     mnuChat.Show(lstChats, lstChats.Location);
                     e.Handled = true;
@@ -294,7 +337,7 @@ namespace BitChatApp
 
         private void btnCreateChat_Click(object sender, EventArgs e)
         {
-            mnuAddChat_Click(null, null);
+            mnuAddPrivateChat_Click(null, null);
         }
 
         private void chatPanel_SettingsModified(object sender, EventArgs e)
@@ -318,63 +361,245 @@ namespace BitChatApp
             }
         }
 
-        private void chatPanel_MessageNotification(BitChat sender, BitChat.Peer messageSender, string message)
+        private void chatPanel_MessageNotification(BitChat chat, BitChat.Peer messageSender, string message)
         {
-            if (!this.Visible || !ApplicationIsActivated())
+            if (!chat.Mute && (!this.Visible || !ApplicationIsActivated()))
             {
-                if (messageSender == null)
-                    notifyIcon1.ShowBalloonTip(30000, sender.NetworkName + " - Bit Chat", message, ToolTipIcon.Info);
+                if ((messageSender == null) || (chat.NetworkType == BitChatCore.Network.BitChatNetworkType.PrivateChat))
+                    notifyIcon1.ShowBalloonTip(30000, chat.NetworkDisplayName + " - Bit Chat", message, ToolTipIcon.Info);
                 else
-                    notifyIcon1.ShowBalloonTip(30000, sender.NetworkName + " - Bit Chat", messageSender.PeerCertificate.IssuedTo.Name + ": " + message, ToolTipIcon.Info);
+                    notifyIcon1.ShowBalloonTip(30000, chat.NetworkDisplayName + " - Bit Chat", messageSender.PeerCertificate.IssuedTo.Name + ": " + message, ToolTipIcon.Info);
 
-                sndMessageNotification.Play();
+                _sndMessageNotification.Play();
             }
+        }
+
+        private void chatPanel_SwitchToPrivateChat(object sender, EventArgs e)
+        {
+            UserListItem userItem = sender as UserListItem;
+            string peerEmail = userItem.Peer.PeerCertificate.IssuedTo.EmailAddress.Address;
+
+            foreach (ChatListItem item in lstChats.Controls)
+            {
+                if ((item.BitChat.NetworkType == BitChatCore.Network.BitChatNetworkType.PrivateChat) && (item.BitChat.NetworkName == peerEmail))
+                {
+                    lstChats.SelectItem(item);
+                    ShowSelectedChatView();
+                    return;
+                }
+            }
+
+            ShowAddPrivateChat(peerEmail);
+        }
+
+        private void chatPanel_ShareFile(object sender, EventArgs e)
+        {
+            SharedFile sharedFile = sender as SharedFile;
+
+            using (frmShareFileSelection frm = new frmShareFileSelection(_node, sharedFile))
+            {
+                if (frm.ShowDialog(this) == DialogResult.OK)
+                {
+                    foreach (BitChat chat in frm.SelectedChats)
+                    {
+                        chat.ShareFile(sharedFile);
+                    }
+                }
+            }
+        }
+
+        private void ShowAddPrivateChat(string networkNameOrPeerEmailAddress = null)
+        {
+            using (frmAddChat frm = new frmAddChat(BitChatCore.Network.BitChatNetworkType.PrivateChat, networkNameOrPeerEmailAddress))
+            {
+                if (frm.ShowDialog(this) == DialogResult.OK)
+                {
+                    try
+                    {
+                        BitChat chat = _node.CreatePrivateChat(new System.Net.Mail.MailAddress(frm.NetworkNameOrPeerEmailAddress.ToLower()), frm.SharedSecret, !frm.OnlyLanChat, frm.DhtOnlyTracking, frm.InvitationMessage);
+
+                        lstChats.SelectItem(AddChatView(chat));
+                        ShowSelectedChatView();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message, "Error!", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                    }
+                }
+            }
+        }
+
+        private void updateTimer_Tick(object sender, EventArgs e)
+        {
+            string title = "Technitium Bit Chat";
+
+            switch (_node.IPv4InternetStatus)
+            {
+                case InternetConnectivityStatus.NoInternetConnection:
+                case InternetConnectivityStatus.NoProxyInternetConnection:
+                    switch (_node.IPv6InternetStatus)
+                    {
+                        case InternetConnectivityStatus.NoInternetConnection:
+                        case InternetConnectivityStatus.NoProxyInternetConnection:
+                            this.Text = title + " [No Internet]";
+                            return;
+
+                        case InternetConnectivityStatus.FirewalledInternetConnection:
+                            this.Text = title + " [Firewalled IPv6 Only Internet]";
+                            return;
+
+                        case InternetConnectivityStatus.HttpProxyInternetConnection:
+                            this.Text = title + " [IPv6 HTTP Proxy Internet]";
+                            return;
+
+                        case InternetConnectivityStatus.Socks5ProxyInternetConnection:
+                            this.Text = title + " [IPv6 SOCKS5 Proxy Internet]";
+                            return;
+
+                        case InternetConnectivityStatus.ProxyConnectionFailed:
+                            this.Text = title + " [IPv6 Proxy Failed]";
+                            return;
+
+                        default:
+                            this.Text = title + " [IPv6 Only Internet]";
+                            return;
+                    }
+
+                case InternetConnectivityStatus.NatInternetConnectionViaUPnPRouter:
+                    switch (_node.UPnPStatus)
+                    {
+                        case UPnPDeviceStatus.ExternalIpPrivate:
+                            this.Text = title + " [UPnP: No Public IP Detected]";
+                            return;
+
+                        case UPnPDeviceStatus.PortForwardedNotAccessible:
+                            this.Text = title + " [UPnP: Port Not Accessible From Internet]";
+                            return;
+
+                        case UPnPDeviceStatus.PortForwardingFailed:
+                            this.Text = title + " [UPnP: Port Forwarding Failed]";
+                            return;
+                    }
+
+                    break;
+
+                case InternetConnectivityStatus.NatOrFirewalledInternetConnection:
+                case InternetConnectivityStatus.FirewalledInternetConnection:
+                    if (_node.IPv4ExternalEndPoint == null)
+                    {
+                        this.Text = title + " [NAT or Firewalled Internet]";
+
+                        if ((_node.UPnPStatus == UPnPDeviceStatus.DeviceNotFound) && !_upnpNoticeShown)
+                        {
+                            _upnpNoticeShown = true;
+
+                            MessageBox.Show("Bit Chat has detected that your Internet access is either firewalled or you have a NAT enabled router or access point.\r\n\r\nSince, Bit Chat works using peer-to-peer (p2p) technology, NAT or firewall prevents other Bit Chat peers from directly connect to you over the Internet. This may affect your ability to chat with your peers and hence this should be fixed.\r\n\r\nTo fix this, you should either enable UPnP feature or configure port forwarding manually in your router or access point. If you are not sure, you can refer to the user manual that came with your device or search online for the user manual.", "Enable UPnP/Port Forwarding On Your Router", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                        }
+
+                        return;
+                    }
+
+                    break;
+
+                case InternetConnectivityStatus.HttpProxyInternetConnection:
+                    this.Text = title + " [HTTP Proxy Internet]";
+                    return;
+
+                case InternetConnectivityStatus.Socks5ProxyInternetConnection:
+                    this.Text = title + " [SOCKS5 Proxy Internet]";
+                    return;
+
+                case InternetConnectivityStatus.ProxyConnectionFailed:
+                    this.Text = title + " [Proxy Failed]";
+                    return;
+            }
+
+            this.Text = title;
         }
 
         #region menus
 
-        private void mnuAddChat_Click(object sender, EventArgs e)
+        private void mnuAddPrivateChat_Click(object sender, EventArgs e)
         {
-            using (frmAddChat frmCreateChat = new frmAddChat())
-            {
-                if (frmCreateChat.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
-                {
-                    BitChat chat = _service.CreateBitChat(frmCreateChat.txtNetworkName.Text, frmCreateChat.txtPassword.Text);
+            ShowAddPrivateChat();
+        }
 
-                    AddChatView(chat);
+        private void mnuAddGroupChat_Click(object sender, EventArgs e)
+        {
+            using (frmAddChat frm = new frmAddChat(BitChatCore.Network.BitChatNetworkType.GroupChat, null))
+            {
+                if (frm.ShowDialog(this) == DialogResult.OK)
+                {
+                    try
+                    {
+                        BitChat chat = _node.CreateGroupChat(frm.NetworkNameOrPeerEmailAddress, frm.SharedSecret, !frm.OnlyLanChat, frm.DhtOnlyTracking);
+
+                        lstChats.SelectItem(AddChatView(chat));
+                        ShowSelectedChatView();
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show(ex.Message, "Error!", MessageBoxButtons.OK, MessageBoxIcon.Exclamation);
+                    }
                 }
+            }
+        }
+
+        private void mnuViewProfile_Click(object sender, EventArgs e)
+        {
+            using (frmViewProfile frm = new frmViewProfile(_profile, null))
+            {
+                if (frm.ShowDialog(this) == DialogResult.OK)
+                    SaveProfile();
             }
         }
 
         private void mnuProfileSettings_Click(object sender, EventArgs e)
         {
-            using (frmSettings frm = new frmSettings(_service))
+            using (frmSettings frm = new frmSettings(_node.Profile))
             {
-                if (frm.ShowDialog(this) == System.Windows.Forms.DialogResult.OK)
+                if (frm.ShowDialog(this) == DialogResult.OK)
                 {
                     if (frm.PasswordChangeRequest)
                         _profile.ChangePassword(frm.Password);
 
-                    if (frm.Port != _profile.LocalEP.Port)
-                        _profile.LocalEP = new IPEndPoint(0, frm.Port);
-
                     _profile.DownloadFolder = frm.DownloadFolder;
-                    _profile.CheckCertificateRevocationList = frm.CheckCertificateRevocationList;
                     _profile.TrackerURIs = frm.Trackers;
+                    _profile.LocalPort = frm.Port;
+                    _profile.CheckCertificateRevocationList = frm.CheckCertificateRevocationList;
+                    _profile.AllowInboundInvitations = frm.AllowInboundInvitations;
+                    _profile.AllowOnlyLocalInboundInvitations = frm.AllowOnlyLocalInboundInvitations;
+                    _profile.EnableUPnP = frm.EnableUPnP;
+
+                    if (frm.EnableProxy)
+                        _profile.ConfigureProxy(frm.ProxyType, frm.ProxyAddress, frm.ProxyPort, frm.ProxyCredentials);
+                    else
+                        _profile.DisableProxy();
 
                     SaveProfile();
+
+                    //set proxy
+                    _updateClient.Proxy = _profile.Proxy;
                 }
             }
         }
 
         private void mnuSwitchProfile_Click(object sender, EventArgs e)
         {
-            if (MessageBox.Show("Your current profile will be logged off. Are you sure to proceed to change profile?", "Change Profile?", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == System.Windows.Forms.DialogResult.Yes)
+            if (MessageBox.Show("Your current profile will be logged off. Are you sure to proceed with switching to another profile?", "Switch Profile?", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
             {
                 notifyIcon1.Visible = false;
                 this.Hide();
-                this.DialogResult = System.Windows.Forms.DialogResult.Ignore;
+                this.DialogResult = DialogResult.Ignore;
                 this.Close();
+            }
+        }
+
+        private void networkInfoToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            using (frmNetworkInfo frm = new frmNetworkInfo(_node))
+            {
+                frm.ShowDialog(this);
             }
         }
 
@@ -397,15 +622,69 @@ namespace BitChatApp
         {
             notifyIcon1.Visible = false;
             this.Hide();
-            this.DialogResult = System.Windows.Forms.DialogResult.OK;
+            this.DialogResult = DialogResult.OK;
             this.Close();
+        }
+
+        private void mnuMuteNotifications_Click(object sender, EventArgs e)
+        {
+            if (lstChats.SelectedItem != null)
+            {
+                ChatListItem itm = lstChats.SelectedItem as ChatListItem;
+
+                mnuMuteNotifications.Checked = !mnuMuteNotifications.Checked;
+                itm.BitChat.Mute = mnuMuteNotifications.Checked;
+            }
+        }
+
+        private void mnuGoOffline_Click(object sender, EventArgs e)
+        {
+            if (lstChats.SelectedItem != null)
+            {
+                ChatListItem itm = lstChats.SelectedItem as ChatListItem;
+
+                mnuGoOffline.Checked = !mnuGoOffline.Checked;
+                itm.GoOffline = mnuGoOffline.Checked;
+
+                if (mnuGoOffline.Checked)
+                    itm.BitChat.GoOffline();
+                else
+                    itm.BitChat.GoOnline();
+            }
         }
 
         private void mnuLeaveChat_Click(object sender, EventArgs e)
         {
-            if (MessageBox.Show("Are you sure to leave chat?\r\n\r\nWarning! If you wish to join back the same chat again, you will need to remember the Chat Name and Shared Secret.", "Leave Chat?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
+            if (MessageBox.Show("Are you sure to leave chat?\r\n\r\nWarning! You will lose all stored messages in this chat. If you wish to join back the same chat again, you will need to remember the Chat Name and Shared Secret.", "Leave Chat?", MessageBoxButtons.YesNo, MessageBoxIcon.Exclamation) == System.Windows.Forms.DialogResult.Yes)
             {
                 RemoveSelectedChatView();
+            }
+        }
+
+        private void mnuViewPeerProfile_Click(object sender, EventArgs e)
+        {
+            if (lstChats.SelectedItem != null)
+            {
+                ChatListItem itm = lstChats.SelectedItem as ChatListItem;
+
+                using (frmViewProfile frm = new frmViewProfile(_profile, itm.Peer))
+                {
+                    frm.ShowDialog(this);
+                }
+            }
+        }
+
+        private void mnuGroupPhoto_Click(object sender, EventArgs e)
+        {
+            if (lstChats.SelectedItem != null)
+            {
+                ChatListItem itm = lstChats.SelectedItem as ChatListItem;
+
+                using (frmViewGroup frm = new frmViewGroup(itm.BitChat))
+                {
+                    if (frm.ShowDialog(this) == DialogResult.OK)
+                        SaveProfile();
+                }
             }
         }
 
@@ -414,12 +693,20 @@ namespace BitChatApp
             if (lstChats.SelectedItem != null)
             {
                 ChatListItem itm = lstChats.SelectedItem as ChatListItem;
-                BitChatPanel chatPanel = itm.Tag as BitChatPanel;
 
-                using (frmChatProperties frm = new frmChatProperties(chatPanel.BitChat))
+                using (frmChatProperties frm = new frmChatProperties(itm.BitChat, _profile))
                 {
-                    frm.Text = chatPanel.BitChat.NetworkName + " - Properties";
-                    frm.ShowDialog(this);
+                    if (frm.ShowDialog(this) == DialogResult.OK)
+                    {
+                        try
+                        {
+                            itm.BitChat.SharedSecret = frm.SharedSecret;
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show(ex.Message, "Error!", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        }
+                    }
                 }
             }
         }
@@ -436,63 +723,41 @@ namespace BitChatApp
 
         #region private
 
-        private void AddWindowsFirewallEntry()
+        private void BitChatNode_InvalidCertificateDetected(BitChatNode node, InvalidCertificateException e)
         {
-            if (Environment.OSVersion.Version.Major < 6)
-            {
-                //below vista
-                try
-                {
-                    if (!WindowsFirewall.PortExists(Protocol.TCP, _service.ExternalSelfEP.Port))
-                        WindowsFirewall.AddPort("Bit Chat - TCP", Protocol.TCP, _service.ExternalSelfEP.Port, true);
-
-                    if (!WindowsFirewall.PortExists(Protocol.UDP, 41733))
-                        WindowsFirewall.AddPort("Bit Chat - Local Discovery", Protocol.UDP, 41733, true);
-                }
-                catch
-                { }
-            }
-            else
-            {
-                //vista & above
-                try
-                {
-                    string appPath = Assembly.GetEntryAssembly().CodeBase.Replace("file:///", "").Replace("/", "\\");
-
-                    if (!WindowsFirewall.RuleExistsVista("Bit Chat", appPath))
-                        WindowsFirewall.AddRuleVista("Bit Chat", "Allow incoming connection request to Bit Chat application.", FirewallAction.Allow, appPath, Protocol.ANY);
-                }
-                catch
-                { }
-            }
-        }
-
-        private void InvalidCertificateEvent(BitChatService sender, InvalidCertificateException e)
-        {
-            MessageBox.Show(e.Message, "Invalid Certificate Detected", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show(e.Message + "\r\n\r\nClick OK to logout from this Bit Chat profile.", "Invalid Certificate Detected", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
             notifyIcon1.Visible = false;
             this.Hide();
-            this.DialogResult = System.Windows.Forms.DialogResult.Ignore;
+            this.DialogResult = DialogResult.Ignore;
             this.Close();
         }
 
-        private void AddChatView(BitChat chat)
+        private void BitChatNode_BitChatInvitationReceived(BitChatNode node, BitChat chat)
         {
-            ChatListItem itm = new ChatListItem(chat.NetworkName);
+            AddChatView(chat);
 
-            BitChatPanel chatPanel = new BitChatPanel(chat, itm);
-            chatPanel.Dock = DockStyle.Fill;
-            chatPanel.SettingsModified += chatPanel_SettingsModified;
-            chatPanel.MessageNotification += chatPanel_MessageNotification;
+            if (lstChats.Controls.Count == 1)
+            {
+                lstChats.SelectItem(lstChats.GetFirstItem());
+                ShowSelectedChatView();
+            }
+        }
 
-            mainContainer.Panel2.Controls.Add(chatPanel);
-            itm.Tag = chatPanel;
+        private ChatListItem AddChatView(BitChat chat)
+        {
+            ChatListItem itm = new ChatListItem(chat);
+
+            itm.ChatPanel.SettingsModified += chatPanel_SettingsModified;
+            itm.ChatPanel.MessageNotification += chatPanel_MessageNotification;
+            itm.ChatPanel.SwitchToPrivateChat += chatPanel_SwitchToPrivateChat;
+            itm.ChatPanel.ShareFile += chatPanel_ShareFile;
+
+            mainContainer.Panel2.Controls.Add(itm.ChatPanel);
 
             lstChats.AddItem(itm);
 
-            if (lstChats.Controls.Count == 1)
-                ShowSelectedChatView();
+            return itm;
         }
 
         private void RemoveSelectedChatView()
@@ -500,13 +765,15 @@ namespace BitChatApp
             if (lstChats.SelectedItem != null)
             {
                 ChatListItem itm = lstChats.SelectedItem as ChatListItem;
-                BitChatPanel chatPanel = itm.Tag as BitChatPanel;
 
                 lstChats.RemoveItem(itm);
-                mainContainer.Panel2.Controls.Remove(chatPanel);
-                chatPanel.SettingsModified -= chatPanel_SettingsModified;
+                mainContainer.Panel2.Controls.Remove(itm.ChatPanel);
 
-                chatPanel.BitChat.LeaveChat();
+                itm.ChatPanel.SettingsModified -= chatPanel_SettingsModified;
+                itm.ChatPanel.MessageNotification -= chatPanel_MessageNotification;
+                itm.ChatPanel.SwitchToPrivateChat -= chatPanel_SwitchToPrivateChat;
+
+                itm.BitChat.LeaveChat();
             }
         }
 
@@ -514,20 +781,15 @@ namespace BitChatApp
         {
             if (lstChats.SelectedItem != null)
             {
-                BitChatPanel chatPanel = lstChats.SelectedItem.Tag as BitChatPanel;
-                chatPanel.BringToFront();
-            }
-        }
+                if (_currentChatPanel != null)
+                    _currentChatPanel.TrimMessageList();
 
-        private void ShowChatListContextMenu(Point location)
-        {
-            if (lstChats.SelectedItem != null)
-            {
-                BitChatPanel chatPanel = lstChats.SelectedItem.Tag as BitChatPanel;
-                mnuChat.Show(lstChats, location);
+                BitChatPanel chatPanel = (lstChats.SelectedItem as ChatListItem).ChatPanel;
+                chatPanel.BringToFront();
+                chatPanel.SetFocusMessageEditor();
+
+                _currentChatPanel = chatPanel;
             }
-            else
-                mnuPlus.Show(lstChats, location);
         }
 
         private void ReadUISettingsFrom(Stream s)
@@ -628,8 +890,6 @@ namespace BitChatApp
 
             if (!panelFound)
                 bW.Write((byte)0);
-
-            bW.Flush();
         }
 
         private void LoadProfileSettings(byte[] clientData)
@@ -661,28 +921,26 @@ namespace BitChatApp
         {
             using (MemoryStream mS = new MemoryStream())
             {
-                Package pkg = new Package(mS, PackageMode.Create);
-
+                using (Package pkg = new Package(mS, PackageMode.Create))
                 {
-                    MemoryStream ui = new MemoryStream();
-                    WriteUISettingsTo(ui);
-                    ui.Position = 0;
+                    {
+                        MemoryStream ui = new MemoryStream();
+                        WriteUISettingsTo(ui);
+                        ui.Position = 0;
 
-                    pkg.AddItem(new PackageItem("ui", ui));
+                        pkg.AddItem(new PackageItem("ui", ui));
+                    }
+
+                    {
+                        MemoryStream au = new MemoryStream();
+                        BinaryWriter bW = new BinaryWriter(au);
+                        bW.Write(_updateClient.LastUpdateCheckedOn.ToBinary());
+                        bW.Write(_updateClient.LastModifiedGMT.ToBinary());
+                        au.Position = 0;
+
+                        pkg.AddItem(new PackageItem("au", au));
+                    }
                 }
-
-                {
-                    MemoryStream au = new MemoryStream();
-                    BinaryWriter bW = new BinaryWriter(au);
-                    bW.Write(_updateClient.LastUpdateCheckedOn.ToBinary());
-                    bW.Write(_updateClient.LastModifiedGMT.ToBinary());
-                    bW.Flush();
-                    au.Position = 0;
-
-                    pkg.AddItem(new PackageItem("au", au));
-                }
-
-                pkg.Flush();
 
                 return mS.ToArray();
             }
@@ -691,9 +949,9 @@ namespace BitChatApp
         private void SaveProfile()
         {
             //write profile in tmp file
-            using (FileStream fS = new FileStream(_profileFilePath + ".tmp", FileMode.Create, FileAccess.Write, FileShare.None))
+            using (FileStream fS = new FileStream(_profileFilePath + ".tmp", FileMode.Create, FileAccess.ReadWrite, FileShare.None))
             {
-                _service.UpdateProfile();
+                _node.UpdateProfile();
                 _profile.ClientData = SaveProfileSettings();
                 _profile.WriteTo(fS);
             }
@@ -790,7 +1048,7 @@ namespace BitChatApp
                 _debugWriter = new StreamWriter(_debugFile);
                 _debugWriter.AutoFlush = true;
 
-                BitChatClient.Debug.SetDebug(this);
+                BitChatCore.Debug.SetDebug(this);
 
                 this.Text += " [Debugging]";
             }

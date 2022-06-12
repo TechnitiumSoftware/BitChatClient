@@ -25,7 +25,7 @@ using System.Drawing;
 using System.Text;
 using System.Windows.Forms;
 
-namespace BitChatAppMono
+namespace BitChatApp
 {
     public partial class frmViewCertificate : Form
     {

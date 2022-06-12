@@ -17,36 +17,148 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+using BitChatCore.Network;
 using System;
-using System.Collections.Generic;
+using System.Net.Mail;
 using System.Windows.Forms;
 
-namespace BitChatAppMono
+namespace BitChatApp
 {
     public partial class frmAddChat : Form
     {
+        #region variables
+
+        BitChatNetworkType _type;
+
+        #endregion
+
         #region Form Code
 
-        public frmAddChat()
+        public frmAddChat(BitChatNetworkType type, string networkNameOrPeerEmailAddress)
         {
             InitializeComponent();
+
+            _type = type;
+
+            if (networkNameOrPeerEmailAddress != null)
+                txtNetworkNameOrPeerEmailAddress.Text = networkNameOrPeerEmailAddress;
+
+            if (type == BitChatNetworkType.PrivateChat)
+            {
+                this.Text = "Add Private Chat";
+
+                label1.Text = "Peer's Email Address";
+                label3.Text = "(case insensitive, example: user@example.com)";
+                label4.Text = "Both peers must use same Shared Secret and enter each other's email address.";
+            }
+            else
+            {
+                this.Text = "Add Group Chat";
+
+                chkSendInvitation.Visible = false;
+                txtInvitationMessage.Visible = false;
+                label6.Visible = false;
+                label7.Visible = false;
+
+                this.Height = 220;
+            }
+        }
+
+        #endregion
+
+        #region form code
+
+        private void txtSharedSecret_TextChanged(object sender, EventArgs e)
+        {
+            if (string.IsNullOrEmpty(txtSharedSecret.Text))
+            {
+                chkSendInvitation.Enabled = true;
+                txtInvitationMessage.Enabled = chkSendInvitation.Checked;
+            }
+            else
+            {
+                chkSendInvitation.Enabled = false;
+                txtInvitationMessage.Enabled = false;
+            }
+        }
+
+        private void chkLANChat_CheckedChanged(object sender, EventArgs e)
+        {
+            chkDhtOnlyTracking.Enabled = !chkLANChat.Checked;
+        }
+
+        private void chkSendInvitation_CheckedChanged(object sender, EventArgs e)
+        {
+            txtInvitationMessage.Enabled = chkSendInvitation.Checked;
         }
 
         private void btnOK_Click(object sender, EventArgs e)
         {
-            if (string.IsNullOrEmpty(txtNetworkName.Text))
+            txtNetworkNameOrPeerEmailAddress.Text = txtNetworkNameOrPeerEmailAddress.Text.Trim();
+
+            if (string.IsNullOrEmpty(txtNetworkNameOrPeerEmailAddress.Text))
             {
-                MessageBox.Show("Please enter a network name for the new chat.");
+                if (_type == BitChatNetworkType.PrivateChat)
+                    MessageBox.Show("Please enter an email address of your peer to chat with.", "Invalid Email Address", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                else
+                    MessageBox.Show("Please enter a network name for the new chat.", "Missing Network Name", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
                 return;
             }
 
-            this.DialogResult = System.Windows.Forms.DialogResult.OK;
+            if (_type == BitChatNetworkType.PrivateChat)
+            {
+                try
+                {
+                    MailAddress x = new MailAddress(txtNetworkNameOrPeerEmailAddress.Text);
+                }
+                catch
+                {
+                    MessageBox.Show("Please enter a valid email address of your peer to chat with.", "Invalid Email Address", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                if (chkSendInvitation.Enabled && chkSendInvitation.Checked && string.IsNullOrEmpty(txtInvitationMessage.Text))
+                {
+                    MessageBox.Show("Please enter an invitation message for the new private chat.", "Missing Invitation Message", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+            }
+
+            this.DialogResult = DialogResult.OK;
             this.Close();
         }
 
         private void btnCancel_Click(object sender, EventArgs e)
         {
             this.Close();
+        }
+
+        #endregion
+
+        #region properties
+
+        public string NetworkNameOrPeerEmailAddress
+        { get { return txtNetworkNameOrPeerEmailAddress.Text; } }
+
+        public string SharedSecret
+        { get { return txtSharedSecret.Text; } }
+
+        public bool OnlyLanChat
+        { get { return chkLANChat.Checked; } }
+
+        public bool DhtOnlyTracking
+        { get { return chkDhtOnlyTracking.Enabled && chkDhtOnlyTracking.Checked; } }
+
+        public string InvitationMessage
+        {
+            get
+            {
+                if (chkSendInvitation.Enabled && chkSendInvitation.Checked)
+                    return txtInvitationMessage.Text;
+                else
+                    return null;
+            }
         }
 
         #endregion

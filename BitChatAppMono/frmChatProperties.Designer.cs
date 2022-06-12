@@ -1,4 +1,4 @@
-﻿namespace BitChatAppMono
+﻿namespace BitChatApp
 {
     partial class frmChatProperties
     {
@@ -43,6 +43,7 @@
             this.showPeersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
             this.addTrackerToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
+            this.addDefaultTrackersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.copyAllTrackersToolStripMenuItem = new System.Windows.Forms.ToolStripMenuItem();
             this.label2 = new System.Windows.Forms.Label();
             this.label1 = new System.Windows.Forms.Label();
@@ -50,6 +51,8 @@
             this.txtSecret = new System.Windows.Forms.TextBox();
             this.label3 = new System.Windows.Forms.Label();
             this.chkShowSecret = new System.Windows.Forms.CheckBox();
+            this.chkLANChat = new System.Windows.Forms.CheckBox();
+            this.btnOK = new System.Windows.Forms.Button();
             this.mnuTracker.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -75,6 +78,7 @@
             this.columnHeader3,
             this.columnHeader4});
             this.lstTrackerInfo.ContextMenuStrip = this.mnuTracker;
+            this.lstTrackerInfo.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
             this.lstTrackerInfo.FullRowSelect = true;
             this.lstTrackerInfo.HideSelection = false;
             this.lstTrackerInfo.Location = new System.Drawing.Point(12, 88);
@@ -116,62 +120,70 @@
             this.showPeersToolStripMenuItem,
             this.toolStripSeparator1,
             this.addTrackerToolStripMenuItem,
+            this.addDefaultTrackersToolStripMenuItem,
             this.copyAllTrackersToolStripMenuItem});
             this.mnuTracker.Name = "contextMenuStrip1";
-            this.mnuTracker.Size = new System.Drawing.Size(167, 142);
+            this.mnuTracker.Size = new System.Drawing.Size(184, 164);
             // 
             // updateTrackerToolStripMenuItem
             // 
             this.updateTrackerToolStripMenuItem.Name = "updateTrackerToolStripMenuItem";
-            this.updateTrackerToolStripMenuItem.Size = new System.Drawing.Size(166, 22);
-            this.updateTrackerToolStripMenuItem.Text = "Update Tracker";
+            this.updateTrackerToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.updateTrackerToolStripMenuItem.Text = "&Update Tracker";
             this.updateTrackerToolStripMenuItem.Click += new System.EventHandler(this.updateTrackerToolStripMenuItem_Click);
             // 
             // removeTrackerToolStripMenuItem
             // 
             this.removeTrackerToolStripMenuItem.Name = "removeTrackerToolStripMenuItem";
-            this.removeTrackerToolStripMenuItem.Size = new System.Drawing.Size(166, 22);
-            this.removeTrackerToolStripMenuItem.Text = "Remove Tracker";
+            this.removeTrackerToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.removeTrackerToolStripMenuItem.Text = "&Remove Tracker";
             this.removeTrackerToolStripMenuItem.Click += new System.EventHandler(this.removeTrackerToolStripMenuItem_Click);
             // 
             // copyTrackerToolStripMenuItem
             // 
             this.copyTrackerToolStripMenuItem.Name = "copyTrackerToolStripMenuItem";
-            this.copyTrackerToolStripMenuItem.Size = new System.Drawing.Size(166, 22);
-            this.copyTrackerToolStripMenuItem.Text = "Copy Tracker";
+            this.copyTrackerToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.copyTrackerToolStripMenuItem.Text = "&Copy Tracker";
             this.copyTrackerToolStripMenuItem.Click += new System.EventHandler(this.copyTrackerToolStripMenuItem_Click);
             // 
             // showPeersToolStripMenuItem
             // 
             this.showPeersToolStripMenuItem.Name = "showPeersToolStripMenuItem";
-            this.showPeersToolStripMenuItem.Size = new System.Drawing.Size(166, 22);
-            this.showPeersToolStripMenuItem.Text = "Show Peers";
+            this.showPeersToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.showPeersToolStripMenuItem.Text = "&Show Peers";
             this.showPeersToolStripMenuItem.Click += new System.EventHandler(this.showPeersToolStripMenuItem_Click);
             // 
             // toolStripSeparator1
             // 
             this.toolStripSeparator1.Name = "toolStripSeparator1";
-            this.toolStripSeparator1.Size = new System.Drawing.Size(163, 6);
+            this.toolStripSeparator1.Size = new System.Drawing.Size(180, 6);
             // 
             // addTrackerToolStripMenuItem
             // 
             this.addTrackerToolStripMenuItem.Name = "addTrackerToolStripMenuItem";
-            this.addTrackerToolStripMenuItem.Size = new System.Drawing.Size(166, 22);
-            this.addTrackerToolStripMenuItem.Text = "Add Tracker";
+            this.addTrackerToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.addTrackerToolStripMenuItem.Text = "&Add Tracker";
             this.addTrackerToolStripMenuItem.Click += new System.EventHandler(this.addTrackerToolStripMenuItem_Click);
+            // 
+            // addDefaultTrackersToolStripMenuItem
+            // 
+            this.addDefaultTrackersToolStripMenuItem.Name = "addDefaultTrackersToolStripMenuItem";
+            this.addDefaultTrackersToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.addDefaultTrackersToolStripMenuItem.Text = "Add &Default Trackers";
+            this.addDefaultTrackersToolStripMenuItem.Click += new System.EventHandler(this.addDefaultTrackersToolStripMenuItem_Click);
             // 
             // copyAllTrackersToolStripMenuItem
             // 
             this.copyAllTrackersToolStripMenuItem.Name = "copyAllTrackersToolStripMenuItem";
-            this.copyAllTrackersToolStripMenuItem.Size = new System.Drawing.Size(166, 22);
-            this.copyAllTrackersToolStripMenuItem.Text = "Copy All Trackers";
+            this.copyAllTrackersToolStripMenuItem.Size = new System.Drawing.Size(183, 22);
+            this.copyAllTrackersToolStripMenuItem.Text = "Copy All &Trackers";
             this.copyAllTrackersToolStripMenuItem.Click += new System.EventHandler(this.copyAllTrackersToolStripMenuItem_Click);
             // 
             // label2
             // 
             this.label2.AutoSize = true;
             this.label2.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label2.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
+            this.label2.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
             this.label2.Location = new System.Drawing.Point(12, 70);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(75, 15);
@@ -180,29 +192,30 @@
             // 
             // label1
             // 
-            this.label1.AutoSize = true;
             this.label1.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label1.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.label1.Location = new System.Drawing.Point(58, 14);
+            this.label1.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
+            this.label1.Location = new System.Drawing.Point(12, 14);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(69, 15);
+            this.label1.Size = new System.Drawing.Size(140, 15);
             this.label1.TabIndex = 52;
             this.label1.Text = "Chat Name";
+            this.label1.TextAlign = System.Drawing.ContentAlignment.TopRight;
             // 
             // txtNetwork
             // 
-            this.txtNetwork.Location = new System.Drawing.Point(133, 12);
+            this.txtNetwork.Location = new System.Drawing.Point(158, 12);
             this.txtNetwork.Name = "txtNetwork";
             this.txtNetwork.ReadOnly = true;
-            this.txtNetwork.Size = new System.Drawing.Size(200, 20);
+            this.txtNetwork.Size = new System.Drawing.Size(233, 20);
             this.txtNetwork.TabIndex = 0;
             // 
             // txtSecret
             // 
-            this.txtSecret.Location = new System.Drawing.Point(448, 12);
+            this.txtSecret.Location = new System.Drawing.Point(492, 12);
+            this.txtSecret.MaxLength = 255;
             this.txtSecret.Name = "txtSecret";
-            this.txtSecret.ReadOnly = true;
-            this.txtSecret.Size = new System.Drawing.Size(200, 20);
+            this.txtSecret.PasswordChar = '#';
+            this.txtSecret.Size = new System.Drawing.Size(180, 20);
             this.txtSecret.TabIndex = 1;
             this.txtSecret.Text = "########";
             // 
@@ -210,8 +223,8 @@
             // 
             this.label3.AutoSize = true;
             this.label3.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
-            this.label3.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(64)))), ((int)(((byte)(64)))), ((int)(((byte)(64)))));
-            this.label3.Location = new System.Drawing.Point(353, 14);
+            this.label3.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
+            this.label3.Location = new System.Drawing.Point(397, 14);
             this.label3.Name = "label3";
             this.label3.Size = new System.Drawing.Size(89, 15);
             this.label3.TabIndex = 54;
@@ -220,7 +233,8 @@
             // chkShowSecret
             // 
             this.chkShowSecret.AutoSize = true;
-            this.chkShowSecret.Location = new System.Drawing.Point(448, 38);
+            this.chkShowSecret.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
+            this.chkShowSecret.Location = new System.Drawing.Point(492, 38);
             this.chkShowSecret.Name = "chkShowSecret";
             this.chkShowSecret.Size = new System.Drawing.Size(124, 17);
             this.chkShowSecret.TabIndex = 2;
@@ -228,13 +242,38 @@
             this.chkShowSecret.UseVisualStyleBackColor = true;
             this.chkShowSecret.CheckedChanged += new System.EventHandler(this.chkShowSecret_CheckedChanged);
             // 
+            // chkLANChat
+            // 
+            this.chkLANChat.AutoSize = true;
+            this.chkLANChat.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
+            this.chkLANChat.Location = new System.Drawing.Point(12, 258);
+            this.chkLANChat.Name = "chkLANChat";
+            this.chkLANChat.Size = new System.Drawing.Size(237, 17);
+            this.chkLANChat.TabIndex = 4;
+            this.chkLANChat.Text = "Enable only local network (LAN or WiFi) chat";
+            this.chkLANChat.UseVisualStyleBackColor = true;
+            // 
+            // btnOK
+            // 
+            this.btnOK.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
+            this.btnOK.Location = new System.Drawing.Point(516, 254);
+            this.btnOK.Name = "btnOK";
+            this.btnOK.Size = new System.Drawing.Size(75, 23);
+            this.btnOK.TabIndex = 5;
+            this.btnOK.Text = "OK";
+            this.btnOK.UseVisualStyleBackColor = true;
+            this.btnOK.Click += new System.EventHandler(this.btnOK_Click);
+            // 
             // frmChatProperties
             // 
+            this.AcceptButton = this.btnOK;
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
             this.CancelButton = this.btnClose;
             this.ClientSize = new System.Drawing.Size(684, 282);
+            this.Controls.Add(this.btnOK);
+            this.Controls.Add(this.chkLANChat);
             this.Controls.Add(this.chkShowSecret);
             this.Controls.Add(this.txtSecret);
             this.Controls.Add(this.label3);
@@ -279,5 +318,8 @@
         private System.Windows.Forms.CheckBox chkShowSecret;
         private System.Windows.Forms.ToolStripMenuItem copyTrackerToolStripMenuItem;
         private System.Windows.Forms.ToolStripMenuItem copyAllTrackersToolStripMenuItem;
+        private System.Windows.Forms.ToolStripMenuItem addDefaultTrackersToolStripMenuItem;
+        private System.Windows.Forms.CheckBox chkLANChat;
+        private System.Windows.Forms.Button btnOK;
     }
 }

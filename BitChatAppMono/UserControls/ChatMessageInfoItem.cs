@@ -17,69 +17,97 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
+using BitChatCore;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Drawing;
-using System.Text;
 using System.Windows.Forms;
 
-namespace BitChatAppMono.UserControls
+namespace BitChatApp.UserControls
 {
-    public partial class ChatMessageInfoItem : BitChatAppMono.UserControls.CustomListViewItem
+    public partial class ChatMessageInfoItem : CustomListViewItem, IChatMessageItem
     {
-        const int BORDER_SIZE = 1;
+        #region variables
 
-        Color BorderColor = Color.FromArgb(224, 224, 223);
-        DateTime _date;
+        MessageItem _message;
 
-        public ChatMessageInfoItem()
-        {
-            InitializeComponent();
-        }
+        #endregion
 
-        public ChatMessageInfoItem(string message)
-        {
-            InitializeComponent();
+        #region constructor
 
-            label1.Text = message;
-            label2.Visible = false;
-        }
-
-        public ChatMessageInfoItem(string message, DateTime date)
+        public ChatMessageInfoItem(MessageItem message)
         {
             InitializeComponent();
 
-            _date = date;
+            _message = message;
 
-            label1.Text = message;
-            label2.Text = date.ToString("HH:mm");
+            if (string.IsNullOrEmpty(_message.Message))
+            {
+                label1.Text = _message.MessageDate.ToLocalTime().ToString("dddd, MMMM d, yyyy");
+            }
+            else
+            {
+                label1.Text = _message.Message;
+                toolTip1.SetToolTip(label1, _message.MessageDate.ToLocalTime().ToString());
+            }
+
+            OnResize(EventArgs.Empty);
         }
 
-        public bool IsDateSet()
-        {
-            return label2.Visible;
-        }
+        #endregion
 
-        protected override void OnPaint(PaintEventArgs e)
-        {
-            base.OnPaint(e);
-
-            ControlPaint.DrawBorder(e.Graphics, ClientRectangle,
-                                         BorderColor, 0, ButtonBorderStyle.Solid,
-                                         BorderColor, BORDER_SIZE, ButtonBorderStyle.Solid,
-                                         BorderColor, 0, ButtonBorderStyle.Solid,
-                                         BorderColor, BORDER_SIZE, ButtonBorderStyle.Solid);
-        }
+        #region form code
 
         protected override void OnResize(EventArgs e)
         {
             base.OnResize(e);
 
+            if (label1 != null)
+            {
+                this.SuspendLayout();
+
+                if (label1.Width > (this.Width - 4))
+                {
+                    label1.AutoSize = false;
+                    label1.Left = 2;
+                    label1.Width = this.Width - 4;
+
+                    Size msgSize = TextRenderer.MeasureText(label1.Text, label1.Font, new Size(label1.Width - 3 - 3, int.MaxValue), TextFormatFlags.WordBreak | TextFormatFlags.TextBoxControl);
+
+                    label1.Height = msgSize.Height + 3 + 3;
+                    this.Height = label1.Height + 6 + 6;
+                }
+                else
+                {
+                    label1.AutoSize = true;
+                    label1.Left = (this.Width - label1.Width) / 2;
+                }
+
+                this.ResumeLayout();
+            }
+
             this.Refresh();
         }
 
-        public DateTime MessageDate
-        { get { return _date; } }
+        private void copyInfoToolStripMenuItem_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(_message.Message))
+                    Clipboard.SetText(label1.Text);
+                else
+                    Clipboard.SetText("[" + _message.MessageDate.ToString("d MMM, yyyy HH:mm:ss") + "] " + label1.Text);
+            }
+            catch
+            { }
+        }
+
+        #endregion
+
+        #region properties
+
+        public MessageItem Message
+        { get { return _message; } }
+
+        #endregion
     }
 }

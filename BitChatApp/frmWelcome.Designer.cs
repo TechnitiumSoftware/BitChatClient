@@ -38,6 +38,7 @@
             this.label4 = new System.Windows.Forms.Label();
             this.panel1 = new System.Windows.Forms.Panel();
             this.pictureBox1 = new System.Windows.Forms.PictureBox();
+            this.linkLabel2 = new System.Windows.Forms.LinkLabel();
             this.panel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
             this.SuspendLayout();
@@ -72,7 +73,8 @@
             this.linkLabel1.Location = new System.Drawing.Point(570, 339);
             this.linkLabel1.Name = "linkLabel1";
             this.linkLabel1.Size = new System.Drawing.Size(52, 13);
-            this.linkLabel1.TabIndex = 14;
+            this.linkLabel1.TabIndex = 18;
+            this.linkLabel1.TabStop = true;
             this.linkLabel1.Text = "bitchat.im";
             this.linkLabel1.VisitedLinkColor = System.Drawing.Color.White;
             this.linkLabel1.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel1_LinkClicked);
@@ -95,7 +97,7 @@
             this.btnAlreadyRegistered.Name = "btnAlreadyRegistered";
             this.btnAlreadyRegistered.Size = new System.Drawing.Size(219, 39);
             this.btnAlreadyRegistered.TabIndex = 16;
-            this.btnAlreadyRegistered.Text = "Already Registered?";
+            this.btnAlreadyRegistered.Text = "Already Registered? Import Profile!";
             this.btnAlreadyRegistered.UseVisualStyleBackColor = true;
             this.btnAlreadyRegistered.Click += new System.EventHandler(this.btnAlreadyRegistered_Click);
             // 
@@ -108,7 +110,8 @@
             this.label3.Size = new System.Drawing.Size(531, 29);
             this.label3.TabIndex = 17;
             this.label3.Text = "Click the \"Register Now!\" button to create a new profile. If you already have a p" +
-    "rofile, click on \"Already Registered?\" button to import your existing profile.";
+    "rofile, click on \"Already Registered? Import Profile!\" button to import your exi" +
+    "sting profile.";
             // 
             // label4
             // 
@@ -144,12 +147,27 @@
             this.pictureBox1.TabIndex = 12;
             this.pictureBox1.TabStop = false;
             // 
+            // linkLabel2
+            // 
+            this.linkLabel2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
+            this.linkLabel2.AutoSize = true;
+            this.linkLabel2.LinkColor = System.Drawing.Color.FromArgb(((int)(((byte)(102)))), ((int)(((byte)(153)))), ((int)(((byte)(255)))));
+            this.linkLabel2.Location = new System.Drawing.Point(62, 339);
+            this.linkLabel2.Name = "linkLabel2";
+            this.linkLabel2.Size = new System.Drawing.Size(153, 13);
+            this.linkLabel2.TabIndex = 17;
+            this.linkLabel2.TabStop = true;
+            this.linkLabel2.Text = "Help: How To Register Profile?";
+            this.linkLabel2.VisitedLinkColor = System.Drawing.Color.White;
+            this.linkLabel2.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.linkLabel2_LinkClicked);
+            // 
             // frmWelcome
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(250)))), ((int)(((byte)(250)))));
             this.ClientSize = new System.Drawing.Size(634, 361);
+            this.Controls.Add(this.linkLabel2);
             this.Controls.Add(this.panel1);
             this.Controls.Add(this.linkLabel1);
             this.Controls.Add(this.label4);
@@ -184,5 +202,6 @@
         private System.Windows.Forms.Label label4;
         private System.Windows.Forms.Panel panel1;
         private System.Windows.Forms.PictureBox pictureBox1;
+        private System.Windows.Forms.LinkLabel linkLabel2;
     }
 }

@@ -17,12 +17,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 */
 
-using BitChatClient;
+using BitChatCore;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Drawing;
-using System.Text;
 using System.Windows.Forms;
 
 namespace BitChatApp
@@ -31,7 +27,8 @@ namespace BitChatApp
     {
         #region variables
 
-        string _localAppData;
+        bool _isPortableApp;
+        string _profileFolder;
 
         BitChatProfile _profile;
         string _profileFilePath;
@@ -40,16 +37,12 @@ namespace BitChatApp
 
         #region constructors
 
-        public frmWelcome()
-        {
-            InitializeComponent();
-        }
-
-        public frmWelcome(string localAppData)
+        public frmWelcome(bool isPortableApp, string profileFolder)
         {
             InitializeComponent();
 
-            _localAppData = localAppData;
+            _isPortableApp = isPortableApp;
+            _profileFolder = profileFolder;
         }
 
         #endregion
@@ -58,14 +51,19 @@ namespace BitChatApp
 
         private void linkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
-            System.Diagnostics.Process.Start("http://bitchat.im");
+            System.Diagnostics.Process.Start("https://bitchat.im");
+        }
+
+        private void linkLabel2_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            System.Diagnostics.Process.Start("http://blog.technitium.com/2015/11/how-to-register-profile-get-started.html");
         }
 
         private void frmRegisterNow_Click(object sender, EventArgs e)
         {
             this.Hide();
 
-            using (frmRegister frm = new frmRegister(_localAppData))
+            using (frmRegister frm = new frmRegister(_isPortableApp, _profileFolder))
             {
                 DialogResult result = frm.ShowDialog(this);
 

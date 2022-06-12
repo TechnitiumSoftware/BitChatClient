@@ -1,4 +1,4 @@
-﻿namespace BitChatAppMono
+﻿namespace BitChatApp
 {
     partial class frmViewCertificate
     {
@@ -137,6 +137,7 @@
             // 
             this.label24.AutoSize = true;
             this.label24.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.label24.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
             this.label24.Location = new System.Drawing.Point(15, 279);
             this.label24.Name = "label24";
             this.label24.Size = new System.Drawing.Size(69, 15);
@@ -169,6 +170,7 @@
             // 
             this.label23.AutoSize = true;
             this.label23.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.label23.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
             this.label23.Location = new System.Drawing.Point(15, 237);
             this.label23.Name = "label23";
             this.label23.Size = new System.Drawing.Size(64, 15);
@@ -212,6 +214,7 @@
             // 
             this.label22.AutoSize = true;
             this.label22.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.label22.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
             this.label22.Location = new System.Drawing.Point(15, 158);
             this.label22.Name = "label22";
             this.label22.Size = new System.Drawing.Size(62, 15);
@@ -255,6 +258,7 @@
             // 
             this.label15.AutoSize = true;
             this.label15.Font = new System.Drawing.Font("Arial", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.label15.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
             this.label15.Location = new System.Drawing.Point(15, 76);
             this.label15.Name = "label15";
             this.label15.Size = new System.Drawing.Size(61, 15);
@@ -265,6 +269,7 @@
             // 
             this.label14.AutoSize = true;
             this.label14.Font = new System.Drawing.Font("Arial", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(0)));
+            this.label14.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(45)))), ((int)(((byte)(57)))), ((int)(((byte)(69)))));
             this.label14.Location = new System.Drawing.Point(81, 22);
             this.label14.Name = "label14";
             this.label14.Size = new System.Drawing.Size(165, 16);
@@ -359,10 +364,12 @@
             // lnkViewIssuerCert
             // 
             this.lnkViewIssuerCert.AutoSize = true;
+            this.lnkViewIssuerCert.LinkColor = System.Drawing.Color.FromArgb(((int)(((byte)(102)))), ((int)(((byte)(153)))), ((int)(((byte)(255)))));
             this.lnkViewIssuerCert.Location = new System.Drawing.Point(12, 420);
             this.lnkViewIssuerCert.Name = "lnkViewIssuerCert";
             this.lnkViewIssuerCert.Size = new System.Drawing.Size(111, 13);
             this.lnkViewIssuerCert.TabIndex = 48;
+            this.lnkViewIssuerCert.TabStop = true;
             this.lnkViewIssuerCert.Text = "View Issuer Certificate";
             this.lnkViewIssuerCert.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.lnkViewIssuerCert_LinkClicked);
             // 
